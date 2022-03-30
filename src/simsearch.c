@@ -11,8 +11,6 @@
 #include "gtset.h"
 #include "various.h"
 
-#define DOALL 0
-
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
 
@@ -57,10 +55,11 @@ int  do_checks_flag = 0;
 
 
 // *********************** function declarations ************************************************
-
+void print_usage_info(FILE* ostream);
 char* ipat_to_strpat(long len, long ipat); // unused
 long strpat_to_ipat(long len, char* strpat); // unused
-double agmr(Accession* gts1, Accession* gts2, double* hgmr);
+double agmr(Accession* gts1, Accession* gts2);
+double agmr_hgmr(Accession* gts1, Accession* gts2, double* hgmr);
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
@@ -86,7 +85,7 @@ Vlong* find_chunk_match_counts(Accession* the_gts, Chunk_pattern_ids* the_cpi);
 Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pattern_ids* the_cpi, double max_est_agmr);
 // Vmci** find_matches_alt(Vgts* the_accessions, Vlong** match_counts, long n_chunks, long chunk_size);
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream);
-
+void print_command_line(FILE* ostream, int argc, char** argv);
 // *************************  end of declarations  **********************************************
 
 
@@ -98,58 +97,45 @@ int
 main(int argc, char *argv[])
 {
   double start0 = hi_res_time();
-  long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
-  long chunk_size = 8; // default number of genotype in each chunk 
-  // long max_number_of_accessions = -1;
-  //  double fraction_to_analyze = 1;
-  unsigned rand_seed = (unsigned)time(0);
-  double max_md_factor = 100.0; // multiplies n_markers/chunk_size to give max number of md gts allowed in gt set of an accession.
-  double min_minor_allele_frequency = -1.0; //
-  // long max_md_gts; // accessions with > this number of missing data gts are omitted from analysis. (not implemented)
-  // long min_usable_chunks = 5;
-  double max_est_agmr = 0.2;
-  //  long genotype_file_type = GENOTYPES; // DOSAGES;
-  double delta = 0.05;
   long ploidy = 2;
- 
+  long chunk_size = 8; // default number of genotype in each chunk 
+  long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
+  unsigned rand_seed = (unsigned)time(0);
   double max_marker_missing_data_fraction = 0.2;
+  double min_minor_allele_frequency = 0.0; //
+  double max_est_agmr = 0.2;
+  char default_output_filename[] = "simsearch.out";
 
   char* rparam_buf;
   size_t rparam_len;
   FILE* rparam_stream = open_memstream(&rparam_buf, &rparam_len);
 
-  
-  fprintf(stderr, "# command line:  ");
-  for(int i=0; i<argc; i++){
-    fprintf(stderr, "%s  ", argv[i]);
-  }fprintf(stderr, "\n");
-  
   // ***** process command line *****
   if (argc < 2) {
-    fprintf(stderr, "Usage: %s <file> options\n", argv[0]);
+    print_usage_info(stdout);
     exit(EXIT_FAILURE);
   }
 
   char* input_filename = NULL;
   FILE *in_stream = NULL;
-   char* reference_set_filename = NULL;
-   FILE *ref_in_stream = NULL;
-  char* output_filename = NULL;
-  FILE* out_stream = stdout;
+  char* reference_set_filename = NULL;
+  FILE *ref_in_stream = NULL;
+  char* output_filename = default_output_filename;
+  FILE* out_stream = NULL;
     
   int c;
-  while((c = getopt(argc, argv, "i:o:p:n:k:e:s:x:a:r:")) != -1){
+  while((c = getopt(argc, argv, "i:r:o:p:n:k:e:s:x:a:h")) != -1){
     // i: input file name (required).
     // r: reference set file name.
-    // o: output file name. Default: output goes to stdout.
+    // o: output file name. Default:
     // p: ploidy. Default is 2.
     // n: number of chunks to use. Default: use each marker ~once.
     // k: chunk size (number of markers per chunk). Default: 8
     // e: max estimated agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value.)
     // s: random number seed. Default: get seed from clock.
     // x: marker max missing data fraction
-    // f: max missing data factor (default: 1 -> max_md_gts = n_markers/chunk_size )
-    // a: min minor allele frequency 
+    // a: min minor allele frequency
+    // h: help. print usage info
      
     switch(c){
     case 'i':
@@ -161,7 +147,7 @@ main(int argc, char *argv[])
       }
       fclose(in_stream);
       break;
-       case 'r':
+    case 'r':
       reference_set_filename = optarg;
       ref_in_stream = fopen(reference_set_filename, "r");
       if(ref_in_stream == NULL){
@@ -172,13 +158,13 @@ main(int argc, char *argv[])
       break;
     case 'o':
       output_filename = optarg;
-      if(output_filename != NULL){
-	out_stream = fopen(output_filename, "w");
-	if(out_stream == NULL){
-	  fprintf(stderr, "Failed to open %s for writing.\n", output_filename);
-	  exit(EXIT_FAILURE);
-	}
-      }
+      /* if(output_filename != NULL){ */
+      /* 	out_stream = fopen(output_filename, "w"); */
+      /* 	if(out_stream == NULL){ */
+      /* 	  fprintf(stderr, "Failed to open %s for writing.\n", output_filename); */
+      /* 	  exit(EXIT_FAILURE); */
+      /* 	} */
+      /* } */
       break;
     case 'p': // keep each accession with probability p (for testing with random smaller data set)
       // fprintf(stderr, "%s\n", optarg);
@@ -218,28 +204,32 @@ main(int argc, char *argv[])
       break;
     case 'x': 
       max_marker_missing_data_fraction = (double)atof(optarg);
-      if(max_marker_missing_data_fraction <= 0){
-	fprintf(stderr, "option x (max_marker_missing_data_fraction) requires a real argument >= 0\n");
-	exit(EXIT_FAILURE);
-      }
+      /* if(max_marker_missing_data_fraction <= 0){ */
+      /* 	fprintf(stderr, "option x (max_marker_missing_data_fraction) requires a real argument >= 0\n"); */
+      /* 	exit(EXIT_FAILURE); */
+      /* } */
       break;
-        case 'a': 
+    case 'a': 
       min_minor_allele_frequency = (double)atof(optarg);
       if(min_minor_allele_frequency < 0){
 	fprintf(stderr, "option a (min_minor_allele_frequency) requires an real argument >= 0\n");
 	exit(EXIT_FAILURE);
       }
       break;
+    case 'h':
+      print_usage_info(stderr);
+      exit(EXIT_FAILURE);
+      break;
     case '?':
       fprintf(stderr, "? case in command line processing switch.\n");
-      if ((optopt == 'i') || (optopt == 'n') || (optopt == 'k') ||
-	  (optopt == 'o') || (optopt == 'p') || (optopt == 'e') ||
-	  (optopt == 's') || (optopt == 'h') || (optopt == 'z') )
-	fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+      if ((optopt == 'i') || (optopt == 'r') || (optopt == 'o') ||
+	  (optopt == 'p') || (optopt == 'n') || (optopt == 'k') ||
+	  (optopt == 'e') || (optopt == 's') || (optopt == 'x')  || (optopt == 'a') )
+	fprintf (stderr, "  Option -%c requires an argument.\n", optopt);
       else if (isprint (optopt))
-	fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+	fprintf (stderr, "  Unknown option `-%c'.\n", optopt);
       else
-	fprintf (stderr, "Unknown option character: %d\n", optopt);
+	fprintf (stderr, "  Unknown option character: %d\n", optopt);
       exit(EXIT_FAILURE);
     default:
       fprintf(stderr, "default case (abort)\n");
@@ -254,10 +244,21 @@ main(int argc, char *argv[])
     perror("must specify input filename: -i <filename>");
     exit(EXIT_FAILURE);
   }
-  
   srand(rand_seed);
+  	out_stream = fopen(output_filename, "w");
+	if(out_stream == NULL){
+	  fprintf(stderr, "Failed to open %s for writing.\n", output_filename);
+	  exit(EXIT_FAILURE);
+	}
 
-  fprintf(rparam_stream, "# input file: %s  output to: %s\n", input_filename, (output_filename == NULL)? "stdout" : output_filename);
+  
+  print_command_line(out_stream, argc, argv);
+  print_command_line(stdout, argc, argv);
+  /* fprintf(rparam_stream, "# command line:  "); */
+  /* for(int i=0; i<argc; i++){ */
+  /*   fprintf(rparam_stream, "%s  ", argv[i]); */
+  /* }fprintf(rparam_stream, "\n"); */
+  /* fprintf(rparam_stream, "# input file: %s  output to: %s\n", input_filename, (output_filename == NULL)? "stdout" : output_filename); */
   // fprintf(stderr, "# Input file: %s \n", input_filename);	  
  
   // *****  done processing command line  *****
@@ -266,73 +267,74 @@ main(int argc, char *argv[])
   long n_accessions = 0;
   long n_markers = 0;
 
-  GenotypesSet* the_gtsset = construct_empty_genotypesset(delta, max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
-  
+  double t_start = hi_res_time();
+  GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy); 
   Vaccession* the_accessions; // = construct_vaccession(INIT_VACC_CAPACITY);
   if(reference_set_filename != NULL){ // load the reference set, if one was specified.
-      add_accessions_to_genotypesset_from_file(reference_set_filename, the_gtsset);
-      n_ref_accessions = the_gtsset->accessions->size;
-      the_gtsset->n_ref_accessions = n_ref_accessions;
-    }
-  add_accessions_to_genotypesset_from_file(input_filename, the_gtsset); // load the new set of accessions
-  fprintf(stderr, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_gtsset));
-
-    /*  for(long i=0; i< the_gtsset->n_markers; i++){
-     long n_md =  the_gtsset->marker_missing_data_counts->a[i]; // number of accessions for which marker i has missing data
-     long n_good = the_gtsset->n_accessions - n_md; // number of accessions for which marker i has good data
-     double mean_alt_alleles = (double)the_gtsset->marker_alt_allele_counts->a[i]/(double)n_good; // for marker i, mean number of alt alleles per accession (in range 0-6) 
-     fprintf(stderr, "%ld  %s   %ld %ld  %8.6f  %8.6f \n",
-	     i, the_gtsset->marker_ids->a[i], n_md, n_good, mean_alt_alleles, mean_alt_alleles/(double)ploidy);
-	    
-	     } /**/
-  // print_genotypesset(stderr, the_gtsset); getchar();
-    clean_genotypesset(the_gtsset);
-      fprintf(stderr, "# post-cleaning ragmr: %8.6f \n", ragmr(the_gtsset));
-
-    the_accessions = the_gtsset->accessions;
    
-  n_markers = the_gtsset->n_markers;
-   if(n_chunks*chunk_size > n_markers){
+    add_accessions_to_genotypesset_from_file(reference_set_filename, the_genotypes_set);
+    n_ref_accessions = the_genotypes_set->accessions->size;
+    the_genotypes_set->n_ref_accessions = n_ref_accessions;
+    fprintf(stdout, "# Done reading reference data set dosages from file %s. %ld accessions and %ld markers.\n",
+	    reference_set_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
+  }
+  add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set); // load the new set of accessions
+  fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
+	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
+  fprintf(stdout, "# Time to load dosage data: %10.4lf sec.\n", hi_res_time() - t_start);
+ 
+  fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
+
+  clean_genotypesset(the_genotypes_set);
+  fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
+
+  the_accessions = the_genotypes_set->accessions;
+   
+  n_markers = the_genotypes_set->n_markers;
+  if(n_chunks*chunk_size > n_markers){
     n_chunks = n_markers/chunk_size;
   }
-
  
+  fprintf(rparam_stream, "# ploidy: %ld\n", ploidy);
+  fprintf(rparam_stream, "# min. minor allele frequency: %5.3lf\n", min_minor_allele_frequency);
+  fprintf(rparam_stream, "# max. marker missing data fraction: %5.3lf\n", max_marker_missing_data_fraction);
+  fprintf(rparam_stream, "# rng seed: %ld\n", (long)rand_seed);
+  fprintf(rparam_stream, "# n markers used: %ld\n", n_markers);
+  fprintf(rparam_stream, "# chunk size: %ld   n chunks: %ld\n", chunk_size, n_chunks);
+  fprintf(rparam_stream, "# max. agmr: %5.3lf\n", max_est_agmr);
 
-  fprintf(rparam_stream, "# n_chunks: %ld  chunk_size: %ld  max_est_agmr: %5.3lf rng seed: %u\n", n_chunks, chunk_size, max_est_agmr, rand_seed);
+  //  fprintf(rparam_stream, "# n_chunks: %ld  chunk_size: %ld  max_est_agmr: %5.3lf rng seed: %u\n", n_chunks, chunk_size, max_est_agmr, rand_seed);
   fclose(rparam_stream);
-  fprintf(stderr, "%s", rparam_buf);
+  fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
 
   // *****  done reading and storing input  **********
   
-  double start = hi_res_time();
-  fprintf(stderr, "# n_markers: %ld\n", n_markers);
+  t_start = hi_res_time();
+  //  fprintf(stderr, "# n_markers: %ld\n", n_markers);
   Vlong* marker_indices = construct_vlong_whole_numbers(n_markers);
   shuffle_vlong(marker_indices);
   set_vaccession_chunk_patterns(the_accessions, marker_indices, n_chunks, chunk_size, ploidy);
-  // fprintf(stderr, "# after set_vaccession_chunk_patt... ploidy: %ld \n", ploidy);
   Chunk_pattern_ids* the_cpi = construct_chunk_pattern_ids(n_chunks, chunk_size, ploidy);
-  // fprintf(stderr, "# after construct_chunk_pattern_ids... ploidy: %ld \n", ploidy);
   populate_chunk_pattern_ids_from_vaccession(the_accessions, the_cpi);
-  // fprintf(stderr, "# after populate_... ploidy: %ld \n", ploidy);
     
-  fprintf(stderr, "# time to construct chunk_pattern_ids structure: %12.6f\n", hi_res_time() - start);
+  fprintf(stdout, "# time to construct chunk_pattern_ids structure: %12.6f\n", hi_res_time() - t_start);
   
-  start = hi_res_time(); 
+  t_start = hi_res_time(); 
   Vmci** query_vmcis = find_matches(n_ref_accessions, the_accessions, the_cpi, max_est_agmr);
   long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream);
-  fprintf(stderr, "# time to find candidate matches and %ld true agmrs: %9.3f\n", true_agmr_count, hi_res_time() - start);
+  fprintf(stdout, "# time to find candidate matches and %ld true agmrs: %9.3f\n", true_agmr_count, hi_res_time() - t_start);
   fclose(out_stream);
     
   // *****  clean up  *****
   for(long i=0; i< the_accessions->size; i++){
     free_vmci(query_vmcis[i]);
   }
-  free_genotypesset(the_gtsset);
+  free_genotypesset(the_genotypes_set);
   free(query_vmcis);
   free_vlong(marker_indices);
   free_chunk_pattern_ids(the_cpi);
-  fprintf(stderr, "# total simsearch run time: %9.3f\n", hi_res_time() - start0);
+  fprintf(stdout, "# total simsearch run time: %9.3f\n", hi_res_time() - start0);
   exit(EXIT_SUCCESS);
 }
 
@@ -355,7 +357,6 @@ void populate_chunk_pattern_ids_from_vaccession(Vaccession* the_accessions, Chun
     long mdcount = 0;
     
     for(long i=0; i<the_chunk_patterns->size; i++){
-      //  fprintf(stderr, "# i_gts: %ld  i: %ld  the_chunk_patterns->a[i]: %ld \n", i_gts, i, the_chunk_patterns->a[i]); // getchar();
       if(the_chunk_patterns->a[i] == n_patterns){ mdcount++; }
     }
     for(long i_chunk=0; i_chunk<the_chunk_patterns->size; i_chunk++){
@@ -371,7 +372,6 @@ void populate_chunk_pattern_ids_from_vaccession(Vaccession* the_accessions, Chun
   }
   
   long total_mdchunk_count = 0;
-  // fprintf(stderr, "# the_cpi->size: %ld\n", the_cpi->size);
   for(long i=0; i<the_cpi->size; i++){
     long chunk_md_count = (the_cpi->a[i]->a[n_patterns] == NULL)?
       0 :  // there are no accessions having missing data for this chunk
@@ -394,7 +394,7 @@ Pattern_ids* construct_pattern_ids(long n_patterns){
 }
 
 void free_pattern_ids(Pattern_ids* pat_ids){
-    if(pat_ids == NULL) return;
+  if(pat_ids == NULL) return;
   for(long i=0; i<pat_ids->size; i++){
     if(pat_ids->a[i] != NULL) free_vlong(pat_ids->a[i]);
   }
@@ -410,7 +410,6 @@ Chunk_pattern_ids* construct_chunk_pattern_ids(long n_chunks, long chunk_size, l
   chunk_pat_ids->size = n_chunks;
   chunk_pat_ids->chunk_size = chunk_size;
   long n_patterns = int_power(ploidy+1, chunk_size);
-  // fprintf(stderr, "# ploidy: %ld, chunk_size: %ld,  n_patterns: %ld \n", ploidy, chunk_size, n_patterns); getchar();
   chunk_pat_ids->n_patterns = n_patterns;
   chunk_pat_ids->a = (Pattern_ids**)malloc(n_chunks*sizeof(Pattern_ids*));
   for(int i=0; i< chunk_pat_ids->size; i++){
@@ -420,7 +419,7 @@ Chunk_pattern_ids* construct_chunk_pattern_ids(long n_chunks, long chunk_size, l
 }
 
 void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi){
-    if(the_cpi == NULL) return;
+  if(the_cpi == NULL) return;
   for(long i=0; i< the_cpi->size; i++){
     free_pattern_ids(the_cpi->a[i]);
   }
@@ -517,7 +516,7 @@ void add_mci_to_vmci(Vmci* the_vmci, Mci* mci){
 }
 
 void free_vmci(Vmci* the_vmci){
-    if(the_vmci == NULL) return;
+  if(the_vmci == NULL) return;
   for(long i=0; i< the_vmci->size; i++){
     free(the_vmci->a[i]);
   }
@@ -529,9 +528,9 @@ void free_vmci(Vmci* the_vmci){
 // *********************************************
 
 Three_ds poly_agmr(Accession* gtset1, Accession* gtset2){
-char* gts1 = gtset1->genotypes->a;
+  char* gts1 = gtset1->genotypes->a;
   char* gts2 = gtset2->genotypes->a;
- long usable_pair_count = 0; // = agmr_denom
+  long usable_pair_count = 0; // = agmr_denom
   long mismatches = 0; // = agmr_numerator
   long L1dist = 0;
   double Lxdist = 0;
@@ -567,7 +566,37 @@ char* gts1 = gtset1->genotypes->a;
   return result;
 }
 
-double agmr(Accession* gtset1, Accession* gtset2, double* hgmr){
+double agmr(Accession* gtset1, Accession* gtset2){
+  char* gts1 = gtset1->genotypes->a;
+  char* gts2 = gtset2->genotypes->a;
+  long usable_pair_count = 0; // = agmr_denom
+  long mismatches = 0; // = agmr_numerator
+  //  long hgmr_denom = 0;
+  //  long hgmr_numerator = 0;
+  // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2));
+  for(long i=0; ;i++){
+    char a1 = gts1[i];
+    if(a1 == '\0') break; // end of 
+    char a2 = gts2[i];
+    if(DO_ASSERT) assert(a2 != '\0');
+    // fprintf(stderr, "chars: %c %c\n", a1, a2);
+    if(a1 != MISSING_DATA_CHAR){
+      if(a2 != MISSING_DATA_CHAR){
+	usable_pair_count++;
+	if(a1 != a2) mismatches++;
+	/* if(a1 != '1' && a2 != '1'){ */
+	/*   hgmr_denom++; */
+	/*   if(a1 != a2) hgmr_numerator++; */
+	/* } */
+      }
+    }
+  }
+  // *hgmr = (hgmr_denom > 0)? (double)hgmr_numerator/hgmr_denom : -1;
+  return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1;
+}
+
+
+double agmr_hgmr(Accession* gtset1, Accession* gtset2, double* hgmr){
   char* gts1 = gtset1->genotypes->a;
   char* gts2 = gtset2->genotypes->a;
   long usable_pair_count = 0; // = agmr_denom
@@ -628,9 +657,9 @@ Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pat
       // xxx
 	
       double usable_chunk_count = (double)((n_chunks-q_md_chunk_count)*(n_chunks-match_md_chunk_count))/(double)n_chunks; // estimate
+      //  fprintf(stderr, "# n md chunks, query: %ld  match: %ld  est number of usable chunk pairs: %8.3lf \n", q_md_chunk_count, match_md_chunk_count, usable_chunk_count);
       
-      if(DOALL ||  //( usable_chunk_count >= 0*min_usable_chunks ) &&
-	 (matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count) ){
+      if( matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count ){
 	double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	double est_agmr = 1.0 - pow(matching_chunk_fraction, 1.0/chunk_size);
 	double true_hgmr;
@@ -638,12 +667,11 @@ Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pat
 	Three_ds dists = poly_agmr(q_gts, the_accessions->a[i_match]);
 	double true_agmr = dists.d1;
 	if(true_agmr <= max_est_agmr){
-	//	fprintf(stderr, "%8.5f  %8.5f %8.5f %8.5f \n", true_agmr, dists.d1, dists.d2, dists.d3);
-	true_agmr_count++;
-	add_mci_to_vmci(query_vmcis[i_query],
-			construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, dists.d2, dists.d3)); //true_hgmr));	
-	if(i_match >= n_ref_accessions) add_mci_to_vmci(query_vmcis[i_match],
-							construct_mci(i_match, i_query, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, dists.d2, dists.d3)); // true_hgmr));
+	  true_agmr_count++;
+	  add_mci_to_vmci(query_vmcis[i_query],
+			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, dists.d2, dists.d3)); //true_hgmr));	
+	  if(i_match >= n_ref_accessions) add_mci_to_vmci(query_vmcis[i_match],
+							  construct_mci(i_match, i_query, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, dists.d2, dists.d3)); // true_hgmr));
 	} // end if(true_agmr < max_est_agmr)
       } // end if(enough matching chunks)
     } // end loop over potential matches to query
@@ -679,6 +707,38 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
     }
   }
   return true_agmr_count;
+}
+
+void print_usage_info(FILE* ostream){
+    // i: input file name (required).
+    // r: reference set file name.
+    // o: output file name. Default: output goes to stdout.
+    // p: ploidy. Default is 2.
+    // k: chunk size (number of markers per chunk). Default: 8
+    // n: number of chunks to use. Default: use each marker ~once.  
+    // e: max estimated agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value.)
+    // s: random number seed. Default: get seed from clock.
+    // x: marker max missing data fraction
+    // a: min minor allele frequency
+    // h: help. print usage info
+  fprintf(ostream, "Options: \n");
+  fprintf(ostream, "  -i \t input file name (required).\n");
+  fprintf(ostream, "  -r \t file name of reference data set.\n");
+  fprintf(ostream, "  -p \t ploidy. (default: 2)\n");
+  fprintf(ostream, "  -k \t number of markers per chunk. Default: 8\n");
+  fprintf(ostream, "  -n \t number of chunks to use. Default: (int)n_markers/chunk_size \n");
+  fprintf(ostream, "  -e \t maximum agmr. Default: 0.2\n");
+  fprintf(ostream, "  -s \t random number generator seed. Default: get seed from clock. \n");
+  fprintf(ostream, "  -x \t maximum marker missing data fraction. Default: 0.2 \n");
+  fprintf(ostream, "  -a \t minimum minor allele frequency. Default: 0 \n");
+  fprintf(ostream, "  -h \t print this usage information. \n");
+}
+
+void print_command_line(FILE* ostream, int argc, char** argv){
+  fprintf(ostream, "# command line:  ");
+  for(int i=0; i<argc; i++){
+    fprintf(ostream, "%s  ", argv[i]);
+  }fprintf(ostream, "\n");
 }
 
 // ************ unused ******************************
