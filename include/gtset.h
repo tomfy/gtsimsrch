@@ -13,6 +13,7 @@
 #define MISSING_DATA_CHAR 126 // value which will be stored in char for missing data; bigger than ploidy likely to be.
 #define MISSING_DATA_VALUE -1
 #define INIT_VACC_CAPACITY 2000
+#define STRTOL_FAIL 1  // set errno to this in str_to_long if strtol fails (in some other way besides out of range)
 
 typedef struct{
   Vchar* id;
@@ -32,7 +33,7 @@ typedef struct{
 
 typedef struct{
   long capacity;
-  double delta;
+  // double delta;
   double max_marker_missing_data_fraction;
   double min_minor_allele_frequency;
   long n_accessions; // redundant.
@@ -50,13 +51,11 @@ typedef struct{
 
 // *****  functions  *****
 long int_power(long base, long power);
-long determine_file_format(char* filename);
+//long determine_file_format(char* filename);
 
 // *****  Accession  *****
 Accession* construct_accession(char* id, long idx, char* genotypes, long accession_md_count);
 void set_accession_missing_data_count(Accession* the_accession, long missing_data_count);
-
-Accession* construct_accession_a(char* id, char* gtset);
 long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_chunks, long k, long ploidy);
 char* print_accession(Accession* the_gts, FILE* ostream);
 
@@ -72,7 +71,7 @@ void check_accession_indices(Vaccession* the_accessions);
 void free_vaccession(Vaccession* the_vacc);
 
 // *****  GenotypesSet  *****
-GenotypesSet* construct_empty_genotypesset(double delta, double max_marker_md_fraction, double min_min_allele_freq, long ploidy);
+GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double min_min_allele_freq, long ploidy);
 //GenotypesSet* read_dosages_file_and_store(char* input_filename, double delta);
 //GenotypesSet* read_genotypes_file_and_store(char* input_filename);
 
