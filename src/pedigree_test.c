@@ -28,7 +28,7 @@ main(int argc, char *argv[])
   double t_begin_main = hi_res_time();
   
   int do_alternative_pedigrees = 0; // 0: none, 1: only when given pedigree is 'bad', 2: all
-  double delta = 0.05; // default; control this with -d command line option.
+  // double delta = 0.05; // default; control this with -d command line option.
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
   double min_minor_allele_frequency = -1; // 
   char* pedigree_test_output_filename = "pedigree_test_info";
@@ -105,15 +105,15 @@ main(int argc, char *argv[])
     case 'o':
       pedigree_test_output_filename = optarg;
       break;
-    case 'w':
-      if(optarg == 0){
-	perror("option w requires a numerical argument > 0\n");
-	exit(EXIT_FAILURE);
-      }else{
-	delta = atof(optarg);
-	if(delta < 0) exit(EXIT_FAILURE);
-      }
-      break;
+    /* case 'w': */
+    /*   if(optarg == 0){ */
+    /* 	perror("option w requires a numerical argument > 0\n"); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   }else{ */
+    /* 	delta = atof(optarg); */
+    /* 	if(delta < 0) exit(EXIT_FAILURE); */
+    /*   } */
+    /*   break; */
     case 'x':
       if(optarg == 0){
 	perror("option x requires a numerical argument > 0\n");
@@ -204,8 +204,8 @@ main(int argc, char *argv[])
   }
   // fprintf(stderr, "# genotypes file type: %d\n", genotype_file_type);
   char* geno_file_type = (genotype_file_type == DOSAGES)? "dosages" : "genotypes";
-  fprintf(stderr, "# genotypes file type/name: %s / %s.  delta: %5.3lf  max marker missing data: %5.3lf\n",
-	  geno_file_type, genotypes_filename, delta, max_marker_missing_data_fraction);
+  fprintf(stderr, "# genotypes file type/name: %s / %s.   max marker missing data: %5.3lf\n",
+	  geno_file_type, genotypes_filename, max_marker_missing_data_fraction);
   fprintf(stderr, "# pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
 
   
@@ -213,7 +213,7 @@ main(int argc, char *argv[])
 
   // ***************  read the genotypes file  *******************************
   double t_start = hi_res_time();
-  GenotypesSet* the_genotypes_set = construct_empty_genotypesset(delta, max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
+  GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
   add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set); // load the new set of accessions
   clean_genotypesset(the_genotypes_set); 
   
