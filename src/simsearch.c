@@ -283,10 +283,10 @@ main(int argc, char *argv[])
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   fprintf(stdout, "# Time to load dosage data: %10.4lf sec.\n", hi_res_time() - t_start);
  
-  fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
+  // fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
 
   clean_genotypesset(the_genotypes_set);
-  fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
+  // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
 
   the_accessions = the_genotypes_set->accessions;
    
@@ -692,15 +692,26 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       //  long match_idx = the_mci->match_index; //(the_mci->query_index == i_q)? the_mci->match_index : the_mci->query_index;
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
-      fprintf(ostream, "%5ld %30s %ld  %30s  %ld  %5.2f  %4ld  %7.4f  %7.4f %7.4f   %7.4f  ", //  %7.4f\n",
+      /* fprintf(ostream, "%5ld %30s %ld  %30s  %ld  %5.2f  %4ld  %7.4f  %7.4f %7.4f   %7.4f  ", //  %7.4f\n", */
+      /* 	      i_q, */
+      /* 	      //the_accessions->a[i_q]->id->a, */
+      /* 	      q_acc->id->a, q_acc->missing_data_count, */
+      /* 	      // the_accessions->a[the_mci->match_index]->id->a, */
+      /* 	      m_acc->id->a, m_acc->missing_data_count, */
+      /* 	      the_mci->usable_chunks,  the_mci->n_matching_chunks, */
+      /* 	      the_mci->est_agmr,  the_mci->agmr, the_mci->d1, */
+      /* 	      the_mci->hgmr); */
+
+        fprintf(ostream, "%5ld %30s  %30s  %5.2f  %4ld  %7.4f  %7.4f  ", //  %7.4f\n",
 	      i_q,
 	      //the_accessions->a[i_q]->id->a,
-	      q_acc->id->a, q_acc->missing_data_count,
+	      q_acc->id->a,  // q_acc->missing_data_count,
 	      // the_accessions->a[the_mci->match_index]->id->a,
-	      m_acc->id->a, m_acc->missing_data_count,
+		m_acc->id->a,  // m_acc->missing_data_count,
 	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
-	      the_mci->est_agmr,  the_mci->agmr, the_mci->d1,
-	      the_mci->hgmr);
+		the_mci->est_agmr,  the_mci->agmr); //, the_mci->d1, the_mci->hgmr);
+
+      
       //   fprintf(ostream, "%5ld %5ld %5ld %5ld", q_gts->missing_data_count, q_gts->md_chunk_count, m_gts->missing_data_count, m_gts->md_chunk_count );
       fprintf(ostream, "\n");
       true_agmr_count++;
