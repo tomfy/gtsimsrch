@@ -122,7 +122,8 @@ while (<>) {
 }				# end loop over rows
 
 # #####  output  #####
-my ($transtr, $n_rows_out, $n_cols_out) = ($transpose)? ("# transpose", scalar @row_ids, scalar @col_ids) : ("# no transpose", scalar @col_ids, scalar @row_ids);
+my ($transtr, $n_rows_out, $n_cols_out) = ($transpose)?
+  ("# transpose", scalar @col_ids, scalar @row_ids) : ("# no transpose", scalar @row_ids, scalar @col_ids);
 my $n_elements = $n_rows_out * $n_cols_out;
 my $info_string = "$transtr\n";
 $info_string .= sprintf("# outputting %d rows and %d columns of data.\n", $n_rows_out, $n_cols_out);
