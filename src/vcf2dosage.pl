@@ -13,7 +13,9 @@ use Getopt::Long;
 
 my $minGQ = 96;                 #
 my $maxGP = 0.1; # GP required to be <= $maxGP or >= 1-$maxGP , i.e. one allele strongly preferred.
-my $transpose = 1;
+my $transpose = 1; # default is to transpose; use -notrans to output untransposed.
+
+my $ploidy = -1;
 
 GetOptions(
 	   'transpose!' => \$transpose, # -noplot to suppress plot - just see histogram as text.
@@ -29,6 +31,7 @@ GetOptions(
 my @col_ids = ();
 my @row_ids = ();
 my @rows = ();
+my @dosage_distribution = ();
 while (<>) {
   next if(/^\s*##/);
   if (/^\s*#/) {
@@ -94,12 +97,19 @@ while (<>) {
       my $read_depth = $ref_depth + $alt_depth;
       $dosage = int($alt_depth/$read_depth + 0.5) if($read_depth > 0);
     }
+    # check if GQ present but too low:
     $dosage = 'NA' if($GQidx >= 0  and  $field_values[$GQidx] < $minGQ);
+    # check if GP present but insufficiently strong preference for one allele:
     if ($GPidx >= 0) {
       my ($ref_prob, $alt_prob) = split(',', $field_values[$GPidx]);
       $dosage = 'NA' if($ref_prob > $maxGP  and  $alt_prob > $maxGP);
     }
-    $missing_data_count++ if($dosage eq 'NA');
+    if ($dosage eq 'NA') {
+      $missing_data_count++ 
+    } else {			# $dosage ne 'NA'
+      $ploidy = $dosage if($dosage > $ploidy);
+      $dosage_distribution[$dosage]++;
+    }
     ###   do quality checks here if GP or GQ available   ###
 
     push @dosages_this_row, $dosage;
@@ -111,23 +121,26 @@ while (<>) {
 
 }				# end loop over rows
 
-
+# #####  output  #####
+my ($transtr, $n_rows_out, $n_cols_out) = ($transpose)? ("# transpose", scalar @row_ids, scalar @col_ids) : ("# no transpose", scalar @col_ids, scalar @row_ids);
+my $n_elements = $n_rows_out * $n_cols_out;
+my $info_string = "$transtr\n";
+$info_string .= sprintf("# outputting %d rows and %d columns of data.\n", $n_rows_out, $n_cols_out);
+$info_string .= sprintf("# ploidy: %d\n", $ploidy);
+$info_string .= sprintf("# dosage distribution:\n");
+for my $i (0..$ploidy) {
+  $info_string .= sprintf("#    %2d        %8d   %8.6f\n", $i, $dosage_distribution[$i], $dosage_distribution[$i]/$n_elements);
+}
+$info_string .= sprintf("# missing data %8d   %8.6f\n", $missing_data_count, $missing_data_count/$n_elements);
+print STDERR $info_string;
+print STDOUT $info_string;
 if (! $transpose) {
-  print STDERR "# no transpose.\n";
-  print STDERR "# outputting ", scalar @row_ids, " rows,  ", scalar @col_ids, " columns.\n";
-  printf STDERR ("# missing data count: %d  (%6.3f %%\)\n", $missing_data_count, 100*$missing_data_count/(scalar @col_ids * scalar @row_ids));
-
   print "MARKER ", join(" ", @col_ids), "\n";
   die if(scalar @row_ids  !=  scalar @rows);
   while (my ($i, $row_dosages) = each(@rows)) {
     print $row_ids[$i], "  ", join(" ", @$row_dosages), "\n";
   }
-
 } else {			# transpose
-  print STDERR "# transposing\n";
-  print STDERR "# outputting ", scalar @col_ids, " rows,  ", scalar @row_ids, " columns.\n";
-  printf STDERR ("# missing data count: %d  (%6.3f %%\)\n", $missing_data_count, 100*$missing_data_count/(scalar @col_ids * scalar @row_ids)); 
-
   print "MARKER ", join(" ", @row_ids), "\n";
   while (my ($i, $col_id) = each @col_ids) {
     # print col i as a row
