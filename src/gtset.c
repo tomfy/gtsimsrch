@@ -4,7 +4,7 @@
 #include "gtset.h"
 #include "various.h"
 
-#define MAX_PLOIDY 60
+
 
 extern int do_checks_flag; // option -c sets this to 1 to do some checks.
 
@@ -165,7 +165,6 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
 }
 
 void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set){
-  //  double delta = the_genotypes_set->delta;
   FILE* g_stream = fopen(input_filename, "r");
   if (g_stream == NULL) {
     perror("fopen");
@@ -180,19 +179,34 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   long markerid_count = 0;
   Vstr* marker_ids = construct_vstr(1000);
   char* saveptr = NULL;
-  if((nread = getline(&line, &len, g_stream)) != -1){
+  while((nread = getline(&line, &len, g_stream)) != -1){
     saveptr = line;
     char* token = strtok_r(line, "\t \n\r", &saveptr);
-    if((token == NULL)  || (strcmp(token, "MARKER") != 0)){
+    
+    if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
+    /* if(strcmp(token, "ploidy:") == 0){ // can specify ploidy in input this way, but not needed as will be inferred from set of dosages. */
+    /*   token = strtok_r(NULL, "\t \n\r", &saveptr); */
+    /*   long pldy = str_to_long(token); */
+    /*   if(errno != 0){ */
+    /* 	fprintf(stderr, "# ploidy not specified in input file %s, bye.\n", input_filename); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   } */
+    /*   if(pldy > the_genotypes_set->ploidy) the_genotypes_set->ploidy = pldy; */
+    /*   fprintf(stderr, "# ploidy: %ld %ld\n", pldy, the_genotypes_set->ploidy); */
+    /*   continue; */
+    /* }else */
+      if((strcmp(token, "MARKER") == 0)){
+      while(1){
+	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	if(token == NULL) break;
+	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
+	add_string_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
+	markerid_count++;
+      }
+      break;
+    }else{ 
       fprintf(stderr, "token: %s (should be MARKER)\n", token);
       exit(EXIT_FAILURE);
-    }
-    while(1){
-      token = strtok_r(NULL, "\t \n\r", &saveptr);
-      if(token == NULL) break;
-      char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
-      add_string_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
-      markerid_count++;
     }
   }
   // *****  done reading first line (with marker ids)  *****
@@ -201,8 +215,8 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     the_genotypes_set->marker_alt_allele_counts = construct_vlong_zeroes(marker_ids->size);
 
     
-    the_genotypes_set->marker_dose_counts = (Vlong**)malloc((the_genotypes_set->ploidy+1)*sizeof(Vlong*));
-    for(long i=0; i<=the_genotypes_set->ploidy; i++){
+    the_genotypes_set->marker_dose_counts = (Vlong**)malloc((MAX_PLOIDY+1)*sizeof(Vlong*));
+    for(long i=0; i<=MAX_PLOIDY; i++){
       the_genotypes_set->marker_dose_counts[i] = construct_vlong_zeroes(marker_ids->size);
     }
   }
@@ -230,8 +244,9 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       token = strtok_r(NULL, "\t \n\r", &saveptr);
       if(token == NULL)	break;
      
-      genotypes[marker_count] = token_to_dosage(token, the_genotypes_set->ploidy);
-      //  	fprintf(stderr, "marker_count: %ld  a: %d\n", marker_count, genotypes[marker_count]);
+      genotypes[marker_count] = token_to_dosage(token, &(the_genotypes_set->ploidy));
+      
+      //  fprintf(stdout, "token, ploidy: %s  %ld\n", token, the_genotypes_set->ploidy); // marker_count, genotypes[marker_count]);
       if(genotypes[marker_count] == MISSING_DATA_CHAR){
 	the_genotypes_set->marker_missing_data_counts->a[marker_count]++;
 	accession_missing_data_count++;
@@ -280,17 +295,19 @@ long str_to_long(char* str){ // using strtol and checking for various problems.
 }
   
 
-char token_to_dosage(char* token, long ploidy){
+char token_to_dosage(char* token, long* ploidy){
   if(strcmp(token,"NA") == 0){ // missing data
     return MISSING_DATA_CHAR;
   }else{
     long l = str_to_long(token);
     //  fprintf(stderr, "# l: %ld  errno: %ld \n", l, (long)errno);
     //   fprintf(stderr, "#l: %ld   ploidy: %ld  errno: %ld\n", l, ploidy, (long)errno);
-    if(l < 0  ||  l > ploidy  ||   errno != 0){
+    if(errno != 0){
       exit(EXIT_FAILURE);
+    }else if(l < 0  ||  l > MAX_PLOIDY){ // if outside the range of possible dosages.
       return MISSING_DATA_CHAR;
     }else{
+      if(l > *ploidy) *ploidy = l; // so ploidy ends up as the max of all dosages.
       return (char)l + 48;
     }
   }
@@ -328,103 +345,103 @@ double ragmr(GenotypesSet* the_gtsset){
 }
 
 
-void read_genotypes_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set){ //
+/* void read_genotypes_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set){ // */
 
-  FILE* g_stream = fopen(input_filename, "r");
-  if (g_stream == NULL) {
-    perror("fopen");
-    exit(EXIT_FAILURE);
-  }
+/*   FILE* g_stream = fopen(input_filename, "r"); */
+/*   if (g_stream == NULL) { */
+/*     perror("fopen"); */
+/*     exit(EXIT_FAILURE); */
+/*   } */
   
-  char* line = NULL;
-  size_t len = 0;
-  ssize_t nread;
+/*   char* line = NULL; */
+/*   size_t len = 0; */
+/*   ssize_t nread; */
 
-  long accessions_capacity = 2000;
-  Vaccession* the_accessions = construct_vaccession(accessions_capacity); //(Vaccession*)malloc(accessions_capacity*sizeof(ccession));
+/*   long accessions_capacity = 2000; */
+/*   Vaccession* the_accessions = construct_vaccession(accessions_capacity); //(Vaccession*)malloc(accessions_capacity*sizeof(ccession)); */
 
-  // read delta from first (comment) line
-  double delta;
-  double max_marker_missing_data_fraction;
-  char* saveptr = NULL;
-  if((nread = getline(&line, &len, g_stream)) != -1){
-    char* token = strtok_r(line, "\t \n\r", &saveptr);
-    if((token == NULL)  || (strcmp(token, "#") != 0)){
-      exit(EXIT_FAILURE);
-    }
-    long field_count = 1;
-    while(1){
-      token = strtok_r(NULL, "\t \n\r", &saveptr);
-      if(token == NULL) break;
-      if(field_count == 2){
-	delta = atof(token);
-      }else if(field_count == 4){
-	max_marker_missing_data_fraction = atof(token);
-      }
-    }
-  }
-  // *********************************************************
-  // read first non-comment line, with MARKER and marker ids
-  long markerid_count = 0;
-  Vstr* marker_ids = construct_vstr(1000);
-  saveptr = NULL;
-  if((nread = getline(&line, &len, g_stream)) != -1){
-    char* token = strtok_r(line, "\t \n\r", &saveptr);
-    if((token == NULL)  || (strcmp(token, "MARKER") != 0)){
-      exit(EXIT_FAILURE);
-    }
-    while(1){
-      token = strtok_r(NULL, "\t \n\r", &saveptr);
-      if(token == NULL) break;
-      char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
-      add_string_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
-      markerid_count++;
-    }
-  }
-  // *********************************************************
-  if(the_genotypes_set->marker_missing_data_counts == NULL){
-    the_genotypes_set->marker_missing_data_counts = construct_vlong_zeroes(marker_ids->size);
-  }
+/*   // read delta from first (comment) line */
+/*   double delta; */
+/*   double max_marker_missing_data_fraction; */
+/*   char* saveptr = NULL; */
+/*   if((nread = getline(&line, &len, g_stream)) != -1){ */
+/*     char* token = strtok_r(line, "\t \n\r", &saveptr); */
+/*     if((token == NULL)  || (strcmp(token, "#") != 0)){ */
+/*       exit(EXIT_FAILURE); */
+/*     } */
+/*     long field_count = 1; */
+/*     while(1){ */
+/*       token = strtok_r(NULL, "\t \n\r", &saveptr); */
+/*       if(token == NULL) break; */
+/*       if(field_count == 2){ */
+/* 	delta = atof(token); */
+/*       }else if(field_count == 4){ */
+/* 	max_marker_missing_data_fraction = atof(token); */
+/*       } */
+/*     } */
+/*   } */
+/*   // ********************************************************* */
+/*   // read first non-comment line, with MARKER and marker ids */
+/*   long markerid_count = 0; */
+/*   Vstr* marker_ids = construct_vstr(1000); */
+/*   saveptr = NULL; */
+/*   if((nread = getline(&line, &len, g_stream)) != -1){ */
+/*     char* token = strtok_r(line, "\t \n\r", &saveptr); */
+/*     if((token == NULL)  || (strcmp(token, "MARKER") != 0)){ */
+/*       exit(EXIT_FAILURE); */
+/*     } */
+/*     while(1){ */
+/*       token = strtok_r(NULL, "\t \n\r", &saveptr); */
+/*       if(token == NULL) break; */
+/*       char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char)); */
+/*       add_string_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store */
+/*       markerid_count++; */
+/*     } */
+/*   } */
+/*   // ********************************************************* */
+/*   if(the_genotypes_set->marker_missing_data_counts == NULL){ */
+/*     the_genotypes_set->marker_missing_data_counts = construct_vlong_zeroes(marker_ids->size); */
+/*   } */
 
-  long accession_count = 0;
-  // long* marker_missing_data_counts = (long*)calloc(markerid_count, sizeof(long));
-  // Vlong* the_md_vlong = construct_vlong_zeroes(markerid_count); // construct_vlong_from_array(markerid_count, marker_missing_data_counts);
-  saveptr = NULL;
-  while((nread = getline(&line, &len, g_stream)) != -1){
+/*   long accession_count = 0; */
+/*   // long* marker_missing_data_counts = (long*)calloc(markerid_count, sizeof(long)); */
+/*   // Vlong* the_md_vlong = construct_vlong_zeroes(markerid_count); // construct_vlong_from_array(markerid_count, marker_missing_data_counts); */
+/*   saveptr = NULL; */
+/*   while((nread = getline(&line, &len, g_stream)) != -1){ */
   
-    char* token = strtok_r(line, "\t \n\r", &saveptr);
-    char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
-    long token_count = 1;
-    long accession_missing_data_count = 0;
-    char* genotypes = (char*)malloc((markerid_count+1) * sizeof(char));
-    genotypes[markerid_count] = '\0'; // terminate with null.
-    while(1){
-      token = strtok_r(NULL, "\t \n\r", &saveptr);
-      if(token == NULL) break;
-      token_count++;
-      genotypes = strcpy(genotypes, token);
-    }
-    assert(token_count == 2); // because line should be: accession_id 00102011000201020....\n  just 2 whitespace-separated tokens.
-    assert(strlen(genotypes) == markerid_count);
-    for(long igt = 0; igt < markerid_count; igt++){ // count missing data     
-      if(genotypes[igt] == MISSING_DATA_CHARACTER){
-	the_genotypes_set->marker_missing_data_counts->a[igt]++;
-	accession_missing_data_count++;
-      }
-    } // done reading genotypes for all markers
+/*     char* token = strtok_r(line, "\t \n\r", &saveptr); */
+/*     char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token); */
+/*     long token_count = 1; */
+/*     long accession_missing_data_count = 0; */
+/*     char* genotypes = (char*)malloc((markerid_count+1) * sizeof(char)); */
+/*     genotypes[markerid_count] = '\0'; // terminate with null. */
+/*     while(1){ */
+/*       token = strtok_r(NULL, "\t \n\r", &saveptr); */
+/*       if(token == NULL) break; */
+/*       token_count++; */
+/*       genotypes = strcpy(genotypes, token); */
+/*     } */
+/*     assert(token_count == 2); // because line should be: accession_id 00102011000201020....\n  just 2 whitespace-separated tokens. */
+/*     assert(strlen(genotypes) == markerid_count); */
+/*     for(long igt = 0; igt < markerid_count; igt++){ // count missing data      */
+/*       if(genotypes[igt] == MISSING_DATA_CHARACTER){ */
+/* 	the_genotypes_set->marker_missing_data_counts->a[igt]++; */
+/* 	accession_missing_data_count++; */
+/*       } */
+/*     } // done reading genotypes for all markers */
   
-    Accession* the_accession = construct_accession( acc_id, accession_count, genotypes, accession_missing_data_count);
-    free(acc_id); // or cut out the middleman (acc_id)?
-    free(genotypes);
-    //   the_accession->missing_data_count = accession_missing_data_count;
-    add_accession_to_vaccession(the_accessions, the_accession);
-    accession_count++;
-  } // done reading all lines
-  fclose(g_stream);
-  free(line); // only needs to be freed once.
-  the_genotypes_set->accessions = the_accessions;
-  //return the_genotypes_set;
-}
+/*     Accession* the_accession = construct_accession( acc_id, accession_count, genotypes, accession_missing_data_count); */
+/*     free(acc_id); // or cut out the middleman (acc_id)? */
+/*     free(genotypes); */
+/*     //   the_accession->missing_data_count = accession_missing_data_count; */
+/*     add_accession_to_vaccession(the_accessions, the_accession); */
+/*     accession_count++; */
+/*   } // done reading all lines */
+/*   fclose(g_stream); */
+/*   free(line); // only needs to be freed once. */
+/*   the_genotypes_set->accessions = the_accessions; */
+/*   //return the_genotypes_set; */
+/* } */
 
 void check_genotypesset(GenotypesSet* gtss){
   assert(gtss->marker_ids->size == gtss->n_markers);
