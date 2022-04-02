@@ -9,9 +9,8 @@
 #define UNKNOWN -1
 #define DOSAGES 0
 #define GENOTYPES 1
-#define MISSING_DATA_CHARACTER '-'
+#define MAX_PLOIDY 60
 #define MISSING_DATA_CHAR 126 // value which will be stored in char for missing data; bigger than ploidy likely to be.
-#define MISSING_DATA_VALUE -1
 #define INIT_VACC_CAPACITY 2000
 #define STRTOL_FAIL 1  // set errno to this in str_to_long if strtol fails (in some other way besides out of range)
 
@@ -51,6 +50,8 @@ typedef struct{
 
 // *****  functions  *****
 long int_power(long base, long power);
+long str_to_long(char* str);
+char token_to_dosage(char* token, long* ploidy);
 //long determine_file_format(char* filename);
 
 // *****  Accession  *****
@@ -76,9 +77,9 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
 //GenotypesSet* read_genotypes_file_and_store(char* input_filename);
 
 void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set);
-void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
-char token_to_dosage(char* token, long ploidy);
-void read_genotypes_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
+// void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
+char token_to_dosage(char* token, long* ploidy);
+// void read_genotypes_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 
 void check_gtsset(GenotypesSet* gtsset);
 GenotypesSet* construct_genotypesset(Vaccession* accessions, Vstr* marker_ids, Vlong* md_counts, double delta, double max_marker_md_fraction);
