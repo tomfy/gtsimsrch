@@ -41,8 +41,8 @@ typedef struct{
   long n_matching_chunks;
   double est_agmr;
   double agmr;
-  double d1;
-  double hgmr; 
+  //  double d1;
+  //  double hgmr; 
 } Mci; // 'Mci = Matching chunk info'
 
 typedef struct{
@@ -59,11 +59,11 @@ void print_usage_info(FILE* ostream);
 char* ipat_to_strpat(long len, long ipat); // unused
 long strpat_to_ipat(long len, char* strpat); // unused
 double agmr(Accession* gts1, Accession* gts2);
-double agmr_hgmr(Accession* gts1, Accession* gts2, double* hgmr);
+// double agmr_hgmr(Accession* gts1, Accession* gts2, double* hgmr);
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
-		   double est_agmr, double agmr, double d1,double hgmr);
+		   double est_agmr, double agmr); //, double d1,double hgmr);
 // *****  Vmci  *********************************************************************************
 Vmci* construct_vmci(long init_size);
 void add_mci_to_vmci(Vmci* the_vmci, Mci* the_mci);
@@ -158,13 +158,6 @@ main(int argc, char *argv[])
       break;
     case 'o':
       output_filename = optarg;
-      /* if(output_filename != NULL){ */
-      /* 	out_stream = fopen(output_filename, "w"); */
-      /* 	if(out_stream == NULL){ */
-      /* 	  fprintf(stderr, "Failed to open %s for writing.\n", output_filename); */
-      /* 	  exit(EXIT_FAILURE); */
-      /* 	} */
-      /* } */
       break;
     case 'p': // keep each accession with probability p (for testing with random smaller data set)
       // fprintf(stderr, "%s\n", optarg);
@@ -204,10 +197,6 @@ main(int argc, char *argv[])
       break;
     case 'x': 
       max_marker_missing_data_fraction = (double)atof(optarg);
-      /* if(max_marker_missing_data_fraction <= 0){ */
-      /* 	fprintf(stderr, "option x (max_marker_missing_data_fraction) requires a real argument >= 0\n"); */
-      /* 	exit(EXIT_FAILURE); */
-      /* } */
       break;
     case 'a': 
       min_minor_allele_frequency = (double)atof(optarg);
@@ -245,21 +234,14 @@ main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
   srand(rand_seed);
-  	out_stream = fopen(output_filename, "w");
-	if(out_stream == NULL){
-	  fprintf(stderr, "Failed to open %s for writing.\n", output_filename);
-	  exit(EXIT_FAILURE);
-	}
-
+  out_stream = fopen(output_filename, "w");
+  if(out_stream == NULL){
+    fprintf(stderr, "Failed to open %s for writing.\n", output_filename);
+    exit(EXIT_FAILURE);
+  }
   
   print_command_line(out_stream, argc, argv);
-  print_command_line(stdout, argc, argv);
-  /* fprintf(rparam_stream, "# command line:  "); */
-  /* for(int i=0; i<argc; i++){ */
-  /*   fprintf(rparam_stream, "%s  ", argv[i]); */
-  /* }fprintf(rparam_stream, "\n"); */
-  /* fprintf(rparam_stream, "# input file: %s  output to: %s\n", input_filename, (output_filename == NULL)? "stdout" : output_filename); */
-  // fprintf(stderr, "# Input file: %s \n", input_filename);	  
+  print_command_line(stdout, argc, argv);	  
  
   // *****  done processing command line  *****
 
@@ -269,7 +251,7 @@ main(int argc, char *argv[])
 
   double t_start = hi_res_time();
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy); 
-  Vaccession* the_accessions; // = construct_vaccession(INIT_VACC_CAPACITY);
+  Vaccession* the_accessions; 
   if(reference_set_filename != NULL){ // load the reference set, if one was specified.
    
     add_accessions_to_genotypesset_from_file(reference_set_filename, the_genotypes_set);
@@ -284,7 +266,6 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to load dosage data: %10.4lf sec.\n", hi_res_time() - t_start);
  
   // fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
-
   clean_genotypesset(the_genotypes_set);
   // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
 
@@ -294,7 +275,8 @@ main(int argc, char *argv[])
   if(n_chunks*chunk_size > n_markers){
     n_chunks = n_markers/chunk_size;
   }
- 
+
+  ploidy = the_genotypes_set->ploidy;
   fprintf(rparam_stream, "# ploidy: %ld\n", ploidy);
   fprintf(rparam_stream, "# min. minor allele frequency: %5.3lf\n", min_minor_allele_frequency);
   fprintf(rparam_stream, "# max. marker missing data fraction: %5.3lf\n", max_marker_missing_data_fraction);
@@ -476,7 +458,7 @@ Vlong* find_chunk_match_counts(Accession* the_gts, Chunk_pattern_ids* the_cpi){ 
 
 Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_chunks,
 		   // double est_matching_chunk_fraction, double matching_chunk_fraction){
-		   double est_agmr, double agmr, double d1, double hgmr){
+		   double est_agmr, double agmr){ //, double d1, double hgmr){
   Mci* the_mci = (Mci*)calloc(1,sizeof(Mci));
   the_mci->query_index = qidx;
   the_mci->match_index = midx;
@@ -484,8 +466,8 @@ Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_c
   the_mci->n_matching_chunks = n_matching_chunks;
   the_mci->est_agmr = est_agmr;
   the_mci->agmr = agmr;
-  the_mci->d1 = d1;
-  the_mci->hgmr = hgmr;
+  //  the_mci->d1 = d1;
+  //  the_mci->hgmr = hgmr;
   
   return the_mci;
 }
@@ -527,104 +509,25 @@ void free_vmci(Vmci* the_vmci){
 // *********************************************
 // *********************************************
 
-Three_ds poly_agmr(Accession* gtset1, Accession* gtset2){
-  char* gts1 = gtset1->genotypes->a;
-  char* gts2 = gtset2->genotypes->a;
-  long usable_pair_count = 0; // = agmr_denom
-  long mismatches = 0; // = agmr_numerator
-  long L1dist = 0;
-  double Lxdist = 0;
-  // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2));
-  for(long i=0; ;i++){
-    char a1 = gts1[i];
-    if(a1 == '\0') break; // end of 
-    char a2 = gts2[i];
-    if(DO_ASSERT) assert(a2 != '\0');
-    // fprintf(stderr, "chars: %c %c\n", a1, a2);
-    if(a1 != MISSING_DATA_CHAR){
-      if(a2 != MISSING_DATA_CHAR){
-	usable_pair_count++;
-	if(a1 != a2){
-	  mismatches++;
-	  long dif = abs(a1 - a2);
-	  L1dist += dif;
-	  Lxdist += (dif > 2)? 2 : dif;
-	}
-      }
-    }
-  }
- 
-  Three_ds result;
-  if(usable_pair_count > 0){
-    result = (Three_ds)
-      { .d1 = (double)mismatches/(double)usable_pair_count, // hamming dist normalized so max is 1
-	.d2 = (double)L1dist/(double)usable_pair_count, // L1 dist normalized so max is ploidy
-	.d3 = (double)Lxdist/(double)usable_pair_count }; // sqrt((double)L2dist)/(double)usable_pair_count };
-  }else{
-    result = (Three_ds){-1, -1, -1};
-  }
-  return result;
-}
-
 double agmr(Accession* gtset1, Accession* gtset2){
   char* gts1 = gtset1->genotypes->a;
   char* gts2 = gtset2->genotypes->a;
   long usable_pair_count = 0; // = agmr_denom
   long mismatches = 0; // = agmr_numerator
-  //  long hgmr_denom = 0;
-  //  long hgmr_numerator = 0;
-  // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2));
   for(long i=0; ;i++){
     char a1 = gts1[i];
     if(a1 == '\0') break; // end of 
     char a2 = gts2[i];
     if(DO_ASSERT) assert(a2 != '\0');
-    // fprintf(stderr, "chars: %c %c\n", a1, a2);
     if(a1 != MISSING_DATA_CHAR){
       if(a2 != MISSING_DATA_CHAR){
 	usable_pair_count++;
 	if(a1 != a2) mismatches++;
-	/* if(a1 != '1' && a2 != '1'){ */
-	/*   hgmr_denom++; */
-	/*   if(a1 != a2) hgmr_numerator++; */
-	/* } */
       }
     }
   }
-  // *hgmr = (hgmr_denom > 0)? (double)hgmr_numerator/hgmr_denom : -1;
   return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1;
 }
-
-
-double agmr_hgmr(Accession* gtset1, Accession* gtset2, double* hgmr){
-  char* gts1 = gtset1->genotypes->a;
-  char* gts2 = gtset2->genotypes->a;
-  long usable_pair_count = 0; // = agmr_denom
-  long mismatches = 0; // = agmr_numerator
-  long hgmr_denom = 0;
-  long hgmr_numerator = 0;
-  // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2));
-  for(long i=0; ;i++){
-    char a1 = gts1[i];
-    if(a1 == '\0') break; // end of 
-    char a2 = gts2[i];
-    if(DO_ASSERT) assert(a2 != '\0');
-    // fprintf(stderr, "chars: %c %c\n", a1, a2);
-    if(a1 != MISSING_DATA_CHAR){
-      if(a2 != MISSING_DATA_CHAR){
-	usable_pair_count++;
-	if(a1 != a2) mismatches++;
-	if(a1 != '1' && a2 != '1'){
-	  hgmr_denom++;
-	  if(a1 != a2) hgmr_numerator++;
-	}
-      }
-    }
-  }
-  *hgmr = (hgmr_denom > 0)? (double)hgmr_numerator/hgmr_denom : -1;
-  return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1;
-}
-
 
 Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pattern_ids* the_cpi,
 		    //long min_usable_chunks,
@@ -662,16 +565,16 @@ Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pat
       if( matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count ){
 	double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	double est_agmr = 1.0 - pow(matching_chunk_fraction, 1.0/chunk_size);
-	double true_hgmr;
-	//	double true_agmr = agmr(q_gts, the_accessions->a[i_match], &true_hgmr);
-	Three_ds dists = poly_agmr(q_gts, the_accessions->a[i_match]);
-	double true_agmr = dists.d1;
+	// double true_hgmr;
+	double true_agmr = agmr(q_gts, the_accessions->a[i_match]); //, &true_hgmr);
+	// Three_ds dists = poly_agmr(q_gts, the_accessions->a[i_match]);
+	//double true_agmr = dists.d1;
 	if(true_agmr <= max_est_agmr){
 	  true_agmr_count++;
 	  add_mci_to_vmci(query_vmcis[i_query],
-			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, dists.d2, dists.d3)); //true_hgmr));	
+			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr)); //, dists.d2, dists.d3)); //true_hgmr));	
 	  if(i_match >= n_ref_accessions) add_mci_to_vmci(query_vmcis[i_match],
-							  construct_mci(i_match, i_query, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, dists.d2, dists.d3)); // true_hgmr));
+							  construct_mci(i_match, i_query, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr)); //, dists.d2, dists.d3)); // true_hgmr));
 	} // end if(true_agmr < max_est_agmr)
       } // end if(enough matching chunks)
     } // end loop over potential matches to query
@@ -702,14 +605,14 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       /* 	      the_mci->est_agmr,  the_mci->agmr, the_mci->d1, */
       /* 	      the_mci->hgmr); */
 
-        fprintf(ostream, "%5ld %30s  %30s  %5.2f  %4ld  %7.4f  %7.4f  ", //  %7.4f\n",
+      fprintf(ostream, "%5ld %30s  %30s  %5.2f  %4ld  %7.4f  %7.4f  ", //  %7.4f\n",
 	      i_q,
 	      //the_accessions->a[i_q]->id->a,
 	      q_acc->id->a,  // q_acc->missing_data_count,
 	      // the_accessions->a[the_mci->match_index]->id->a,
-		m_acc->id->a,  // m_acc->missing_data_count,
+	      m_acc->id->a,  // m_acc->missing_data_count,
 	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
-		the_mci->est_agmr,  the_mci->agmr); //, the_mci->d1, the_mci->hgmr);
+	      the_mci->est_agmr,  the_mci->agmr); //, the_mci->d1, the_mci->hgmr);
 
       
       //   fprintf(ostream, "%5ld %5ld %5ld %5ld", q_gts->missing_data_count, q_gts->md_chunk_count, m_gts->missing_data_count, m_gts->md_chunk_count );
@@ -721,20 +624,21 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
 }
 
 void print_usage_info(FILE* ostream){
-    // i: input file name (required).
-    // r: reference set file name.
-    // o: output file name. Default: output goes to stdout.
-    // p: ploidy. Default is 2.
-    // k: chunk size (number of markers per chunk). Default: 8
-    // n: number of chunks to use. Default: use each marker ~once.  
-    // e: max estimated agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value.)
-    // s: random number seed. Default: get seed from clock.
-    // x: marker max missing data fraction
-    // a: min minor allele frequency
-    // h: help. print usage info
+  // i: input file name (required).
+  // r: reference set file name.
+  // o: output file name. Default: simsearch.out
+  // p: ploidy. Default is 2.
+  // k: chunk size (number of markers per chunk). Default: 8
+  // n: number of chunks to use. Default: use each marker ~once.  
+  // e: max estimated agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value.)
+  // s: random number seed. Default: get seed from clock.
+  // x: marker max missing data fraction
+  // a: min minor allele frequency
+  // h: help. print usage info
   fprintf(ostream, "Options: \n");
   fprintf(ostream, "  -i \t input file name (required).\n");
   fprintf(ostream, "  -r \t file name of reference data set.\n");
+  fprintf(ostream, "  -o \t output file name. Default: simsearch.out\n");
   fprintf(ostream, "  -p \t ploidy. (default: 2)\n");
   fprintf(ostream, "  -k \t number of markers per chunk. Default: 8\n");
   fprintf(ostream, "  -n \t number of chunks to use. Default: (int)n_markers/chunk_size \n");
@@ -759,57 +663,129 @@ void print_command_line(FILE* ostream, int argc, char** argv){
 // gts to get vlong of matches to first (j+1) gts.
 // i.e. multiply each by 3, and add 0,1, or 2 as appropriate
 // matching here <->  0 matched by 0, 2 by 2, 1 by anything (0,1,2) 
-Vlong* matching_ipats(Vlong* ipats, long i012){
-  if(i012 == 1){
-    Vlong* new_vlong = construct_vlong(3*ipats->size);
-    for(long i=0; i<ipats->size; i++){
-      add_long_to_vlong(new_vlong, 3*ipats->a[i] + 0);
-      add_long_to_vlong(new_vlong, 3*ipats->a[i] + 1);
-      add_long_to_vlong(new_vlong, 3*ipats->a[i] + 2);
-    }
-    free_vlong(ipats);
-    return new_vlong;
-  }else{
-    if(DO_ASSERT) assert(i012 == 0  || i012 == 2);
-    for(long i=0; i<ipats->size; i++){
-      ipats->a[i] = 3*ipats->a[i] + i012;
-    }
-    return ipats;
-  }
-}
+/* Vlong* matching_ipats(Vlong* ipats, long i012){ */
+/*   if(i012 == 1){ */
+/*     Vlong* new_vlong = construct_vlong(3*ipats->size); */
+/*     for(long i=0; i<ipats->size; i++){ */
+/*       add_long_to_vlong(new_vlong, 3*ipats->a[i] + 0); */
+/*       add_long_to_vlong(new_vlong, 3*ipats->a[i] + 1); */
+/*       add_long_to_vlong(new_vlong, 3*ipats->a[i] + 2); */
+/*     } */
+/*     free_vlong(ipats); */
+/*     return new_vlong; */
+/*   }else{ */
+/*     if(DO_ASSERT) assert(i012 == 0  || i012 == 2); */
+/*     for(long i=0; i<ipats->size; i++){ */
+/*       ipats->a[i] = 3*ipats->a[i] + i012; */
+/*     } */
+/*     return ipats; */
+/*   } */
+/* } */
 
-char* ipat_to_strpat(long k, long ipat){ // note: this generates a string which looks like the base-3 representation of ipat, EXCEPT in reverse order
-  // i.e. (for k=4) ipat=1 -> pat = '1000'
-  char* pat = (char*)malloc((k+1)*sizeof(char));
-  if(ipat >= 0){
-    for(long i=0; i<k; i++){
-      pat[i] = 48 + ipat % 3;
-      ipat /= 3;
-    }
-  }else{
-    for(long i=0; i<k; i++){
-      pat[i] = 'X';
-    }
-  }
-  pat[k] = '\0';
-  // printf("ipat %ld   strpat: %s \n", ipat, pat);
-  return pat;
-}
+/* char* ipat_to_strpat(long k, long ipat){ // note: this generates a string which looks like the base-3 representation of ipat, EXCEPT in reverse order */
+/*   // i.e. (for k=4) ipat=1 -> pat = '1000' */
+/*   char* pat = (char*)malloc((k+1)*sizeof(char)); */
+/*   if(ipat >= 0){ */
+/*     for(long i=0; i<k; i++){ */
+/*       pat[i] = 48 + ipat % 3; */
+/*       ipat /= 3; */
+/*     } */
+/*   }else{ */
+/*     for(long i=0; i<k; i++){ */
+/*       pat[i] = 'X'; */
+/*     } */
+/*   } */
+/*   pat[k] = '\0'; */
+/*   // printf("ipat %ld   strpat: %s \n", ipat, pat); */
+/*   return pat; */
+/* } */
 
-long strpat_to_ipat(long len, char* strpat){ // the inverse of ipat_to_strpat
-  long pat = 0;
-  long f = 1;
-  for(long j=0; j < len; j++){
-    char a = strpat[j] - 48;
-    if((a>=0) && (a<=2)){
-      pat += f*a;
-      f*=3;
-    }else{
-      pat = -1;
-      break;
-    }
-  }
-  return pat;
-}
+/* long strpat_to_ipat(long len, char* strpat){ // the inverse of ipat_to_strpat */
+/*   long pat = 0; */
+/*   long f = 1; */
+/*   for(long j=0; j < len; j++){ */
+/*     char a = strpat[j] - 48; */
+/*     if((a>=0) && (a<=2)){ */
+/*       pat += f*a; */
+/*       f*=3; */
+/*     }else{ */
+/*       pat = -1; */
+/*       break; */
+/*     } */
+/*   } */
+/*   return pat; */
+/* } */
+
+/* Three_ds poly_agmr(Accession* gtset1, Accession* gtset2){ */
+/*   char* gts1 = gtset1->genotypes->a; */
+/*   char* gts2 = gtset2->genotypes->a; */
+/*   long usable_pair_count = 0; // = agmr_denom */
+/*   long mismatches = 0; // = agmr_numerator */
+/*   long L1dist = 0; */
+/*   double Lxdist = 0; */
+/*   // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2)); */
+/*   for(long i=0; ;i++){ */
+/*     char a1 = gts1[i]; */
+/*     if(a1 == '\0') break; // end of  */
+/*     char a2 = gts2[i]; */
+/*     if(DO_ASSERT) assert(a2 != '\0'); */
+/*     // fprintf(stderr, "chars: %c %c\n", a1, a2); */
+/*     if(a1 != MISSING_DATA_CHAR){ */
+/*       if(a2 != MISSING_DATA_CHAR){ */
+/* 	usable_pair_count++; */
+/* 	if(a1 != a2){ */
+/* 	  mismatches++; */
+/* 	  long dif = abs(a1 - a2); */
+/* 	  L1dist += dif; */
+/* 	  Lxdist += (dif > 2)? 2 : dif; */
+/* 	} */
+/*       } */
+/*     } */
+/*   } */
+ 
+/*   Three_ds result; */
+/*   if(usable_pair_count > 0){ */
+/*     result = (Three_ds) */
+/*       { .d1 = (double)mismatches/(double)usable_pair_count, // hamming dist normalized so max is 1 */
+/* 	.d2 = (double)L1dist/(double)usable_pair_count, // L1 dist normalized so max is ploidy */
+/* 	.d3 = (double)Lxdist/(double)usable_pair_count }; // sqrt((double)L2dist)/(double)usable_pair_count }; */
+/*   }else{ */
+/*     result = (Three_ds){-1, -1, -1}; */
+/*   } */
+/*   return result; */
+/* } */
+
+
+
+
+/* double agmr_hgmr(Accession* gtset1, Accession* gtset2, double* hgmr){ */
+/*   char* gts1 = gtset1->genotypes->a; */
+/*   char* gts2 = gtset2->genotypes->a; */
+/*   long usable_pair_count = 0; // = agmr_denom */
+/*   long mismatches = 0; // = agmr_numerator */
+/*   long hgmr_denom = 0; */
+/*   long hgmr_numerator = 0; */
+/*   // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2)); */
+/*   for(long i=0; ;i++){ */
+/*     char a1 = gts1[i]; */
+/*     if(a1 == '\0') break; // end of  */
+/*     char a2 = gts2[i]; */
+/*     if(DO_ASSERT) assert(a2 != '\0'); */
+/*     // fprintf(stderr, "chars: %c %c\n", a1, a2); */
+/*     if(a1 != MISSING_DATA_CHAR){ */
+/*       if(a2 != MISSING_DATA_CHAR){ */
+/* 	usable_pair_count++; */
+/* 	if(a1 != a2) mismatches++; */
+/* 	if(a1 != '1' && a2 != '1'){ */
+/* 	  hgmr_denom++; */
+/* 	  if(a1 != a2) hgmr_numerator++; */
+/* 	} */
+/*       } */
+/*     } */
+/*   } */
+/*   *hgmr = (hgmr_denom > 0)? (double)hgmr_numerator/hgmr_denom : -1; */
+/*   return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1; */
+/* } */
+
 
 // *****  end of function definitions  *****
