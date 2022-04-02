@@ -98,7 +98,7 @@ main(int argc, char *argv[])
 {
   double start0 = hi_res_time();
   long ploidy = 2;
-  long chunk_size = 8; // default number of genotype in each chunk 
+  long chunk_size = -1; // default: choose automatically based on ploidy, etc.
   long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
   unsigned rand_seed = (unsigned)time(0);
   double max_marker_missing_data_fraction = 0.2;
@@ -272,11 +272,16 @@ main(int argc, char *argv[])
   the_accessions = the_genotypes_set->accessions;
    
   n_markers = the_genotypes_set->n_markers;
+  ploidy = the_genotypes_set->ploidy;
+  //  find  chunk_size  if not specified on command line
+  if(chunk_size <= 0){
+    chunk_size = (long)log(MAX_PATTERNS)/log((double)ploidy+1.0);
+  }
   if(n_chunks*chunk_size > n_markers){
     n_chunks = n_markers/chunk_size;
   }
 
-  ploidy = the_genotypes_set->ploidy;
+
   fprintf(rparam_stream, "# ploidy: %ld\n", ploidy);
   fprintf(rparam_stream, "# min. minor allele frequency: %5.3lf\n", min_minor_allele_frequency);
   fprintf(rparam_stream, "# max. marker missing data fraction: %5.3lf\n", max_marker_missing_data_fraction);
@@ -292,15 +297,17 @@ main(int argc, char *argv[])
 
   // *****  done reading and storing input  **********
   
-  t_start = hi_res_time();
+ 
   //  fprintf(stderr, "# n_markers: %ld\n", n_markers);
   Vlong* marker_indices = construct_vlong_whole_numbers(n_markers);
   shuffle_vlong(marker_indices);
+   t_start = hi_res_time();
   set_vaccession_chunk_patterns(the_accessions, marker_indices, n_chunks, chunk_size, ploidy);
+  double t_1 = hi_res_time();
   Chunk_pattern_ids* the_cpi = construct_chunk_pattern_ids(n_chunks, chunk_size, ploidy);
   populate_chunk_pattern_ids_from_vaccession(the_accessions, the_cpi);
-    
-  fprintf(stdout, "# time to construct chunk_pattern_ids structure: %12.6f\n", hi_res_time() - t_start);
+  double t_2 = hi_res_time();
+  fprintf(stdout, "# time to construct chunk_pattern_ids. patterns: %8.4f  populate %8.4f  total %8.4f\n", t_1 - t_start, t_2 - t_1, t_2 - t_start);
   
   t_start = hi_res_time(); 
   Vmci** query_vmcis = find_matches(n_ref_accessions, the_accessions, the_cpi, max_est_agmr);
