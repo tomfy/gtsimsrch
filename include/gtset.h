@@ -10,6 +10,7 @@
 #define DOSAGES 0
 #define GENOTYPES 1
 #define MAX_PLOIDY 60
+#define MAX_PATTERNS 10000
 #define MISSING_DATA_CHAR 126 // value which will be stored in char for missing data; bigger than ploidy likely to be.
 #define INIT_VACC_CAPACITY 2000
 #define STRTOL_FAIL 1  // set errno to this in str_to_long if strtol fails (in some other way besides out of range)
