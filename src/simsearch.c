@@ -14,12 +14,6 @@
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
 
-typedef struct{ // three doubles
-  double d1;
-  double d2;
-  double d3;
-}Three_ds;
-
 typedef struct{ // one of these for each chunk
   long capacity;
   long size;
@@ -59,7 +53,6 @@ void print_usage_info(FILE* ostream);
 char* ipat_to_strpat(long len, long ipat); // unused
 long strpat_to_ipat(long len, char* strpat); // unused
 double agmr(Accession* gts1, Accession* gts2);
-// double agmr_hgmr(Accession* gts1, Accession* gts2, double* hgmr);
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
@@ -67,6 +60,8 @@ Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching
 // *****  Vmci  *********************************************************************************
 Vmci* construct_vmci(long init_size);
 void add_mci_to_vmci(Vmci* the_vmci, Mci* the_mci);
+void sort_vmci_by_agmr(Vmci* the_vmci); // sort Vmci by agmr
+int cmpmci(const void* v1, const void* v2);
 void free_vmci(Vmci* the_vmci);
 
 // *****  Pattern_ids; indices are patterns; elements are Vlong* of accids having that pattern.
@@ -83,8 +78,7 @@ void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi);
 // *****  Gts and Chunk_pattern_ids  ***********
 Vlong* find_chunk_match_counts(Accession* the_gts, Chunk_pattern_ids* the_cpi);
 Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pattern_ids* the_cpi, double max_est_agmr);
-// Vmci** find_matches_alt(Vgts* the_accessions, Vlong** match_counts, long n_chunks, long chunk_size);
-long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream);
+long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 void print_command_line(FILE* ostream, int argc, char** argv);
 // *************************  end of declarations  **********************************************
 
@@ -97,6 +91,7 @@ int
 main(int argc, char *argv[])
 {
   double start0 = hi_res_time();
+  
   long ploidy = 2;
   long chunk_size = -1; // default: choose automatically based on ploidy, etc.
   long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
@@ -104,6 +99,7 @@ main(int argc, char *argv[])
   double max_marker_missing_data_fraction = 0.2;
   double min_minor_allele_frequency = 0.0; //
   double max_est_agmr = 0.2;
+  long output_format = 1; // idx1 acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
   char default_output_filename[] = "simsearch.out";
 
   char* rparam_buf;
@@ -124,7 +120,7 @@ main(int argc, char *argv[])
   FILE* out_stream = NULL;
     
   int c;
-  while((c = getopt(argc, argv, "i:r:o:p:n:k:e:s:x:a:h")) != -1){
+  while((c = getopt(argc, argv, "i:r:o:p:n:k:e:s:x:a:f:h")) != -1){
     // i: input file name (required).
     // r: reference set file name.
     // o: output file name. Default:
@@ -160,7 +156,6 @@ main(int argc, char *argv[])
       output_filename = optarg;
       break;
     case 'p': // keep each accession with probability p (for testing with random smaller data set)
-      // fprintf(stderr, "%s\n", optarg);
       ploidy = (long)atoi(optarg);
       if(ploidy <= 0){
 	fprintf(stderr, "# ploidy specified as %ld. Must be non-negative integer; exiting.\n", ploidy);
@@ -202,6 +197,13 @@ main(int argc, char *argv[])
       min_minor_allele_frequency = (double)atof(optarg);
       if(min_minor_allele_frequency < 0){
 	fprintf(stderr, "option a (min_minor_allele_frequency) requires an real argument >= 0\n");
+	exit(EXIT_FAILURE);
+      }
+      break;
+    case 'f': 
+      output_format = (long)atoi(optarg);
+      if(output_format < 1){
+	fprintf(stderr, "option f (output_format) requires an integer argument >= 1\n");
 	exit(EXIT_FAILURE);
       }
       break;
@@ -311,7 +313,7 @@ main(int argc, char *argv[])
   
   t_start = hi_res_time(); 
   Vmci** query_vmcis = find_matches(n_ref_accessions, the_accessions, the_cpi, max_est_agmr);
-  long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream);
+  long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# time to find candidate matches and %ld true agmrs: %9.3f\n", true_agmr_count, hi_res_time() - t_start);
   fclose(out_stream);
     
@@ -513,6 +515,27 @@ void free_vmci(Vmci* the_vmci){
   free(the_vmci);
 }
 
+
+int cmpmci(const void* v1, const void* v2){
+  const Mci** s1 = (const Mci**)v1;
+  const Mci** s2 = (const Mci**)v2;
+  double a1 = (*s1)->agmr;
+  double a2 = (*s2)->agmr;
+  if(a1 > a2){
+    return 1;
+  }else if(a1 < a2){
+    return -1;
+  }else{
+    return 0;
+  }
+}
+
+void sort_vmci_by_agmr(Vmci* the_vmci){ // sort in place
+  qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci);
+}
+
+
+
 // *********************************************
 // *********************************************
 
@@ -593,40 +616,35 @@ Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pat
   return query_vmcis;
 }
 
-long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream){
+long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){
   long true_agmr_count = 0;
   for(long i_q=0; i_q<the_accessions->size; i_q++){
     Vmci* the_vmci = query_vmcis[i_q];
+    sort_vmci_by_agmr(the_vmci);
     for(long i_m=0; i_m < the_vmci->size; i_m++){
       Mci* the_mci = the_vmci->a[i_m];
       //  long match_idx = the_mci->match_index; //(the_mci->query_index == i_q)? the_mci->match_index : the_mci->query_index;
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
-      /* fprintf(ostream, "%5ld %30s %ld  %30s  %ld  %5.2f  %4ld  %7.4f  %7.4f %7.4f   %7.4f  ", //  %7.4f\n", */
-      /* 	      i_q, */
-      /* 	      //the_accessions->a[i_q]->id->a, */
-      /* 	      q_acc->id->a, q_acc->missing_data_count, */
-      /* 	      // the_accessions->a[the_mci->match_index]->id->a, */
-      /* 	      m_acc->id->a, m_acc->missing_data_count, */
-      /* 	      the_mci->usable_chunks,  the_mci->n_matching_chunks, */
-      /* 	      the_mci->est_agmr,  the_mci->agmr, the_mci->d1, */
-      /* 	      the_mci->hgmr); */
-
-      fprintf(ostream, "%5ld %30s  %30s  %5.2f  %4ld  %7.4f  %7.4f  ", //  %7.4f\n",
-	      i_q,
-	      //the_accessions->a[i_q]->id->a,
-	      q_acc->id->a,  // q_acc->missing_data_count,
-	      // the_accessions->a[the_mci->match_index]->id->a,
-	      m_acc->id->a,  // m_acc->missing_data_count,
-	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
-	      the_mci->est_agmr,  the_mci->agmr); //, the_mci->d1, the_mci->hgmr);
 
       
-      //   fprintf(ostream, "%5ld %5ld %5ld %5ld", q_gts->missing_data_count, q_gts->md_chunk_count, m_gts->missing_data_count, m_gts->md_chunk_count );
+      fprintf(ostream, "%5ld  %30s  %30s  %5.2f  %4ld  %5.3f  %5.3f",
+	      i_q,
+	      q_acc->id->a,   m_acc->id->a,  
+	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
+	      the_mci->est_agmr,  the_mci->agmr);
+      if (output_format == 1){
+	// leave as is
+      }else if(output_format == 2){ // add a bit more info
+	fprintf(ostream, "  %4ld  %4ld  %3ld  %3ld",
+		q_acc->missing_data_count,  q_acc->md_chunk_count, m_acc->missing_data_count, m_acc->md_chunk_count);
+      }else{
+	fprintf(stderr, "# output_format %ld is unknown. using default output_format.\n", output_format);
+      }
       fprintf(ostream, "\n");
       true_agmr_count++;
-    }
-  }
+    } // end of loop over matches to query
+  } // end of loop over queries
   return true_agmr_count;
 }
 
