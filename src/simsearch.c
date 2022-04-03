@@ -628,9 +628,8 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Accession* m_acc = the_accessions->a[the_mci->match_index];
 
       
-      fprintf(ostream, "%5ld  %30s  %30s  %5.2f  %4ld  %5.3f  %5.3f",
-	      i_q,
-	      q_acc->id->a,   m_acc->id->a,  
+      fprintf(ostream, "%4ld  %30s  %30s  %5.2f  %3ld  %5.3f  %5.3f",
+	      i_q,  q_acc->id->a,   m_acc->id->a,  
 	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
 	      the_mci->est_agmr,  the_mci->agmr);
       if (output_format == 1){
@@ -664,6 +663,7 @@ void print_usage_info(FILE* ostream){
   fprintf(ostream, "  -i \t input file name (required).\n");
   fprintf(ostream, "  -r \t file name of reference data set.\n");
   fprintf(ostream, "  -o \t output file name. Default: simsearch.out\n");
+  fprintf(ostream, "  -f \t control output format. Default 1; 2 for more info.
   fprintf(ostream, "  -p \t ploidy. (default: 2)\n");
   fprintf(ostream, "  -k \t number of markers per chunk. Default: 8\n");
   fprintf(ostream, "  -n \t number of chunks to use. Default: (int)n_markers/chunk_size \n");
