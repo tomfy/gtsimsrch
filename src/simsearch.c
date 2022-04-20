@@ -61,7 +61,9 @@ Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching
 Vmci* construct_vmci(long init_size);
 void add_mci_to_vmci(Vmci* the_vmci, Mci* the_mci);
 void sort_vmci_by_agmr(Vmci* the_vmci); // sort Vmci by agmr
-int cmpmci(const void* v1, const void* v2);
+void sort_vmci_by_index(Vmci* the_vmci); // sort Vmci by index
+int cmpmci_a(const void* v1, const void* v2);
+int cmpmci_i(const void* v1, const void* v2);
 void free_vmci(Vmci* the_vmci);
 
 // *****  Pattern_ids; indices are patterns; elements are Vlong* of accids having that pattern.
@@ -79,6 +81,7 @@ void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi);
 Vlong* find_chunk_match_counts(Accession* the_gts, Chunk_pattern_ids* the_cpi);
 Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pattern_ids* the_cpi, double max_est_agmr);
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
+long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 void print_command_line(FILE* ostream, int argc, char** argv);
 // *************************  end of declarations  **********************************************
 
@@ -296,7 +299,7 @@ main(int argc, char *argv[])
   fclose(rparam_stream);
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
-
+  free(rparam_buf);
   // *****  done reading and storing input  **********
   
  
@@ -316,13 +319,18 @@ main(int argc, char *argv[])
   long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# time to find candidate matches and %ld true agmrs: %9.3f\n", true_agmr_count, hi_res_time() - t_start);
   fclose(out_stream);
-    
+
+  long cume_s = 0;
   // *****  clean up  *****
   for(long i=0; i< the_accessions->size; i++){
-    free_vmci(query_vmcis[i]);
+    long s = query_vmcis[i]->size;
+    cume_s += s;
+    //  fprintf(stderr, "# i, size of query_vmcis[i]: %ld  %ld \n", i, s);
+     free_vmci(query_vmcis[i]);
   }
-  free_genotypesset(the_genotypes_set);
+  fprintf(stderr, "# mcis freed: %ld\n", cume_s);
   free(query_vmcis);
+  free_genotypesset(the_genotypes_set); 
   free_vlong(marker_indices);
   free_chunk_pattern_ids(the_cpi);
   fprintf(stdout, "# total simsearch run time: %9.3f\n", hi_res_time() - start0);
@@ -516,22 +524,59 @@ void free_vmci(Vmci* the_vmci){
 }
 
 
-int cmpmci(const void* v1, const void* v2){
+int cmpmci_i(const void* v1, const void* v2){  // sort by query index, agmr is tie breaker
+  const Mci** s1 = (const Mci**)v1;
+  const Mci** s2 = (const Mci**)v2;
+
+  long idx1 = (*s1)->query_index;
+  long idx2 = (*s2)->query_index;
+
+  if(idx1 > idx2){
+    return 1;
+  }else if(idx1 < idx2){
+    return -1;
+  }else{
+    double a1 = (*s1)->agmr;
+    double a2 = (*s2)->agmr;
+    if(a1 > a2){
+      return 1;
+    }else if(a1 < a2){
+      return -1;
+    }else{
+      return 0;
+    }
+  }
+}
+
+int cmpmci_a(const void* v1, const void* v2){ // sort by agmr, query index is tie breaker
   const Mci** s1 = (const Mci**)v1;
   const Mci** s2 = (const Mci**)v2;
   double a1 = (*s1)->agmr;
   double a2 = (*s2)->agmr;
+
   if(a1 > a2){
     return 1;
   }else if(a1 < a2){
     return -1;
   }else{
-    return 0;
+    long idx1 = (*s1)->query_index;
+    long idx2 = (*s2)->query_index;
+    if(idx1 > idx2){
+      return 1;
+    }else if(idx1 <  idx2){
+      return -1;
+    }else{
+      return 0;
+    }
   }
 }
 
-void sort_vmci_by_agmr(Vmci* the_vmci){ // sort in place
-  qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci);
+void sort_vmci_by_agmr(Vmci* the_vmci){ // sort by agmr (low to high), query index as tie-breaker
+  qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_a);
+}
+
+void sort_vmci_by_index(Vmci* the_vmci){ // sort by agmr (low to high), query index as tie-breaker
+  qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_i);
 }
 
 
@@ -571,6 +616,7 @@ Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pat
   long chunk_size = the_cpi->chunk_size;
   
   long true_agmr_count = 0;
+  // long xcount = 0;
   double min_matching_chunk_fraction = pow(1.0 - max_est_agmr, chunk_size);
   Vmci** query_vmcis = (Vmci**)malloc(the_accessions->size * sizeof(Vmci*)); //
   for(long i = 0; i<the_accessions->size; i++){
@@ -602,14 +648,18 @@ Vmci** find_matches(long n_ref_accessions, Vaccession* the_accessions, Chunk_pat
 	if(true_agmr <= max_est_agmr){
 	  true_agmr_count++;
 	  add_mci_to_vmci(query_vmcis[i_query],
-			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr)); //, dists.d2, dists.d3)); //true_hgmr));	
-	  if(i_match >= n_ref_accessions) add_mci_to_vmci(query_vmcis[i_match],
+			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr)); //, dists.d2, dists.d3)); //true_hgmr));
+	  //  fprintf(stderr, "# i_query i_match: %ld %ld \n", i_query, i_match);
+	  if(i_match >= n_ref_accessions){ add_mci_to_vmci(query_vmcis[i_match],
 							  construct_mci(i_match, i_query, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr)); //, dists.d2, dists.d3)); // true_hgmr));
+	    //	    xcount++;
+	  }
 	} // end if(true_agmr < max_est_agmr)
       } // end if(enough matching chunks)
     } // end loop over potential matches to query
     free_vlong(chunk_match_counts);
   } // end loop over queries.
+  //  fprintf(stderr, "# n_ref_accessions: %ld true_agmr_count: %ld  xcount: %ld\n", n_ref_accessions, true_agmr_count, xcount);
   //clock_t find_matches_ticks = clock() - start; 
   /* fprintf(stderr, "# time in: find_chunk_match_count: %8.3lf; rest of find_matches: %8.3lf; find_matches total: %8.3lf\n", */
   /* 	  clock_ticks_to_seconds(fcmc_ticks), clock_ticks_to_seconds(find_matches_ticks - fcmc_ticks), clock_ticks_to_seconds(find_matches_ticks)); */
@@ -647,6 +697,42 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
   return true_agmr_count;
 }
 
+long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){
+  Vmci* all_mcis = construct_vmci(1000);
+  for(long i_q=0; i_q<the_accessions->size; i_q++){
+    Vmci* the_vmci = query_vmcis[i_q];
+    for(long i_m=0; i_m < the_vmci->size; i_m++){
+      // Mci* the_mci = the_vmci->a[i_m];
+      add_mci_to_vmci(all_mcis, the_vmci->a[i_m]);
+    }
+  }
+  long true_agmr_count = 0;
+  // sort_vmci_by_agmr(all_mcis);
+  sort_vmci_by_index(all_mcis);
+  for(long i=0; i< all_mcis->size; i++){
+    Mci* the_mci = all_mcis->a[i];
+    Accession* q_acc = the_accessions->a[the_mci->query_index];
+    Accession* m_acc = the_accessions->a[the_mci->match_index];
+      fprintf(ostream, "%4ld  %30s  %30s  %5.2f  %3ld  %5.3f  %5.3f",
+	      the_mci->query_index,  q_acc->id->a,   m_acc->id->a,  
+	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
+	      the_mci->est_agmr,  the_mci->agmr);
+      if (output_format == 1){
+	// leave as is
+      }else if(output_format == 2){ // add a bit more info
+	fprintf(ostream, "  %4ld  %4ld  %3ld  %3ld",
+		q_acc->missing_data_count,  q_acc->md_chunk_count, m_acc->missing_data_count, m_acc->md_chunk_count);
+      }else{
+	fprintf(stderr, "# output_format %ld is unknown. using default output_format.\n", output_format);
+      }
+      fprintf(ostream, "\n");
+      true_agmr_count++;
+    } // end of loop over matches to query
+  free_vmci(all_mcis);
+  return true_agmr_count;
+} // end print_results_a
+
+
 void print_usage_info(FILE* ostream){
   // i: input file name (required).
   // r: reference set file name.
@@ -663,7 +749,7 @@ void print_usage_info(FILE* ostream){
   fprintf(ostream, "  -i \t input file name (required).\n");
   fprintf(ostream, "  -r \t file name of reference data set.\n");
   fprintf(ostream, "  -o \t output file name. Default: simsearch.out\n");
-  fprintf(ostream, "  -f \t control output format. Default 1; 2 for more info.
+  fprintf(ostream, "  -f \t control output format. Default 1; 2 for more info.\n");
   fprintf(ostream, "  -p \t ploidy. (default: 2)\n");
   fprintf(ostream, "  -k \t number of markers per chunk. Default: 8\n");
   fprintf(ostream, "  -n \t number of chunks to use. Default: (int)n_markers/chunk_size \n");

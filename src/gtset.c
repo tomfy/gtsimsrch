@@ -577,6 +577,11 @@ void free_genotypesset(GenotypesSet* the_gtsset){
   if(the_gtsset == NULL) return;
   free_vstr(the_gtsset->marker_ids);
   free_vlong(the_gtsset->marker_missing_data_counts);
+  free_vlong(the_gtsset->marker_alt_allele_counts);
+  for(long i=0; i<=MAX_PLOIDY; i++){
+    free_vlong(the_gtsset->marker_dose_counts[i]);
+  }
+  free(the_gtsset->marker_dose_counts);
   free_vaccession(the_gtsset->accessions);
   free(the_gtsset);
 }

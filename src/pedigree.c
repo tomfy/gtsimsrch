@@ -765,28 +765,35 @@ const Vaccession* accessions_with_offspring_x(const Vpedigree* the_vped, const G
 /* } */
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->agmr12.d, (double)(the_pedigree_stats->agmr12.n+1)/(double)(the_pedigree_stats->agmr12.d+1));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_hgmr.d, (double)(the_pedigree_stats->par1_hgmr.n+1)/(double)(the_pedigree_stats->par1_hgmr.d+1));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_R.d, (double)(the_pedigree_stats->par1_R.n+1)/(double)(the_pedigree_stats->par1_R.d+1));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, (double)(the_pedigree_stats->par2_hgmr.n+1)/(double)(the_pedigree_stats->par2_hgmr.d+1));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, (double)(the_pedigree_stats->par2_R.n+1)/(double)(the_pedigree_stats->par2_R.d+1));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, (double)(the_pedigree_stats->d.n+1)/(double)(the_pedigree_stats->d.d+1));
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->agmr12.d, (double)(the_pedigree_stats->agmr12.n+1)/(double)(the_pedigree_stats->agmr12.d+1)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_hgmr.d, (double)(the_pedigree_stats->par1_hgmr.n+1)/(double)(the_pedigree_stats->par1_hgmr.d+1)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_R.d, (double)(the_pedigree_stats->par1_R.n+1)/(double)(the_pedigree_stats->par1_R.d+1)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, (double)(the_pedigree_stats->par2_hgmr.n+1)/(double)(the_pedigree_stats->par2_hgmr.d+1)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, (double)(the_pedigree_stats->par2_R.n+1)/(double)(the_pedigree_stats->par2_R.d+1)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, (double)(the_pedigree_stats->d.n+1)/(double)(the_pedigree_stats->d.d+1)); */
+
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->agmr12.d, get_agmr12(the_pedigree_stats));
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_hgmr.d, get_hgmr1(the_pedigree_stats));
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_R.d, get_R1(the_pedigree_stats));
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, get_hgmr2(the_pedigree_stats));
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, get_R2(the_pedigree_stats));
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, get_d(the_pedigree_stats));
 }
 
 double get_agmr12(Pedigree_stats* p){
-  return (p->agmr12.d > 0)? (double)(p->agmr12.n+1)/(double)(p->agmr12.d+1) : 2;
+  return (p->agmr12.d > 0)? (double)(p->agmr12.n)/(double)(p->agmr12.d) : 2;
 }
 double get_hgmr1(Pedigree_stats* p){
-  return (p->par1_hgmr.d > 0)? (double)(p->par1_hgmr.n+1)/(double)(p->par1_hgmr.d+1) : 2;
+  return (p->par1_hgmr.d > 0)? (double)(p->par1_hgmr.n)/(double)(p->par1_hgmr.d) : 2;
 }
 double get_R1(Pedigree_stats* p){
-  return (p->par1_R.d > 0)? (double)(p->par1_R.n+1)/(double)(p->par1_R.d+1) : 2;
+  return (p->par1_R.d > 0)? (double)(p->par1_R.n)/(double)(p->par1_R.d) : 2;
 }
 double get_hgmr2(Pedigree_stats* p){
-  return (p->par2_hgmr.d > 0)? (double)(p->par2_hgmr.n+1)/(double)(p->par2_hgmr.d+1) : 2;
+  return (p->par2_hgmr.d > 0)? (double)(p->par2_hgmr.n)/(double)(p->par2_hgmr.d) : 2;
 }
 double get_R2(Pedigree_stats* p){
-  return (p->par2_R.d > 0)? (double)(p->par2_R.n+1)/(double)(p->par2_R.d+1) : 2;
+  return (p->par2_R.d > 0)? (double)(p->par2_R.n)/(double)(p->par2_R.d) : 2;
 }
 /* double get_d1(Pedigree_stats* p){ */
 /*   return (p->d1.d > 0)? (double)(p->d1.n+1)/(double)(p->d1.d+1) : 2; */
@@ -795,7 +802,7 @@ double get_R2(Pedigree_stats* p){
 /*   return (p->d2.d > 0)? (double)(p->d2.n+1)/(double)(p->d2.d+1) : 2; */
 /* } */
 double get_d(Pedigree_stats* p){
-  return (p->d.d > 0)? (double)(p->d.n+1)/(double)(p->d.d+1) : 2;
+  return (p->d.d > 0)? (double)(p->d.n)/(double)(p->d.d) : 2;
 }
 
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees){
