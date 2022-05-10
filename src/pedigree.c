@@ -15,26 +15,28 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
   the_pedigree->M = Mparent;
   the_pedigree->A = Acc;
   the_pedigree->pedigree_stats = NULL;
+  fprintf(stderr, "# in construct_pedigree, just before return.\n");
   return the_pedigree;
 }
 
-double hgmr(char* gts1, char* gts2){
-  char c1, c2;
-  long n_numer = 0;
-  long n_denom = 0;
-  long i=0;
-  while((c1 = gts1[i]) != '\0'){
-    if((c1 == '0') || (c1 == '2')){
-      c2 = gts2[i];
-      if((c2 == '0') || (c2 == '2')){
-	n_denom++;
-	if(c1 != c2) n_numer++;
-      }
-    }
-    i++;
-  }
-  return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
-}
+/* double hgmr(char* gts1, char* gts2){ */
+/*   char c1, c2; */
+/*   long n_numer = 0; */
+/*   long n_denom = 0; */
+/*   long i=0; */
+/*   while((c1 = gts1[i]) != '\0'){ */
+/*     if((c1 == '0') || (c1 == '2')){ */
+/*       c2 = gts2[i]; */
+/*       if((c2 == '0') || (c2 == '2')){ */
+/* 	n_denom++; */
+/* 	if(c1 != c2) n_numer++; */
+/*       } */
+/*     } */
+/*     i++; */
+/*   } */
+/*   fprintf(stderr, "hgmr   n,d: %ld %ld\n", n_numer, n_denom);  */
+/*   return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;   */
+/* } */
 
 
 long marker_d_counts(Pedigree* the_pedigree,
@@ -155,14 +157,20 @@ long marker_d_counts(Pedigree* the_pedigree,
 }
 
 
-Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ // 
+Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy){ // 
   //  long* d0counts, long* d1counts, long* d2counts){ // Pedigree* the_pedigree, GenotypesSet* the_gtsset){
 
   char c1, c2, c3;
-  long n_00_0 = 0, n_00_1 = 0, n_00_2 = 0;
+  char alt_char =(char)(ploidy + 48);
+  // distinguish 46 types of triples:
+  // here 0 means homozygous (ref allele)
+  // 2 means homozygous (alt allele) i.e. dosage == ploidy
+  // 1 means heterozygous, i.e. any dosage from 1 to ploidy-1
+  // 3 in, e.g. n_03_1 means missing data
+  long n_00_0 = 0, n_00_1 = 0, n_00_2 = 0; // n_01_0 <-> parent1 has 0, parent2 has 1, and progeny has 0
   long n_01_0 = 0, n_01_1 = 0, n_01_2 = 0;
   long n_02_0 = 0, n_02_1 = 0, n_02_2 = 0;
-  long n_03_0 = 0, n_03_1 = 0, n_03_2 = 0;
+  long n_03_0 = 0, n_03_1 = 0, n_03_2 = 0; // n_03_0 <-> parent 1 has 0, parent 2 has missing data, progeny has 0
   
   long n_10_0 = 0, n_10_1 = 0, n_10_2 = 0;
   long n_11_0 = 0, n_11_1 = 0, n_11_2 = 0;
@@ -177,10 +185,14 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
   long n_30_0 = 0, n_30_1 = 0, n_30_2 = 0;
   long n_31_0 = 0, n_31_1 = 0, n_31_2 = 0;
   long n_32_0 = 0, n_32_1 = 0, n_32_2 = 0;
+
+  long n_33_x = 0; // both parents have md, progeny anything except md.
+  long n_xy_3 = 0; // progeny md, parents anything.
   
   long i=0;
-  while((c3 = proggts[i]) != '\0'){
-    if(c3 != '3'){
+  while((c3 = proggts[i]) != '\0'){ // go until hit null termination of proggts
+    // fprintf(stderr, "#zzz: %c %c %c \n", c3, gts1[i], gts2[i]);
+    if(c3 != MISSING_DATA_CHAR){
       c1 = gts1[i];
       c2 = gts2[i];
       if(c1 == '0'){ // 0xy
@@ -209,7 +221,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
 	    n_02_2++; //d1counts[i]++;
 	  }
 	}
-	else if(c2 == '3'){ // 03y
+	else if(c2 == MISSING_DATA_CHAR){ // 03y
 	  if(c3 == '0'){
 	    n_03_0++;
 	  }else if(c3 == '1'){
@@ -243,7 +255,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
 	  }else if(c3 == '2'){
 	    n_12_2++; //d0counts[i]++;
 	  }
-	}else if(c2 == '3'){ // 13y
+	}else if(c2 == MISSING_DATA_CHAR){ // 13y
 	  if(c3 == '0'){
 	    n_13_0++;
 	  }else if(c3 == '1'){
@@ -277,7 +289,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
 	  }else if(c3 == '2'){
 	    n_22_2++; //d0counts[i]++;
 	  }
-	}else if(c2 == '3'){ // 23y
+	}else if(c2 == MISSING_DATA_CHAR){ // 23y
 	  if(c3 == '0'){
 	    n_23_0++;
 	  }else if(c3 == '1'){
@@ -286,7 +298,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
 	    n_23_2++;
 	  }
 	}
-      }else if(c1 == '3'){ // 3xy
+      }else if(c1 == MISSING_DATA_CHAR){ // 3xy
 	if(c2 == '0'){ // 30y
 	  if(c3 == '0'){
 	    n_30_0++;
@@ -313,8 +325,11 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
 	  }
 	}else{ // 33y
 	  // do nothing
+	  n_33_x++;
 	}
       }
+    }else{ // c3 == MISSING_DATA_CHAR
+      n_xy_3++;
     }
     i++;
   }
@@ -333,13 +348,27 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
   long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1;
   long n_0x_2 = n_00_2 + n_01_2 + n_02_2 + n_03_2;
   
-  //  long n_1x_0 = n_10_0 + n_11_0 + n_12_0 + n_13_0;
-  //  long n_1x_1 = n_10_1 + n_11_1 + n_12_1 + n_13_1;
-  //  long n_1x_2 = n_10_2 + n_11_2 + n_12_2 + n_13_2;
+    long n_1x_0 = n_10_0 + n_11_0 + n_12_0 + n_13_0;
+    long n_1x_1 = n_10_1 + n_11_1 + n_12_1 + n_13_1;
+    long n_1x_2 = n_10_2 + n_11_2 + n_12_2 + n_13_2;
   
   long n_2x_0 = n_20_0 + n_21_0 + n_22_0 + n_23_0;
   long n_2x_1 = n_20_1 + n_21_1 + n_22_1 + n_23_1;
   long n_2x_2 = n_20_2 + n_21_2 + n_22_2 + n_23_2;
+
+  long n_3x_0 = n_30_0 + n_31_0 + n_32_0; // + n_03_0;
+  long n_3x_1 = n_30_1 + n_31_1 + n_32_1; // + n_03_1;
+  long n_3x_2 = n_30_2 + n_31_2 + n_32_2; // + n_03_2;
+
+  long total =
+      n_0x_0 + n_0x_1 + n_0x_2
+    + n_1x_0 + n_1x_1 + n_1x_2
+    + n_2x_0 + n_2x_1 + n_2x_2
+    + n_3x_0 + n_3x_1 + n_3x_2
+    + n_33_x + n_xy_3;
+
+  fprintf(stderr, "XXXXXX: %ld %ld  %ld %ld \n", i, total, n_33_x, n_xy_3);
+    
 
   long n_x0_0 = n_00_0 + n_10_0 + n_20_0 + n_30_0;
   long n_x0_1 = n_00_1 + n_10_1 + n_20_1 + n_30_1;
@@ -379,7 +408,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts){ //
   Pedigree_stats* pedigree_stats = (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
   ND agmr12_nd = {agmr12_numer, agmr12_denom};
   pedigree_stats->agmr12 = agmr12_nd;
-  
+
   ND hgmr1_nd = {hgmr1_numer, hgmr1_denom};
   pedigree_stats->par1_hgmr = hgmr1_nd;
   ND R1_nd = {r0x1or2_numer, r0x1or2_denom};
@@ -643,6 +672,7 @@ Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, //
   pedigree_stats->agmr12 = agmr12_nd;
   ND hgmr1_nd = {hgmr1_numer, hgmr1_denom};
   pedigree_stats->par1_hgmr = hgmr1_nd;
+  // fprintf(stderr, "  %7.5f ", (hgmr1_denom > 0)? (double)hgmr1_numer/hgmr1_denom : 2);
   //  ND r1_nd = {r0x1_numer, r0x1_denom};
   //  pedigree_stats->par1_r = r1_nd;
   ND R1_nd = {r0x1or2_numer, r0x1or2_denom};
@@ -687,9 +717,53 @@ Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, //
 /*   agmr_hgmr_r(malpar_gts, acc_gts, &(the_pedigree->mp_ahr)); */
 /*   agmr_hgmr_r(fempar_gts, malpar_gts, &(the_pedigree->fm_ahr)); */
 /* } */
+Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy){
+  Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
+  the_ps->agmr12.n = 0;
+  the_ps->agmr12.d = 0;
+  the_ps->par1_hgmr.n = 0;
+  the_ps->par1_hgmr.d = 0;
+  the_ps->par1_R.n = 0;
+  the_ps->par1_R.d = 0;
+  the_ps->par2_hgmr.n = 0;
+  the_ps->par2_hgmr.d = 0;
+  the_ps->par2_R.n = 0;
+  the_ps->par2_R.d = 0;
+  the_ps->d.n = 0;
+  the_ps->d.d = 0;
+  the_ps->pseudo_hgmr.n = 0;
+  the_ps->pseudo_hgmr.d = 0;  
+}
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
 
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
-  return triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a );			 
+  assert(the_pedigree->F != NULL  ||  the_pedigree->M != NULL); // shouldn't have both parents NULL 
+  if(the_pedigree->F != NULL  &&  the_pedigree->M != NULL){
+  return triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
+  }else{
+    Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
+    the_ps->agmr12.n = 0;
+    the_ps->agmr12.d = 0;
+    the_ps->d.n = 0;
+    the_ps->d.d = 0;
+    if(the_pedigree->F != NULL){ // female ok, no male parent:
+      
+      the_ps->par2_hgmr.n = 0;
+      the_ps->par2_hgmr.d = 0;
+      the_ps->par2_R.n = 0;
+      the_ps->par2_R.d = 0;
+
+    }else{ // no female parent, no male parent
+      assert(the_pedigree->M != NULL);
+ the_ps->par1_hgmr.n = 0;
+  the_ps->par1_hgmr.d = 0;
+  the_ps->par1_R.n = 0;
+  the_ps->par1_R.d = 0;
+    }
+      //construct_pedigree_stats(the_pedigree, ploidy); //the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
+    // the_ps->agmr12.n = 0;
+    fprintf(stderr, "######  %ld %ld \n", the_ps->par1_hgmr.n, the_ps->par2_hgmr.d);
+    return the_ps;
+  }
 }
 
 
@@ -698,10 +772,8 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessi
   for(long i=0; i<the_vped->size; i++){
     const Pedigree* the_ped = the_vped->a[i];
     // fprintf(stderr, "%ld %ld \n", the_ped->F->index, the_ped->Fparent->index);
-    long fp_index = the_ped->F->index; // Fparent->index;
-    offspring_counts->a[fp_index]++;
-    long mp_index = the_ped->M->index; // parent->index;
-    offspring_counts->a[mp_index]++; 
+    if(the_ped->F != NULL) offspring_counts->a[the_ped->F->index]++;
+    if(the_ped->M != NULL) offspring_counts->a[the_ped->M->index]++; 
   }
   Vlong* accidxs_with_offspring = construct_vlong(100);
   //  Vaccession* accessions = construct_vaccession(100);
@@ -872,24 +944,36 @@ Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid,
     // construct a Pedigree struct from last 3 fields  
     char* acc_id = ith_str_from_vstr(fields, -3); // ith_str ... copies the string, i.e. allocates more memory
     char* fempar_id = ith_str_from_vstr(fields, -2);
-    char* malpar_id = ith_str_from_vstr(fields, -1);   
+    char* malpar_id = ith_str_from_vstr(fields, -1);
+    // fprintf(stderr, "### %s %s %s \n", acc_id, fempar_id, malpar_id);
   
     long acc_idx, fempar_idx, malpar_idx;
-    if(
-       (strcmp(acc_id, "NA") != 0) &&
-       (strcmp(fempar_id, "NA") != 0) &&
-       (strcmp(malpar_id, "NA") != 0) &&
-       ((acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id)) != -1) &&
-       ((fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id)) != -1) &&
-       ((malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id)) != -1)
-       ){
+    if( // none of the ids are "NA" and id is present in genotypes data set
+	strcmp(acc_id, "NA") != 0){
+      acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id);
+      fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id);
+      malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id);
+      if(acc_idx != -1  && (fempar_idx != -1  ||  malpar_idx != -1)){
+        fprintf(stderr, "## %s %s %s %ld %ld %ld \n", acc_id, fempar_id, malpar_id,
+	    index_of_id_in_vidxid(the_vidxid, acc_id),
+	    index_of_id_in_vidxid(the_vidxid, fempar_id),
+	    index_of_id_in_vidxid(the_vidxid, malpar_id));
+      }
+      if(
+	 ((strcmp(fempar_id, "NA") != 0) || (strcmp(malpar_id, "NA") != 0)) &&
+	 ((acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id)) != -1) &&
+	 (((fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id)) != -1) ||
+	  ((malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id)) != -1))
+	 ){
      
-      Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
-      Accession* Fpar = the_gtsset->accessions->a[fempar_idx]; // id->index;
-      Accession* Mpar = the_gtsset->accessions->a[malpar_idx]; // id->index;
-     
-      Pedigree* a_pedigree = construct_pedigree(Acc, Fpar, Mpar);
-      add_pedigree_to_vpedigree(pedigrees, a_pedigree);
+	Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
+	Accession* Fpar = (fempar_idx != -1)? the_gtsset->accessions->a[fempar_idx] : NULL; // id->index;
+	Accession* Mpar = (malpar_idx != -1)? the_gtsset->accessions->a[malpar_idx] : NULL; // id->index;
+	fprintf(stderr, "# %p %p %p \n", Acc, Fpar, Mpar);
+	Pedigree* a_pedigree = construct_pedigree(Acc, Fpar, Mpar);
+	//	fprintf(stderr, "## added %s %s %s  to pedigree\n", Acc->id->a, Fpar->id->a, Mpar->id->a);
+	add_pedigree_to_vpedigree(pedigrees, a_pedigree);
+      }
     }
     free_vstr(fields);
   } // done reading all lines
@@ -951,7 +1035,7 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
     long the_idx = the_idxhgmrs[i].idx;
     if(the_idx != acc_idx){
       double the_hgmr = the_idxhgmrs[i].hgmr;
-      if(the_hgmr >= max_ok_hgmr) break; 
+      if(the_hgmr >= max_ok_hgmr) break; // all the rest are worse, so skip them.
       //   if(the_hgmr >= 0){
       if(the_idx != fparent_idx  &&  the_idx != mparent_idx  &&  the_idx != acc_idx){
 	add_long_to_vlong(best_parent_candidate_idxs, the_idx);
@@ -967,7 +1051,7 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
   for(long i=0; i<ub; i++){
     long idx1 = best_parent_candidate_idxs->a[i];
     Accession* acc1 = the_gtsset->accessions->a[idx1];
-    char* id1 = acc1->id->a; // accqession_ids->a[idx1];
+    char* id1 = acc1->id->a; // accession_ids->a[idx1];
     char* gts1 = acc1->genotypes->a; // genotype_sets->a[idx1];
       for(long j=i; j<ub; j++){
 	long idx2 = best_parent_candidate_idxs->a[j];
@@ -976,7 +1060,7 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
 	if(! ((idx1 == fparent_idx && idx2 == mparent_idx) || (idx1 == mparent_idx && idx2 == fparent_idx))){  
 	  char* gts2 = acc2->genotypes->a; // the_gtsset->genotype_sets->a[idx2];
 	  Pedigree* alt_pedigree = construct_pedigree(the_pedigree->A, acc1, acc2); // arbitrarily put acc1 as Female parent, acc2 as male
-	  Pedigree_stats* alt_pedigree_stats = triple_counts(gts1, gts2, acc_gts);
+	  Pedigree_stats* alt_pedigree_stats = triple_counts(gts1, gts2, acc_gts, the_gtsset->ploidy);
 	  //if(get_hgmr1(alt_pedigree_stats) <= 0.05  && get_hgmr2(alt_pedigree_stats) <= 0.05  &&
 	  if(get_d(alt_pedigree_stats) <= max_ok_d){   
 	    alt_pedigree->pedigree_stats = alt_pedigree_stats;

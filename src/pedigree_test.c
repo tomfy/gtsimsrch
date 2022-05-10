@@ -9,9 +9,9 @@
 #include <assert.h>
 #include "gtset.h"
 #include "pedigree.h"
-#define UNKNOWN -1
-#define DOSAGES 0
-#define GENOTYPES 1
+//#define UNKNOWN -1
+//#define DOSAGES 0
+//#define GENOTYPES 1
 
 int do_checks_flag = 0; // option -c sets this to 1 to do some checks.
 
@@ -58,7 +58,7 @@ main(int argc, char *argv[])
   // o: output filename.
   // a: max 'self' agmr, h: max ok hgmr,  r: max 'self' r, D: max ok d;
   int c;
-  int genotype_file_type = UNKNOWN;
+  //  int genotype_file_type = UNKNOWN;
   while((c = getopt(argc, argv, "A:cd:g:p:w:x:o:a:h:r:D:")) != -1){
     switch(c){
     case 'A':
@@ -82,7 +82,7 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       fclose(g_stream);
-      genotype_file_type = DOSAGES;
+      //  genotype_file_type = DOSAGES;
       break;
     case 'g':
       genotypes_filename = optarg;
@@ -92,7 +92,7 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       fclose(g_stream);
-      genotype_file_type = GENOTYPES;
+      //  genotype_file_type = GENOTYPES;
       break;
     case 'p':
       pedigrees_filename = optarg;
@@ -203,9 +203,9 @@ main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
   // fprintf(stderr, "# genotypes file type: %d\n", genotype_file_type);
-  char* geno_file_type = (genotype_file_type == DOSAGES)? "dosages" : "genotypes";
-  fprintf(stderr, "# genotypes file type/name: %s / %s.   max marker missing data: %5.3lf\n",
-	  geno_file_type, genotypes_filename, max_marker_missing_data_fraction);
+  //  char* geno_file_type = (genotype_file_type == DOSAGES)? "dosages" : "genotypes";
+  fprintf(stderr, "# genotypes filename: %s max marker missing data: %5.3lf\n",
+	  genotypes_filename, max_marker_missing_data_fraction);
   fprintf(stderr, "# pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
 
   
@@ -216,11 +216,28 @@ main(int argc, char *argv[])
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
   add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set); // load the new set of accessions
   clean_genotypesset(the_genotypes_set); 
+  rectify_markers(the_genotypes_set);
+  store_homozygs(the_genotypes_set);
   
+  double t0 = hi_res_time();
+  if(1){
+    quick_and_dirty_hgmrs(the_genotypes_set);  
+    fprintf(stderr, "# time for hgmrs: %10.3f \n", hi_res_time() - t0);
+    exit(0);
+  }
   t_start = hi_res_time();
+  fprintf(stderr, "# n accessions: %ld \n", the_genotypes_set->n_accessions);
   Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set);
+  fprintf(stderr, "# size of the_vidxid: %ld \n", the_vidxid->size);
+  for(long i=0; i<the_vidxid->size; i++){
+    long index = the_vidxid->a[i]->index;
+    //   fprintf(stderr, "# i idx id: %ld %ld  %s\n", i, index, the_vidxid->a[i]->id); 
+    Accession* a = the_genotypes_set->accessions->a[index];  
+    //  fprintf(stderr, "# i, index, id, index: %ld %ld  %s  %ld\n", i, index, a->id->a, index_of_id_in_vidxid(the_vidxid, a->id->a));
+  }
+  // exit(0);
   // ***************  read the pedigrees file  ***************************
-
+ 
   const Vpedigree* pedigrees = read_the_pedigrees_file_and_store(p_stream, the_vidxid, the_genotypes_set);
   fclose(p_stream);
   fprintf(stderr, "# Done reading genotypes file and pedigree file. \n");
@@ -231,19 +248,46 @@ main(int argc, char *argv[])
 
   
   const Vlong* parent_idxs = accessions_with_offspring(pedigrees, the_genotypes_set->n_accessions);
-  printf("# According to pedigree file there are %ld accession with offspring.\n", parent_idxs->size);
+  printf("# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
 
   t_start = hi_res_time();
+  char ploidy_char = (char)(the_genotypes_set->ploidy + 48);
   for(long i=0; i<pedigrees->size; i++){
     if(i % 1000  == 0){
       fprintf(stderr, "# Done testing %ld pedigrees.\n", i);
     }
-    Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i]); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
+    Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set->ploidy); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
     // assert(strcmp(pedigrees->a[i]->Accession->id, pedigrees->a[i]->A->id->a) == 0);
-    fprintf(o_stream, "%20s %5ld %20s %20s  ",
+    Accession* F = pedigrees->a[i]->F;
+    Accession* M = pedigrees->a[i]->M;
+  fprintf(o_stream, "%20s %5ld %20s %20s  ",
 	    pedigrees->a[i]->A->id->a, pedigrees->a[i]->A->missing_data_count,
-	    pedigrees->a[i]->F->id->a, pedigrees->a[i]->M->id->a);
-    print_pedigree_stats(o_stream, the_pedigree_stats);
+	  (F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA");
+  /* Pedigree_stats* ps = the_pedigree_stats; */
+  /* fprintf(o_stream, " %ld %ld  %ld %ld  %ld %ld  %ld %ld  %ld %ld  %ld %ld     ", */
+  /* 	  ps->agmr12.n, ps->agmr12.d, ps->par1_hgmr.n, ps->par1_hgmr.d, ps->par1_R.n, ps->par1_R.d, */
+  /* 	  ps->par2_hgmr.n, ps->par2_hgmr.d, ps->par2_R.n, ps->par2_R.d, ps->d.n, ps->d.d); */
+  
+  print_pedigree_stats(o_stream, the_pedigree_stats);
+ 
+     if(0){
+    Accession* a = pedigrees->a[i]->A;
+    Accession* f = pedigrees->a[i]->F;
+    Accession* m = pedigrees->a[i]->M;
+    //   ND af = quick_and_dirty_hgmr(a, f);
+    //   ND am = quick_and_dirty_hgmr(a, m);
+    ND hf = quick_and_dirty_hgmr(a, f, ploidy_char);
+    //   ND hm = quick_and_dirty_hgmr_a(a, m, the_genotypes_set->ploidy);
+
+    //  Pedigree_stats* ps = the_pedigree_stats; // triple_counts(f->genotypes->a, m->genotypes->a, a->genotypes->a);
+    //  long n = ps->par1_hgmr.n;
+    // long d = ps->par1_hgmr.d;
+    //   fprintf(o_stream, "  %ld %ld  %7.5f  ",  n, d, (d > 0)? (double)n/d : 2);
+      // fprintf(o_stream, "   %ld %ld %ld %ld   ", af.n, af.d, am.n, am.d);
+      //    ND hhh = hgmr_nd(a->genotypes->a, f->genotypes->a);
+      //   fprintf(o_stream, "  %ld %ld  %6.5f  ", hhh.n, hhh.d, (hhh.d>0)? (double)hhh.n/hhh.d : 2);
+      fprintf(o_stream, "   %ld %ld %6.5f  ", hf.n, hf.d, (hf.d>0)? (double)hf.n/hf.d : 2);
+     }
   
     if(do_alternative_pedigrees > 0){
       if((do_alternative_pedigrees == 2) || (pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0)){

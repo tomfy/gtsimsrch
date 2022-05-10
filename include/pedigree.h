@@ -1,8 +1,8 @@
 // *****  typedefs for Pedigree, Vpedigree *****
-typedef struct{
-  long n; // numerator
-  long d; // denominator
-}ND; // numerator and denominator
+/* typedef struct{ */
+/*   long n; // numerator */
+/*   long d; // denominator */
+// }ND; // numerator and denominator
 
 typedef struct{
   ND agmr12;
@@ -15,6 +15,7 @@ typedef struct{
   //  ND d1;
   //  ND d2;
   ND d;
+  ND pseudo_hgmr;
 }Pedigree_stats; // 
 
 typedef struct{
@@ -39,8 +40,9 @@ typedef struct{
 
 // *****  Pedigree  *****
 Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mparent);
-double hgmr(char* gts1, char* gts2);
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree);
+//double hgmr(char* gts1, char* gts2);
+Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy); // just initializing to 0's
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_d);
 void free_pedigree(const Pedigree* the_pedigree);
@@ -66,7 +68,7 @@ long long_max(long a, long b);
 
 Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts,
 			   long* d0counts, long* d1counts, long* d2counts);
-Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts);
+Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
 long marker_d_counts(Pedigree* the_pedigree,
 		     // char* gts1, char* gts2, char* proggts,

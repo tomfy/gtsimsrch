@@ -9,7 +9,7 @@
 #include <assert.h>
 
 #include "gtset.h"
-#include "various.h"
+//#include "various.h"
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -272,6 +272,8 @@ main(int argc, char *argv[])
  
   // fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
   clean_genotypesset(the_genotypes_set);
+  rectify_markers(the_genotypes_set);
+  store_homozygs(the_genotypes_set);
   // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
 
   the_accessions = the_genotypes_set->accessions;
@@ -300,6 +302,8 @@ main(int argc, char *argv[])
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
   free(rparam_buf);
+
+  print_genotypesset_summary_info(stderr, the_genotypes_set);
   // *****  done reading and storing input  **********
   
  

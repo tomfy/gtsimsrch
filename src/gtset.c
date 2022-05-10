@@ -2,8 +2,8 @@
 #include <limits.h>
 #include <math.h>
 #include "gtset.h"
-#include "various.h"
-
+//#include "various.h"
+//#include "pedigree.h"
 
 
 extern int do_checks_flag; // option -c sets this to 1 to do some checks.
@@ -24,6 +24,9 @@ Accession* construct_accession(char* id, long idx, char* genotypes, long accessi
   the_accession->genotypes = construct_vchar_from_str(genotypes);
   the_accession->chunk_patterns = NULL; // set to NULL to avoid containing garbage which causes crash when freeing accession
   the_accession->missing_data_count = accession_md_count;
+  the_accession->ref_homozygs = construct_vlong(1000);
+  //  the_accession->heterozygs = construct_vlong(1000);
+  the_accession->alt_homozygs = construct_vlong(1000);
   return the_accession;
 }
 void set_accession_missing_data_count(Accession* the_accession, long missing_data_count){
@@ -48,20 +51,20 @@ long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_c
     // loop over characters in the chunk and construct a corresponding long index, in range [0..3^k] (3^k is the index for a chunk with any missing data)
     for(long j=0; j < k; j++){ 
       long idx = m_indices->a[i_chunkstart + j]; // 
-      char a = the_gts->genotypes->a[idx];
-      long l = (long)a - 48;
-      if((l>=0) && (l<=ploidy)){ // this char is ok (0, 1, or 2, not missing data)
-	i_pat += f*l;
-	f *=3;
-	if(l == 0  ||  l == 2){
-	  n_homozygs++;
+	char a = the_gts->genotypes->a[idx];
+	long l = (long)a - 48;
+	if((l>=0) && (l<=ploidy)){ // this char is ok (0, 1, or 2, not missing data)
+	  i_pat += f*l;
+	  f *=3;
+	  if(l == 0  ||  l == 2){
+	    n_homozygs++;
+	  }
+	}else{ // missing data in (at least) one of the markers in the chunk
+	  i_pat = n_patterns;
+	  gts_mdchunk_count++;
+	  n_homozygs = -1;
+	  break;
 	}
-      }else{ // missing data in (at least) one of the markers in the chunk
-	i_pat = n_patterns;
-	gts_mdchunk_count++;
-	n_homozygs = -1;
-	break;
-      }
     } // end of loop over the k chars in a chunk.
     add_long_to_vlong(chunk_pats, i_pat);
     
@@ -84,6 +87,8 @@ void free_accession(Accession* the_accession){
   free_vchar(the_accession->id);
   free_vchar(the_accession->genotypes);
   free_vlong(the_accession->chunk_patterns);
+  free_vlong(the_accession->alt_homozygs);
+  free_vlong(the_accession->ref_homozygs);
   free(the_accession);
 }
 void free_accession_innards(Accession* the_accession){ // doesn't free the_accession itself
@@ -195,7 +200,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     /*   fprintf(stderr, "# ploidy: %ld %ld\n", pldy, the_genotypes_set->ploidy); */
     /*   continue; */
     /* }else */
-      if((strcmp(token, "MARKER") == 0)){
+    if((strcmp(token, "MARKER") == 0)){
       while(1){
 	token = strtok_r(NULL, "\t \n\r", &saveptr);
 	if(token == NULL) break;
@@ -339,9 +344,9 @@ double ragmr(GenotypesSet* the_gtsset){
   }
   ragmr /= the_gtsset->n_markers;
   //   fprintf(stderr, "#  ragmr: 
-  // fprintf(stderr, "bottom of ragmr\n");
+    // fprintf(stderr, "bottom of ragmr\n");
 
-  return ragmr;
+    return ragmr;
 }
 
 
@@ -462,7 +467,7 @@ void check_genotypesset(GenotypesSet* gtss){
 
 void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cleaned' accessions, which replace the raw accessions
   double max_marker_md_fraction = the_gtsset->max_marker_missing_data_fraction;
-  Vlong* md_counts = the_gtsset->marker_missing_data_counts;
+  Vlong* md_counts = the_gtsset->marker_missing_data_counts; // the number of missing data for each marker
   Vlong* alt_allele_counts = the_gtsset->marker_alt_allele_counts;
   
   long n_accs = the_gtsset->n_accessions;
@@ -488,6 +493,7 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   Vlong* md_ok = construct_vlong_zeroes(md_counts->size); // set to 1 if number of missing data gts is small enough
   Vstr* cleaned_marker_ids = construct_vstr(1000);
   Vlong* cleaned_md_counts = construct_vlong(1000);
+  Vlong* cleaned_alt_allele_counts = construct_vlong(1000);
   long mdsum_all = 0;
   long mdsum_kept = 0;
   for(long i=0; i<md_counts->size; i++){
@@ -512,6 +518,7 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
       char* marker_id_to_keep = strcpy((char*)malloc((marker_id_length+1)*sizeof(char)), the_gtsset->marker_ids->a[i]);
       add_string_to_vstr(cleaned_marker_ids, marker_id_to_keep); // store the kept marker ids.
       add_long_to_vlong(cleaned_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
+      add_long_to_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
     }
   }
   double raw_md_fraction = (double)mdsum_all/(double)(md_counts->size*n_accs);
@@ -551,9 +558,248 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   the_gtsset->marker_ids = cleaned_marker_ids;
   free_vlong(the_gtsset->marker_missing_data_counts);
   the_gtsset->marker_missing_data_counts = cleaned_md_counts;
+  free_vlong(the_gtsset->marker_alt_allele_counts);
+  the_gtsset->marker_alt_allele_counts = cleaned_alt_allele_counts;
   the_gtsset->n_markers = the_gtsset->accessions->a[0]->genotypes->length;
 } // end clean_genotypesset
 
+void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency > 0.5, dosage -> ploidy-dosage
+  long n_accessions = the_gtsset->accessions->size;
+  long n_markers = the_gtsset->marker_alt_allele_counts->size;
+  long ploidy = the_gtsset->ploidy;
+  fprintf(stderr, "n_acc: %ld n_markers: %ld ploidy: %ld \n", n_accessions, n_markers, ploidy);
+  for(long i=0; i<n_markers; i++){
+    //  fprintf(stderr, "i: %ld altcount  %ld   md count: %ld \n", i, the_gtsset->marker_alt_allele_counts->a[i], the_gtsset->marker_missing_data_counts->a[i]);
+    if(the_gtsset->marker_alt_allele_counts->a[i] > (n_accessions - the_gtsset->marker_missing_data_counts->a[i])){
+      for(long j=0; j<n_accessions; j++){
+	char dosage = the_gtsset->accessions->a[j]->genotypes->a[i];
+	if(dosage != MISSING_DATA_CHAR){
+	  the_gtsset->accessions->a[j]->genotypes->a[i] = (ploidy - (dosage - 48)) + 48;
+	}
+      }
+    }
+  }
+}
+
+void store_homozygs(GenotypesSet* the_gtsset){
+  for(long i=0; i<the_gtsset->accessions->size; i++){
+    Accession* acc = the_gtsset->accessions->a[i];
+   
+    for(long j=0; j<the_gtsset->marker_alt_allele_counts->size; j++){
+      if(acc->genotypes->a[j] == MISSING_DATA_CHAR) continue;
+      long dosage = (long)(acc->genotypes->a[j] - 48); // 0, 1, ..., ploidy
+      if( dosage == the_gtsset->ploidy){ // if dosage == ploidy
+	add_long_to_vlong(acc->alt_homozygs, j);
+	
+	//	 fprintf(stderr, "i %ld  dosage: %ld  ploidy: %ld \n", i, (long)acc->genotypes->a[j] - 48, the_gtsset->ploidy);
+      }else if(dosage == 0){
+	add_long_to_vlong(acc->ref_homozygs, j);
+      }
+      /* else{ */
+      /* 	add_long_to_vlong(acc->heterozygs, j); */
+      /* } */
+    }
+  }
+}
+
+void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset){ // get q and d 'hgmr' for all accession pairs
+  long good_count = 0;
+  long bad_count = 0;
+  char ploidy_char = (char)(the_gtsset->ploidy + 48);
+  fprintf(stderr, "# number of accessions: %ld\n", the_gtsset->accessions->size);
+  for(long i=0; i<the_gtsset->accessions->size; i++){
+    Accession* acc1 = the_gtsset->accessions->a[i];
+    Vlong* alt_homozygs = acc1->alt_homozygs;
+    for(long j=i+1; j<the_gtsset->accessions->size; j++){
+      Accession* acc2 = the_gtsset->accessions->a[j];
+      //   ND n_d12 = quick_and_dirty_hgmr(acc1, acc2, ploidy_char);
+        ND n_d12 = quick_hgmr(acc1, acc2, ploidy_char);
+       
+      //	four_longs llll = quick_hgmr_R(acc1, acc2, ploidy_char);
+      //	if(llll.l2 == 1) {bad_count++;}else{good_count++;}
+      //	ND n_d12 = hgmr_nd(acc1->genotypes->a, acc2->genotypes->a, ploidy_char);
+		if(n_d12.d == 1) {bad_count++;}else{good_count++;}
+      /* long n = n_d12.l1; */
+      /* long d = n_d12.l2; */
+      /* long rn = n_d12.l3; */
+      /* long rd = n_d12.l4; */
+      /* fprintf(stderr, " %ld %ld  %ld %ld  %7.5f ", i, j, n, d, (d>0)? (double)n/d : 2.0); */
+      /* fprintf(stderr, " %ld %ld  %7.5f", rn, rd, (rd>0)? (double)rn/rd : 2.0); */
+      /* fprintf(stderr, "\n"); */
+    }
+  }
+  fprintf(stderr, "# good_count: %ld  bad_count: %ld \n", good_count, bad_count);
+}
+
+ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){
+  // get hgmr by considering just the markers with dosage == ploidy or dosage = 0 in acc1
+  long n_p0_0p = 0;
+  //  long n_01_p1 = 0;
+  long n_00_pp = 0;
+  for(long k=0; k<acc1->alt_homozygs->size; k++){ // dosage = ploidy in acc1
+    long idx = acc1->alt_homozygs->a[k];
+    char gt2 = acc2->genotypes->a[idx];
+    if(gt2 == '0'){ // p0
+      n_p0_0p++;
+    }else if(gt2 == ploidy_char){ // pp
+      n_00_pp++;
+    }
+    /* else if(gt2 != MISSING_DATA_CHAR){ // acc2 heterozygous (1 ... ploidy-1) */
+    /*   n_01_p1++; */
+    /* } */
+  }
+  for(long k=0; k<acc1->ref_homozygs->size; k++){ // dosage = 0 in acc1
+    long idx = acc1->ref_homozygs->a[k];
+    char gt2 = acc2->genotypes->a[idx];
+    if(gt2 == '0'){ // 00
+      n_00_pp++;
+    }else if(gt2 == ploidy_char){ // 0p
+      n_p0_0p++;
+    }
+    /* else if(gt2 != MISSING_DATA_CHAR){ // acc2 heterozygous (1 ... ploidy-1) */
+    /*   n_01_p1++; */
+    /* } */
+  }
+  //long hgmr_denom = ;
+  //  long r_numer = n_p0_0p + n_01_p1;
+  //long r_denom = n_00_pp + r_numer;
+  ND result = {n_p0_0p, n_00_pp + n_p0_0p}; //, r_numer, r_denom};
+  return result;
+}
+
+four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char){
+  // get hgmr by considering just the markers with dosage == ploidy or dosage = 0 in acc1
+  long n_p0_0p = 0;
+  long n_01_p1 = 0;
+  long n_00_pp = 0;
+  for(long k=0; k<acc1->alt_homozygs->size; k++){ // dosage == ploidy in acc1
+    //long idx = acc1->alt_homozygs->a[k];
+    char gt2 = acc2->genotypes->a[acc1->alt_homozygs->a[k]]; //  idx];
+    if(gt2 == '0'){ // p0
+      n_p0_0p++;
+    }else if(gt2 == ploidy_char){ // pp
+      n_00_pp++;
+    }else if(gt2 != MISSING_DATA_CHAR){ // acc2 heterozygous (1 ... ploidy-1)
+      n_01_p1++;
+    }
+  }
+  for(long k=0; k<acc1->ref_homozygs->size; k++){ // dosage == 0 in acc1
+    //long idx = acc1->ref_homozygs->a[k];
+    char gt2 = acc2->genotypes->a[acc1->ref_homozygs->a[k]]; //   idx];
+    if(gt2 == '0'){ // 00
+      n_00_pp++;
+    }else if(gt2 == ploidy_char){ // 0p
+      n_p0_0p++;
+    }else if(gt2 != MISSING_DATA_CHAR){ // acc2 heterozygous (1 ... ploidy-1)
+      n_01_p1++;
+    }
+  }
+  long hgmr_denom = n_00_pp + n_p0_0p;
+  long r_numer = n_p0_0p + n_01_p1;
+  long r_denom = n_00_pp + r_numer;
+  four_longs result = {n_p0_0p, hgmr_denom, r_numer, r_denom};
+  return result;
+}
+
+double hgmr(char* gts1, char* gts2){
+  char c1, c2;
+  long n_numer = 0;
+  long n_denom = 0;
+  long i=0;
+  while((c1 = gts1[i]) != '\0'){
+    if((c1 == '0') || (c1 == '2')){
+      c2 = gts2[i];
+      if((c2 == '0') || (c2 == '2')){
+	n_denom++;
+	if(c1 != c2) n_numer++;
+      }
+    }
+    i++;
+  }
+  //  ND result = {n_numer, n_denom};
+  //return result;
+  //  fprintf(stderr, "hgmr   n,d: %ld %ld  ", n_numer, n_denom); 
+    return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
+}
+ND hgmr_nd(char* gts1, char* gts2, char ploidy_char){ // return hgmr numerator and denominator
+  char c1, c2;
+  long n_numer = 0;
+  long n_denom = 0;
+  long i=0;
+  while((c1 = gts1[i]) != '\0'){
+    if((c1 == '0') || (c1 == ploidy_char)){
+      c2 = gts2[i];
+      if((c2 == '0') || (c2 == ploidy_char)){
+	n_denom++;
+	if(c1 != c2) n_numer++;
+      }
+    }
+    i++;
+  }
+  ND result = {n_numer, n_denom};
+  return result;
+  //  fprintf(stderr, "hgmr   n,d: %ld %ld  ", n_numer, n_denom); 
+  //  return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
+}
+
+ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){ // get quick 'hgmr', and then if not large get true hgmr.
+  long n_p0 = 0; // dosages = ploidy, 0
+  long n_phet = 0; // dosages = ploidy, heterozyg
+  long n_pp = 0; // both dosages = ploidy
+  long n_md = 0; // missing data
+  long denom = 0;
+  long start = 0;
+  long end = 100;
+
+ 
+  while(1){
+    if(end > acc1->alt_homozygs->size) end = acc1->alt_homozygs->size;
+    for(long k=start; k<end; k++){
+      char gt2 = acc2->genotypes->a[acc1->alt_homozygs->a[k]];
+      if(gt2 == '0'){ // ploidy-0
+	n_p0++;
+      }else if(gt2 == MISSING_DATA_CHAR){
+	n_md++; // (missing data)
+      }else if(gt2 == ploidy_char){
+	n_pp++;
+      }else{
+	n_phet++;
+      }
+    }
+    denom = n_p0 + n_phet + n_pp;
+    double sigma = sqrt((double)n_p0*(n_phet+n_pp)/denom);
+    if(denom > 0 &&(n_p0 - 3*sigma > 0.125*denom )) {
+      ND result = {1, 1};
+      return result; //
+    }
+    start += 100;
+    if(start >= acc1->alt_homozygs->size) break; // have used up all the alt_homozygs
+    end += 100;
+  }
+
+  long n_00 = 0;
+  long n_0p = 0;
+  for(long k=0; k<acc1->ref_homozygs->size; k++){
+    long idx = acc1->ref_homozygs->a[k];
+    char gt2 = acc2->genotypes->a[idx];
+    if(gt2 == '0'){ // 00
+      n_00++;
+    }else if(gt2 == ploidy_char){
+      n_0p++; // 0p
+    }
+  }
+  
+  denom = n_00 + n_0p + n_p0 + n_pp;
+  // double h = hgmr(acc1->genotypes->a, acc2->genotypes->a);
+   
+  //  if(denom == 0) fprintf(stderr, "# B %ld %ld %ld %ld\n", n_00, n_0p, n_p0, n_pp);
+  double hgmr = (denom > 0)? (double)(n_0p + n_p0)/(double)denom : -1;
+  // fprintf(stderr, "%s %s  %7.5f      %ld %ld %7.5f  \n", acc1->id->a, acc2->id->a,  h, n_p0 + n_0p, denom, hgmr);
+  
+  //  if(numer < 30) fprintf(stderr, "ijnd: %ld %ld %ld %ld\n", i, j, numer, denom);
+  ND result = {n_0p+n_p0, denom};
+  return result; // hgmr;
+}
 
 void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
   fprintf(fh, "# max_marker_missing_data_fraction: %8.4lf \n", the_gtsset->max_marker_missing_data_fraction);
@@ -571,6 +817,9 @@ void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset){
   // fprintf(fh, "# delta: %6.4lf\n", the_gtsset->delta);
   fprintf(fh, "# max marker missing data fraction: %6.4f\n", the_gtsset->max_marker_missing_data_fraction);
   fprintf(fh, "# n_markers: %ld\n", the_gtsset->n_markers);
+  /* for(long i=0; i<the_gtsset->accessions->size; i++){ */
+  /*   fprintf(stderr, "acc: %ld dosage=ploidy_count: %ld \n", i, the_gtsset->accessions->a[i]->alt_homozygs->size); */
+  /* } */
 }
 
 void free_genotypesset(GenotypesSet* the_gtsset){

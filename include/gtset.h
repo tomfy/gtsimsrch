@@ -3,7 +3,9 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#include "various.h"
 #include "vect.h"
+//#include "pedigree.h"
 
 #define DO_ASSERT 1
 #define UNKNOWN -1
@@ -23,6 +25,9 @@ typedef struct{
   Vlong* chunk_patterns;
   long md_chunk_count;
   long missing_data_count;
+  Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
+  // Vlong* heterozygs;
+  Vlong* alt_homozygs; // 
 }Accession;
 
 typedef struct{
@@ -87,6 +92,16 @@ GenotypesSet* construct_genotypesset(Vaccession* accessions, Vstr* marker_ids, V
 void check_genotypesset(GenotypesSet* gtss);
 GenotypesSet* construct_cleaned_genotypesset(const GenotypesSet* the_gtsset, double max_md_fraction);
 void clean_genotypesset(GenotypesSet* the_genotypes_set);
+void rectify_markers(GenotypesSet* the_gtsset);
+void store_homozygs(GenotypesSet* the_gtsset);
+void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
+ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
+four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
+//ND quick_and_dirty_hgmr_a(Accession* acc1, Accession* acc2);
+double hgmr(char* gts1, char* gts2);
+ND hgmr_nd(char* gts1, char* gts2, char ploidy_char);
+ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // get quick 'hgmr', and then if not large get true hgmr.
+
 double ragmr(GenotypesSet* the_gtsset);
 void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset);
 void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset);
