@@ -53,6 +53,7 @@ Vstr* construct_vstr_copy(Vstr* the_vstr);
 void add_string_to_vstr(Vstr* the_vstr, char* str); // push, realloc if necessary
 char* ith_str_from_vstr(Vstr* the_vstr, long i); // perl-like: index -1 -> last element, etc.
 char* copy_ith_str_from_vstr(Vstr* the_vstr, long i); // perl-like: index -1 -> last element, etc.
+long compare_vstrs(Vstr* vstr1, Vstr* vstr2); // return value: -1: different sizes; 0: all strs equal; 1: at least 1 pair of unequal strs.
 void print_vstr(FILE* fh, Vstr* the_vstr);
 void free_vstr(const Vstr* the_vstr); // free memory
 
