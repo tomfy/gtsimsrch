@@ -12,5 +12,10 @@ typedef struct{
   long l4;
 }four_longs;
 
+typedef struct{
+  double x1;
+  double x2;
+}two_doubles;
+
 double hi_res_time(void);
 double clock_ticks_to_seconds(clock_t nticks);
