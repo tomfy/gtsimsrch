@@ -52,7 +52,9 @@ Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid,
 Vpedigree* construct_vpedigree(long cap);
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
 const Vaccession* accessions_with_offspring_x(const Vpedigree* the_vped, const GenotypesSet* the_gtsset);
+Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_d);
+Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d);
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees);
 void add_pedigree_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 void free_vpedigree(const Vpedigree* the_vped);
@@ -65,7 +67,8 @@ void sort_idxhgmr_by_hgmr(long size, Idxhgmr* array);
 long long_min(long a, long b);
 long long_max(long a, long b);
 
-
+two_longs gamete_dosage_range(long d, long ploidy);
+four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts,
 			   long* d0counts, long* d1counts, long* d2counts);
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
