@@ -129,6 +129,21 @@ void print_vstr(FILE* fh, Vstr* the_vstr){
   fprintf(fh, "\n");
 }
 
+long compare_vstrs(Vstr* vstr1, Vstr* vstr2){ // return value: -1: different sizes; 0: all strs equal; 1: at least 1 pair of unequal strs.
+  long retval = 0;
+  if(vstr1->size != vstr2->size){
+    retval = -1; 
+  }else{
+    for(long i=0; i<vstr1->size; i++){
+      if(strcmp(vstr1->a[i], vstr2->a[i]) != 0){
+	retval = 1;
+	break;
+      }
+    }
+  }
+  return retval;
+}
+
 void free_vstr(const Vstr* the_vstr){
   if(the_vstr == NULL) return;
   for(long i=0; i<the_vstr->size; i++){ 
