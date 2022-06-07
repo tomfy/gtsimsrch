@@ -8,6 +8,11 @@ typedef struct{
 typedef struct{
   long l1;
   long l2;
+}two_longs;
+
+typedef struct{
+  long l1;
+  long l2;
   long l3;
   long l4;
 }four_longs;

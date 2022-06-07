@@ -231,7 +231,11 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   if(the_genotypes_set->marker_ids  == NULL){
     the_genotypes_set->marker_ids = marker_ids;
   }else{
-    assert(the_genotypes_set->marker_ids->size == marker_ids->size);
+    //  assert(the_genotypes_set->marker_ids->size == marker_ids->size);
+    if(compare_vstrs(marker_ids, the_genotypes_set->marker_ids) != 0){
+      fprintf(stderr, "# sets of marker ids do not agree. Exiting.\n");
+      exit(EXIT_FAILURE);
+    }
     free_vstr(marker_ids);
   }
 
@@ -496,8 +500,12 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   Vlong* cleaned_alt_allele_counts = construct_vlong(1000);
   long mdsum_all = 0;
   long mdsum_kept = 0;
+  long altallelesum_all = 0;
+  long altallelesum_kept = 0;
+  
   for(long i=0; i<md_counts->size; i++){
     mdsum_all += md_counts->a[i];
+    altallelesum_all += alt_allele_counts->a[i];
     /*  fprintf(stderr, "mmaf: %10.5f  %ld %ld  %ld  %8.4f  %ld  %8.4f\n",
 	the_gtsset->min_minor_allele_frequency, the_gtsset->ploidy,
 	the_gtsset->n_accessions, alt_allele_counts->a[i],
@@ -506,14 +514,15 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
     double min_min_allele_count = the_gtsset->ploidy * (the_gtsset->n_accessions - md_counts->a[i]) * the_gtsset->min_minor_allele_frequency;
     double max_min_allele_count = the_gtsset->ploidy * (the_gtsset->n_accessions - md_counts->a[i]) * (1.0 - the_gtsset->min_minor_allele_frequency);
     if(
-       (md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions)
+       (md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions) // not too much missing data
        &&
-       ( (alt_allele_counts->a[i] >= min_min_allele_count)  &&
-	 (alt_allele_counts->a[i] <= max_min_allele_count) )
+       ( (alt_allele_counts->a[i] >= min_min_allele_count)  && // minor allele frequency not too small,
+	 (alt_allele_counts->a[i] <= max_min_allele_count) ) // (or too large)
        ) {
       md_ok->a[i] = 1;
       n_markers_to_keep++;
       mdsum_kept += md_counts->a[i];
+      altallelesum_kept += alt_allele_counts->a[i];
       long marker_id_length = strlen(the_gtsset->marker_ids->a[i]);
       char* marker_id_to_keep = strcpy((char*)malloc((marker_id_length+1)*sizeof(char)), the_gtsset->marker_ids->a[i]);
       add_string_to_vstr(cleaned_marker_ids, marker_id_to_keep); // store the kept marker ids.
@@ -523,9 +532,14 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   }
   double raw_md_fraction = (double)mdsum_all/(double)(md_counts->size*n_accs);
   double cleaned_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
-  fprintf(stderr, "# Removing markers with fraction of missing data greater than: %7.3lf\n", max_marker_md_fraction);
-  fprintf(stderr, "# Raw data has %ld markers, with missing data fraction of %7.3lf\n", md_counts->size, raw_md_fraction);
-  fprintf(stderr, "# Cleaned data has %ld markers, with missing data fraction of: %7.3lf\n", n_markers_to_keep, cleaned_md_fraction);
+  double raw_minor_allele_freq = (double)altallelesum_all/(md_counts->size*n_accs*the_gtsset->ploidy);
+  double cleaned_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
+  fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
+	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
+  fprintf(stdout, "# Raw data has %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
+	  md_counts->size, raw_md_fraction, raw_minor_allele_freq);
+  fprintf(stdout, "# Cleaned data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
+	  n_markers_to_keep, cleaned_md_fraction, cleaned_minor_allele_freq);
 
   Vaccession* the_accessions = construct_vaccession(the_gtsset->n_accessions); //(Accession*)malloc(the_gtsset->n_accessions*sizeof(Accession)); 
   for(long i=0; i<the_gtsset->n_accessions; i++){ // loop over accessions
@@ -567,7 +581,7 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
   long n_accessions = the_gtsset->accessions->size;
   long n_markers = the_gtsset->marker_alt_allele_counts->size;
   long ploidy = the_gtsset->ploidy;
-  fprintf(stderr, "n_acc: %ld n_markers: %ld ploidy: %ld \n", n_accessions, n_markers, ploidy);
+  // fprintf(stderr, "n_acc: %ld n_markers: %ld ploidy: %ld \n", n_accessions, n_markers, ploidy);
   for(long i=0; i<n_markers; i++){
     //  fprintf(stderr, "i: %ld altcount  %ld   md count: %ld \n", i, the_gtsset->marker_alt_allele_counts->a[i], the_gtsset->marker_missing_data_counts->a[i]);
     if(the_gtsset->marker_alt_allele_counts->a[i] > (n_accessions - the_gtsset->marker_missing_data_counts->a[i])){
@@ -613,12 +627,12 @@ void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset){ // get q and d 'hgmr' for 
     for(long j=i+1; j<the_gtsset->accessions->size; j++){
       Accession* acc2 = the_gtsset->accessions->a[j];
       //   ND n_d12 = quick_and_dirty_hgmr(acc1, acc2, ploidy_char);
-        ND n_d12 = quick_hgmr(acc1, acc2, ploidy_char);
+      ND n_d12 = quick_hgmr(acc1, acc2, ploidy_char);
        
       //	four_longs llll = quick_hgmr_R(acc1, acc2, ploidy_char);
       //	if(llll.l2 == 1) {bad_count++;}else{good_count++;}
       //	ND n_d12 = hgmr_nd(acc1->genotypes->a, acc2->genotypes->a, ploidy_char);
-		if(n_d12.d == 1) {bad_count++;}else{good_count++;}
+      if(n_d12.d == 1) {bad_count++;}else{good_count++;}
       /* long n = n_d12.l1; */
       /* long d = n_d12.l2; */
       /* long rn = n_d12.l3; */
@@ -719,17 +733,18 @@ double hgmr(char* gts1, char* gts2){
   //  ND result = {n_numer, n_denom};
   //return result;
   //  fprintf(stderr, "hgmr   n,d: %ld %ld  ", n_numer, n_denom); 
-    return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
+  return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
 }
 ND hgmr_nd(char* gts1, char* gts2, char ploidy_char){ // return hgmr numerator and denominator
   char c1, c2;
   long n_numer = 0;
   long n_denom = 0;
   long i=0;
+  // fprintf(stderr, "## %c  \n", ploidy_char);
   while((c1 = gts1[i]) != '\0'){
-    if((c1 == '0') || (c1 == ploidy_char)){
+    if((c1 == '0') || (c1 == ploidy_char)){ // c1 homozygous
       c2 = gts2[i];
-      if((c2 == '0') || (c2 == ploidy_char)){
+      if((c2 == '0') || (c2 == ploidy_char)){ // c2 homozygous
 	n_denom++;
 	if(c1 != c2) n_numer++;
       }
@@ -799,6 +814,207 @@ ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){ // 
   //  if(numer < 30) fprintf(stderr, "ijnd: %ld %ld %ld %ld\n", i, j, numer, denom);
   ND result = {n_0p+n_p0, denom};
   return result; // hgmr;
+}
+
+ND forbidden_x(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny){
+  if(parent1 == NULL  ||  progeny == NULL){
+    ND result = {0, 0};
+    return result;
+  }
+  long forbidden_count = 0;
+  long denom = 0;
+  long ploidy = the_gtsset->ploidy;
+  for(long i=0; i<the_gtsset->n_markers; i++){
+    long a_dosage = parent1->genotypes->a[i];
+    long b_dosage = progeny->genotypes->a[i];
+    if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
+    assert(a_dosage-48 >= 0  &&  a_dosage-48 <= ploidy);
+    assert(b_dosage-48 >= 0  &&  b_dosage-48 <= ploidy);
+    long delta_dosage = labs(a_dosage - b_dosage);
+    //  fprintf(stderr, "# %c %c \n", (char)a_dosage, (char)b_dosage);
+    if(2*delta_dosage > ploidy){
+      forbidden_count++;
+    }
+    else if(2*(a_dosage-48) != ploidy  &&  2*(b_dosage-48) != ploidy){
+            denom++;
+	    // fprintf(stderr, "### denom: %ld \n", denom);
+    }
+  }
+  denom += forbidden_count;
+  ND result = {forbidden_count, denom};
+  return result;
+}
+
+
+four_longs forbidden(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny){
+  if(parent1 == NULL  ||  progeny == NULL){
+   four_longs result = {0, 0, 0, 0};
+    return result;
+  }
+  long forbidden1_count = 0;
+  long denom1 = 0;
+   long forbidden2_count = 0;
+   long denom2 = 0;
+   // long denom2 = 0;
+  long ploidy = the_gtsset->ploidy;
+  for(long i=0; i<the_gtsset->n_markers; i++){
+    long a_dosage = parent1->genotypes->a[i];
+    long b_dosage = progeny->genotypes->a[i];
+    if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
+    if(ploidy == 2){
+      if(a_dosage == '0'){
+	if(b_dosage == '2'){
+	  forbidden1_count++;
+	} else if(b_dosage == '0'){
+	  denom1++;
+	}	
+      }else if(a_dosage == '2'){
+	if(b_dosage == '0'){
+	  forbidden1_count++;
+	}else if (b_dosage == '2'){
+	  denom1++;
+	}
+      }
+    }else if(ploidy == 4){
+      if(a_dosage == '0'){ // 03, 04 forbidden
+	if(b_dosage == '4'){
+	  forbidden2_count++;
+	} else if(b_dosage == '3'){
+	  forbidden1_count++;
+	}else if(b_dosage == 0){
+	  denom2++;
+	}else{
+	  denom1++;
+	}
+      }else if(a_dosage == '1'){ // 14 forbidden
+	if(b_dosage == '4'){
+	  forbidden1_count++;
+	}else{
+	  denom1++;
+	}
+      }else if(a_dosage == '3'){ // 30 forbidden
+	if(b_dosage == '0'){
+	  forbidden1_count++;
+	}else{
+	  denom1++;	}
+      }else if(a_dosage == '4'){ // 40, 41 forbidden
+	if(b_dosage == '1'){
+	  forbidden1_count++;
+	}else if(b_dosage == '0'){
+	  forbidden2_count++;
+	}else if(b_dosage == '4'){
+	  denom2++;
+	}else{
+	  denom1++;
+	}
+      }
+    }else if(ploidy == 8){
+      if(a_dosage == '0'){ // 05,06,07,08 forbidden
+	if(b_dosage-48 >= 5){
+	  forbidden1_count++;
+	}else{
+	  denom1++;
+	}
+      }else if(a_dosage == '1'){ // 16, 17, 18 forbidden
+	if(b_dosage-48 >= 6){
+	  forbidden1_count++;
+	}else{
+	  denom1++;
+	}
+      }else if(a_dosage == '2'){ // 27, 28 forbidden
+	if(b_dosage-48 >=7){
+	  forbidden1_count++;
+	}else{
+	  denom1++;
+	}
+      }else if(a_dosage == '3'){ // 38 forbidden
+	if(b_dosage == '8'){
+	  forbidden1_count++;
+	}else{
+	  denom1++;
+	}
+      }
+     }else{
+      fprintf(stderr, "# lls not implemented for ploidy == %ld", ploidy);
+    } 
+  } // loop over markers
+
+  denom1 += forbidden1_count;
+  denom2 += forbidden2_count;
+  four_longs result = {forbidden1_count, denom1, forbidden2_count, denom2};
+  return result;
+} 
+ 
+two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon){
+  //
+  if(parent1 == NULL  ||  progeny == NULL){
+    two_doubles result = {0, 0};
+    return result;
+  }
+  double ll_aob = 0;
+  long forbidden_count = 0;
+  long count_00_22 = 0;
+  double ll_oob = 0;
+  double ll_forbidden_oob = 0;
+  long ploidy = the_gtsset->ploidy;
+  // fprintf(stderr, "## ploidy: %ld \n", ploidy); exit(0);
+  long n_markers = the_gtsset->marker_alt_allele_counts->size;
+  for(long i=0; i<n_markers; i++){
+    long a_dosage = parent1->genotypes->a[i];
+    long b_dosage = progeny->genotypes->a[i];
+    if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
+    double f = (double)the_gtsset->marker_alt_allele_counts->a[i]/((the_gtsset->accessions->size - the_gtsset->marker_missing_data_counts->a[i])*ploidy);
+    //   fprintf(stderr, "#  %ld %ld %10.5g \n", n_markers, the_gtsset->marker_missing_data_counts->a[i], f);
+    if(ploidy == 2){
+      double pr_oob = pow(f, b_dosage) * pow(1.0-f, ploidy-b_dosage) * ((b_dosage == '1')? 2 : 1);
+      if(a_dosage == '0'){
+	if(b_dosage == '2'){
+	  forbidden_count++;
+	  ll_forbidden_oob += log(pr_oob);
+	  ll_oob += log(pr_oob);
+	  ll_aob += log(epsilon);
+	} else if(b_dosage == '1'){
+	  ll_aob += log((f)*(1-epsilon));
+	  //	    fprintf(stderr, "# f, log(f), ll_aob: %7.5f  %9.5f  %9.5g\n", f, log(f), ll_aob);
+	  ll_oob += log(pr_oob);
+	} else if(b_dosage == '0'){
+	  ll_aob += log((1-f)*(1-epsilon));
+	  ll_oob += log(pr_oob);
+	  count_00_22++;
+	}	
+      }else if(a_dosage == '1'){
+	ll_oob += log(pr_oob);
+	if(b_dosage == '0'){
+	  ll_aob += log(0.5*(1-f));
+	}else if(b_dosage == '1'){
+	  ll_aob += log(0.5);
+	}else if(b_dosage == '2'){
+	  ll_aob += log(0.5*f);
+	}
+      }else if(a_dosage == '2'){
+	if(b_dosage == '0'){
+	  forbidden_count++;
+	  ll_forbidden_oob += log(pr_oob);
+	  ll_aob += log(epsilon);
+	}else if(b_dosage == '1'){
+	  ll_oob += log(pr_oob);
+	  ll_aob += log((1-f)*(1-epsilon));
+	}else if (b_dosage == '2'){
+	  ll_oob += log(pr_oob);
+	  ll_aob += log(f*(1-epsilon));
+	  count_00_22++;
+	}
+      }
+    }else{
+      fprintf(stderr, "# lls not implemented for ploidy > 2");
+    } // ploidy == 2
+  } // loop over markers
+
+
+  two_doubles result = {ll_aob, ll_oob};
+  fprintf(stream, " %10.8g %10.8g  ", ll_aob, ll_oob);
+  fprintf(stream, " %ld %ld  ", forbidden_count, forbidden_count+count_00_22);
+  return result;
 }
 
 void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
