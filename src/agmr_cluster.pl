@@ -2,6 +2,21 @@
 use strict;
 use Graph::Undirected;
 
+# read simsearch output and find clusters of accessions
+# with near-identical genotypes
+# specifically, create a graph, and for any pairs in simsearch output with
+# agmr <= $max_agmr, make an edge in the graph between the accessions of the pair.
+# the clusters are then the connected components of the graph.
+# i.e. two accession belong to the same cluster iff you can get from
+# one to the other by traversing edges of the graph.
+# one line of output for each cluster, with fields
+# cluster size, min agmr, max agmr, 'nbad (should be 0)', the ids of accessions in cluster.
+# e.g.:    3  0.0104 0.0142 0  TMEB778:250254008  TMEB778:250304613  TMEB778:250597946
+# the simsearch output should have all the agmrs for all the pairs in each cluster,
+# and in that case the 4th field ('nbad') will be 0. If nbad > 0,
+# consider rerunning this script with a smaller $max_agmr,
+# or rerun simsearch with a larger value of 'max estimated agmr' 
+
 my $max_agmr = shift // 0.05;
 my $g = Graph::Undirected->new;
 
@@ -25,7 +40,7 @@ for my $acc (@ccs) {
   my $cc_size = scalar @$acc;
   $count += $cc_size;
   my $output_line_string = '';
-  my @sorted_cc = sort @$acc;
+  my @sorted_cc = sort {$a cmp $b} @$acc; # sort the accession ids in the cluster
   my ($ccminw, $ccmaxw, $nbad) = (100000, -1, 0);
     while(my($i, $v) = each @sorted_cc){
     my ($minw, $maxw) = (100000, -1);
@@ -49,13 +64,14 @@ for my $acc (@ccs) {
   push @output_lines, $output_line_string;
 }
 
-my @sorted_output_lines = sort {get_first_number($a) <=> get_first_number($b)} @output_lines;
+my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
 print "# found ", scalar @ccs, " groups, with total of $count accessions.\n";
 print join('', @sorted_output_lines);
 
-sub get_first_number{
-  my $str = shift;
-  $str =~ /^(\d+)/;
-  my $result = $1 // -1;
-  return $result;
+sub compare_str{ # sort by size of cluster, tiebreaker is id of first accession in cluster. 
+  my $str1 = shift;
+  my $str2 = shift;
+  my @cols1 = split(" ", $str1);
+  my @cols2 = split(" ", $str2);
+  return ($cols1[0] != $cols2[0])? $cols1[0] <=> $cols2[0] : $cols1[4] cmp $cols2[4];
 }
