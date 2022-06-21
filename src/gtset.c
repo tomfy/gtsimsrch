@@ -783,7 +783,7 @@ ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){ // 
     }
     denom = n_p0 + n_phet + n_pp;
     double sigma = sqrt((double)n_p0*(n_phet+n_pp)/denom);
-    if(denom > 0 &&(n_p0 - 3*sigma > 0.125*denom )) {
+    if(denom > 0 &&(n_p0 - 3*sigma > 0.2*denom )) { // quick and dirty 'hgmr' is too big, reject.
       ND result = {1, 1};
       return result; //
     }
@@ -828,14 +828,15 @@ ND forbidden_x(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny)
     long a_dosage = parent1->genotypes->a[i];
     long b_dosage = progeny->genotypes->a[i];
     if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
-    assert(a_dosage-48 >= 0  &&  a_dosage-48 <= ploidy);
-    assert(b_dosage-48 >= 0  &&  b_dosage-48 <= ploidy);
+    a_dosage -= 48; b_dosage -= 48;
+    assert(a_dosage >= 0  &&  a_dosage <= ploidy);
+    assert(b_dosage >= 0  &&  b_dosage <= ploidy);
     long delta_dosage = labs(a_dosage - b_dosage);
     //  fprintf(stderr, "# %c %c \n", (char)a_dosage, (char)b_dosage);
     if(2*delta_dosage > ploidy){
       forbidden_count++;
     }
-    else if(2*(a_dosage-48) != ploidy  &&  2*(b_dosage-48) != ploidy){
+    else if(2*a_dosage != ploidy  &&  2*b_dosage != ploidy){
             denom++;
 	    // fprintf(stderr, "### denom: %ld \n", denom);
     }
