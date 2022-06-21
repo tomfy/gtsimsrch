@@ -18,7 +18,7 @@ use Graph::Undirected;
 # consider rerunning this script with a smaller $max_agmr,
 # or rerun simsearch with a larger value of 'max estimated agmr' 
 
-my $max_agmr = shift // 0.05;
+my $max_agmr = shift // 0.04;
 my $g = Graph::Undirected->new;
 
 my %edge_weight = ();		# keys: vertex pairs, values: agmrs
@@ -66,7 +66,7 @@ for my $acc (@ccs) {
 }
 
 my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
-print "# found ", scalar @ccs, " groups, with total of $count accessions.\n";
+print "# graph max edge length: $max_agmr. Found ", scalar @ccs, " groups, with total of $count accessions.\n";
 print join('', @sorted_output_lines);
 
 sub compare_str{ # sort by size of cluster, tiebreaker is id of first accession in cluster. 
