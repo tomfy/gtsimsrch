@@ -203,9 +203,9 @@ main(int argc, char *argv[])
     }
     // fprintf(stderr, "# genotypes file type: %d\n", genotype_file_type);
     //  char* geno_file_type = (genotype_file_type == DOSAGES)? "dosages" : "genotypes";
-    fprintf(stderr, "# genotypes filename: %s max marker missing data: %5.3lf\n",
+    fprintf(stdout, "# genotypes filename: %s max marker missing data: %5.3lf\n",
 	    genotypes_filename, max_marker_missing_data_fraction);
-    fprintf(stderr, "# pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
+    // fprintf(stderr, "# pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
 
   
     // *****  done processing command line  *****
@@ -218,12 +218,15 @@ main(int argc, char *argv[])
     double ttt = hi_res_time();
     rectify_markers(the_genotypes_set);
     store_homozygs(the_genotypes_set);
-    fprintf(stderr, "# time to rectify and store homozygs: %6.4f\n", hi_res_time() - ttt);
+    fprintf(stdout, "# time to rectify and store homozygs: %6.4f\n", hi_res_time() - ttt);
 
-    ttt = hi_res_time();
+    double pppairs_time = 0;
+    double fmptriples_time = 0;
+  
     long nn = the_genotypes_set->accessions->size;
     if(nn > 1000) nn = 1000;
     for(long i=0; i<nn; i++){
+      ttt = hi_res_time();
       Accession* the_accession = the_genotypes_set->accessions->a[i];
       //   Vlong* alt_parent_idxs = alternative_parents(the_accession, the_genotypes_set, max_ok_hgmr);
       /* fprintf(stderr, "%s  %ld  ", the_accession->id->a, alt_parent_idxs->size); */
@@ -234,7 +237,7 @@ main(int argc, char *argv[])
       //fprintf(stderr, "\n");
       Vaccession* parent_candidates = construct_vaccession(100);
       for(long j=0; j<the_genotypes_set->accessions->size; j++){
-	if(j <= i) continue;
+	if(j == i) continue;
 	Accession* the_other_accession = the_genotypes_set->accessions->a[j];
 	//	four_longs x = forbidden(the_genotypes_set, the_accession, the_other_accession);
 	double forbidden_rate;
@@ -249,18 +252,21 @@ main(int argc, char *argv[])
 		x.l3, x.l4, (x.l4>0)? (double)x.l3/x.l4 : 2,
 		x.l1+x.l3, x.l2+x.l4, (x.l2+x.l4 > 0)? (double)(x.l1+x.l3)/(x.l2+x.l4) : 2, xx.n, xx.d, (xx.d>0)? (double)xx.n/(xx.n+xx.d) : 2); */
 	forbidden_rate = (xx.d>0)? (double)xx.n/xx.d : 2;		
-	fprintf(stdout, " %ld %ld  %ld %ld  %8.6f\n",
-		i, j,
-		//	x.n, x.d, (x.d>0)? (double)x.n/x.d : 2,
-		xx.n, xx.d, (xx.d>0)? (double)xx.n/xx.d : 2);
+
       }
+	if(forbidden_rate < 0.9) fprintf(stderr, " %ld %ld  %8.6f\n",
+			i, j, forbidden_rate);
+		//	x.n, x.d, (x.d>0)? (double)x.n/x.d : 2,
+		//	xx.n, xx.d, (xx.d>0)? (double)xx.n/xx.d : 2);
 	//	if(forbidden_rate < 0.5) fprintf(stderr, "%ld %ld %8.6f \n", i, j, forbidden_rate); 
 	if(forbidden_rate < 0.016){ // good parent candidate
 	  add_accession_to_vaccession(parent_candidates, the_other_accession);
 	}
       }
-
-     	fprintf(stdout, "1 1 1 1 number of parent candidates: %ld\n", parent_candidates->size);
+      pppairs_time += hi_res_time()-ttt;
+      
+    ttt = hi_res_time();
+      // 	fprintf(stdout, "1 1 1 1 number of parent candidates: %ld\n", parent_candidates->size);
       long good_triple_count = 0;
       if(1){ // do forbidden triples 
       char* prog_gts = the_accession->genotypes->a;
@@ -271,7 +277,7 @@ main(int argc, char *argv[])
 	  four_longs ftcs = triple_forbidden_counts(parent1->genotypes->a, parent2->genotypes->a, prog_gts, ploidy);
 	  double ddd = (ftcs.l4>0)? (double)ftcs.l1/ftcs.l4 : 2;
 	  if(ddd < 0.03){
-	  fprintf(stderr, "%20s     %20s %20s  %ld %ld %ld %ld  %8.6f\n",
+	  fprintf(stdout, "%20s     %20s %20s  %ld %ld %ld %ld  %8.6f\n",
 		  the_accession->id->a, parent1->id->a, parent2->id->a,
 		  ftcs.l1, ftcs.l2, ftcs.l3, ftcs.l4, ddd);
 	  good_triple_count++;
@@ -279,10 +285,14 @@ main(int argc, char *argv[])
 	}
       }
       }
-      fprintf(stdout, "### number of candidate parents: %ld  good triples: %ld \n", parent_candidates->size, good_triple_count);
+      fmptriples_time += hi_res_time()-ttt;
+      fprintf(stdout, "# number of candidate parents: %ld  good triples: %ld \n", parent_candidates->size, good_triple_count);
       // free_vaccession(parent_candidates);
     }
-    fprintf(stderr, "# time to get alt parents for %ld accs: %6.5f\n", nn, hi_res_time()-ttt);
+          fprintf(stdout, "# time to get candidate parents for %ld accs: %6.5f\n", nn, pppairs_time);
+
+    fprintf(stdout, "# time to get candidate parent pairs for %ld accs: %6.5f\n", nn, fmptriples_time);
+
     exit(0);
     if(0){
       double t0 = hi_res_time();

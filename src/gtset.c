@@ -783,7 +783,7 @@ ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){ // 
     }
     denom = n_p0 + n_phet + n_pp;
     double sigma = sqrt((double)n_p0*(n_phet+n_pp)/denom);
-    if(denom > 0 &&(n_p0 - 3*sigma > 0.2*denom )) { // quick and dirty 'hgmr' is too big, reject.
+    if(denom > 0 &&(n_p0 - 3*sigma > 0.1*denom )) { // quick and dirty 'hgmr' is too big, reject.
       ND result = {1, 1};
       return result; //
     }

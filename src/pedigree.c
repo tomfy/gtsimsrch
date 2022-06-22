@@ -180,6 +180,7 @@ four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long p
   long forbidden1_count = 0;
   long forbidden2_count = 0;
   long no_md_count = 0;
+  long not_po2po2_count = 0;
 while((c3 = proggts[i]) != '\0'){ // go until hit null termination of proggts
   if(c3 == MISSING_DATA_CHAR) {i++; continue;}
     if((c1 = gts1[i]) == MISSING_DATA_CHAR) {i++; continue;}
@@ -196,11 +197,14 @@ while((c3 = proggts[i]) != '\0'){ // go until hit null termination of proggts
     if((min_prog_d - progeny_dosage == 2) || (progeny_dosage - max_prog_d == 2)) forbidden2_count++;
   }
   no_md_count++;
+  if( (2*(c1-48) != ploidy) || (2*(c2-48) != ploidy) ) not_po2po2_count++;
   i++;
   //  fprintf(stderr, "# %ld %ld \n", i, no_md_count);
  }
 // fprintf(stderr, "### XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX \n");
- four_longs result = {forbidden_count, forbidden1_count, forbidden2_count, no_md_count};
+ four_longs result = {forbidden_count, forbidden1_count,
+		      //forbidden2_count,
+		      no_md_count, not_po2po2_count};
  return result;
 }
 
