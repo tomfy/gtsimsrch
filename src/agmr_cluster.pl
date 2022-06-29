@@ -18,7 +18,7 @@ use Graph::Undirected;
 # consider rerunning this script with a smaller $max_agmr,
 # or rerun simsearch with a larger value of 'max estimated agmr' 
 
-my $max_agmr = shift // 0.04;
+my $max_agmr = shift // 0.04; # default clustering parameter - max edge weight of graph
 my $g = Graph::Undirected->new;
 
 my %edge_weight = ();		# keys: vertex pairs, values: agmrs

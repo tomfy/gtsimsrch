@@ -792,6 +792,7 @@ ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){ // 
     end += 100;
   }
 
+  // if not rejected, look at acc1 dosage=0 markers to get hgmr
   long n_00 = 0;
   long n_0p = 0;
   for(long k=0; k<acc1->ref_homozygs->size; k++){
