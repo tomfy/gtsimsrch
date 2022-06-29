@@ -13,6 +13,7 @@
 int do_checks_flag = 0; // option -c sets this to 1 to do some checks.
 
 double hi_res_time(void);
+void print_command_line(FILE* ostream, int argc, char** argv);
 
 // **********************************************************************************************
 // ***********************************  main  ***************************************************
@@ -31,9 +32,9 @@ main(int argc, char *argv[])
     char* pedigree_test_output_filename = "pedigree_test_info";
     char* genotypes_matrix_output_filename = "genotype_matrix_out";
     double max_self_agmr12 = 1; // need to specify if doing alternative pedigrees 
-							      double max_ok_hgmr = 1; // accept everything as ok
+							      double max_ok_hgmr = 0.016; // accept everything as ok
     double max_self_r = 1; // need to specify if doing alternative pedigrees 
-							 double max_ok_d = 1; // accept everything as ok
+							 double max_ok_d = 0.03; // accept everything as ok
     double ploidy = 2;
     // ***** process command line *****
     if (argc < 2) {
@@ -50,10 +51,12 @@ main(int argc, char *argv[])
     // c: do checks,
     // d: dosages filename, g: genotypes filename (must have either d or g)
     // p: pedigree filename,
-    // w: (width for rounding is +-w),
     // x: max fraction of missing data for markers,
     // o: output filename.
-    // a: max 'self' agmr, h: max ok hgmr,  r: max 'self' r, D: max ok d;
+    // a: max 'self' agmr,
+    // h: max ok hgmr,
+    // r: max 'self' r,
+    // D: max ok d;
     int c;
     //  int genotype_file_type = UNKNOWN;
     while((c = getopt(argc, argv, "A:cd:g:p:w:x:o:a:h:r:D:m:")) != -1){
@@ -102,15 +105,6 @@ main(int argc, char *argv[])
       case 'o':
 	pedigree_test_output_filename = optarg;
 	break;
-	/* case 'w': */
-	/*   if(optarg == 0){ */
-	/* 	perror("option w requires a numerical argument > 0\n"); */
-	/* 	exit(EXIT_FAILURE); */
-	/*   }else{ */
-	/* 	delta = atof(optarg); */
-	/* 	if(delta < 0) exit(EXIT_FAILURE); */
-	/*   } */
-	/*   break; */
       case 'x':
 	if(optarg == 0){
 	  perror("option x requires a numerical argument > 0\n");
@@ -129,14 +123,14 @@ main(int argc, char *argv[])
 	  exit(EXIT_FAILURE);
 	}
 	break;
-      case 'a': // agmr12 < this -> looks like self
-	if(optarg == 0){
-	  perror("option a requires a numerical argument > 0\n");
-	  exit(EXIT_FAILURE);
-	}else{
-	  max_self_agmr12 = atof(optarg);
-	  if (max_self_agmr12 < 0) exit(EXIT_FAILURE);
-	}
+      /* case 'a': // agmr12 < this -> looks like self */
+      /* 	if(optarg == 0){ */
+      /* 	  perror("option a requires a numerical argument > 0\n"); */
+      /* 	  exit(EXIT_FAILURE); */
+      /* 	}else{ */
+      /* 	  max_self_agmr12 = atof(optarg); */
+      /* 	  if (max_self_agmr12 < 0) exit(EXIT_FAILURE); */
+      /* 	} */
       case 'h': // hgmr>this -> poor parent-offspring candidate
 	if(optarg == 0){
 	  perror("option h requires a numerical argument > 0\n");
@@ -201,10 +195,11 @@ main(int argc, char *argv[])
       fprintf(stderr, "Failed to open %s for writing.\n", pedigree_test_output_filename);
       exit(EXIT_FAILURE);
     }
-    // fprintf(stderr, "# genotypes file type: %d\n", genotype_file_type);
-    //  char* geno_file_type = (genotype_file_type == DOSAGES)? "dosages" : "genotypes";
+   
+    print_command_line(stdout, argc, argv);
     fprintf(stdout, "# genotypes filename: %s max marker missing data: %5.3lf\n",
 	    genotypes_filename, max_marker_missing_data_fraction);
+    fprintf(stdout, "# max_ok_hgmr: %8.5f  max_ok_d: %8.5f\n", max_ok_hgmr, max_ok_d);
     // fprintf(stderr, "# pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
 
   
@@ -224,7 +219,7 @@ main(int argc, char *argv[])
     double fmptriples_time = 0;
   
     long nn = the_genotypes_set->accessions->size;
-    if(nn > 1000) nn = 1000;
+    if(nn > 100) nn = 100;
     for(long i=0; i<nn; i++){
       ttt = hi_res_time();
       Accession* the_accession = the_genotypes_set->accessions->a[i];
@@ -237,59 +232,55 @@ main(int argc, char *argv[])
       //fprintf(stderr, "\n");
       Vaccession* parent_candidates = construct_vaccession(100);
       for(long j=0; j<the_genotypes_set->accessions->size; j++){
-	if(j == i) continue;
+	if(j == i) continue; // accession cannot be it's own parent.
 	Accession* the_other_accession = the_genotypes_set->accessions->a[j];
 	//	four_longs x = forbidden(the_genotypes_set, the_accession, the_other_accession);
 	double forbidden_rate;
+	ND x;
 	if(1){
-	  ND x = quick_and_dirty_hgmr(the_accession, the_other_accession, (char)(the_genotypes_set->ploidy+48));
-		// hgmr_nd(the_accession->genotypes->a, the_other_accession->genotypes->a, (char)(the_genotypes_set->ploidy+48));
-		forbidden_rate = (x.d > 0)? (double)x.n/x.d : 2;
-	}else{
-	ND xx = forbidden_x(the_genotypes_set, the_accession, the_other_accession);
-	/*	fprintf(stderr, "%ld %ld  %ld %ld %8.6f  %ld %ld  %8.6f   %ld %ld  %8.6f  %ld %ld %8.6f\n", i, j,
-		x.l1, x.l2, (x.l2>0)? (double)x.l1/x.l2 : 2,
-		x.l3, x.l4, (x.l4>0)? (double)x.l3/x.l4 : 2,
-		x.l1+x.l3, x.l2+x.l4, (x.l2+x.l4 > 0)? (double)(x.l1+x.l3)/(x.l2+x.l4) : 2, xx.n, xx.d, (xx.d>0)? (double)xx.n/(xx.n+xx.d) : 2); */
-	forbidden_rate = (xx.d>0)? (double)xx.n/xx.d : 2;		
+	  x = quick_and_dirty_hgmr(the_accession, the_other_accession, (char)(the_genotypes_set->ploidy+48));
 
-      }
-	if(forbidden_rate < 0.9) fprintf(stderr, " %ld %ld  %8.6f\n",
-			i, j, forbidden_rate);
-		//	x.n, x.d, (x.d>0)? (double)x.n/x.d : 2,
-		//	xx.n, xx.d, (xx.d>0)? (double)xx.n/xx.d : 2);
-	//	if(forbidden_rate < 0.5) fprintf(stderr, "%ld %ld %8.6f \n", i, j, forbidden_rate); 
-	if(forbidden_rate < 0.016){ // good parent candidate
-	  add_accession_to_vaccession(parent_candidates, the_other_accession);
+	}else{
+	  x = forbidden_x(the_genotypes_set, the_accession, the_other_accession);		
+	}
+	forbidden_rate = (x.d > 0)? (double)x.n/x.d : 2;
+	if(forbidden_rate < 3*max_ok_hgmr) {
+	  //fprintf(stderr, " %ld %ld  %8.6f\n", i, j, forbidden_rate);
+	  //	  ND hgmrnd = hgmr_nd(the_accession->genotypes->a, the_other_accession->genotypes->a, (char)(the_genotypes_set->ploidy+48));
+	  //	  fprintf(stderr, "%ld %ld %8.5f  %ld %ld %8.5f\n", x.n, x.d, forbidden_rate, hgmrnd.n, hgmrnd.d, ((hgmrnd.d > 0)? (double)hgmrnd.n/hgmrnd.d : 2));
+	  if(forbidden_rate < max_ok_hgmr){ // good parent candidate
+	    add_accession_to_vaccession(parent_candidates, the_other_accession);
+	  }
 	}
       }
       pppairs_time += hi_res_time()-ttt;
       
-    ttt = hi_res_time();
+      ttt = hi_res_time();
       // 	fprintf(stdout, "1 1 1 1 number of parent candidates: %ld\n", parent_candidates->size);
       long good_triple_count = 0;
       if(1){ // do forbidden triples 
-      char* prog_gts = the_accession->genotypes->a;
-      for(long ii = 0; ii < parent_candidates->size; ii++){
-	Accession* parent1 = parent_candidates->a[ii];
-	for(long jj = ii; jj < parent_candidates->size; jj++){
-	  Accession* parent2 = parent_candidates->a[jj];
-	  four_longs ftcs = triple_forbidden_counts(parent1->genotypes->a, parent2->genotypes->a, prog_gts, ploidy);
-	  double ddd = (ftcs.l4>0)? (double)ftcs.l1/ftcs.l4 : 2;
-	  if(ddd < 0.03){
-	  fprintf(stdout, "%20s     %20s %20s  %ld %ld %ld %ld  %8.6f\n",
-		  the_accession->id->a, parent1->id->a, parent2->id->a,
-		  ftcs.l1, ftcs.l2, ftcs.l3, ftcs.l4, ddd);
-	  good_triple_count++;
+		     char* prog_gts = the_accession->genotypes->a;
+	for(long ii = 0; ii < parent_candidates->size; ii++){
+	  Accession* parent1 = parent_candidates->a[ii];
+	  for(long jj = ii; jj < parent_candidates->size; jj++){
+	    Accession* parent2 = parent_candidates->a[jj];
+	    four_longs ftcs = triple_forbidden_counts(parent1->genotypes->a, parent2->genotypes->a, prog_gts, ploidy);
+	    two_longs dtcs = diploid_quick_and_dirty_triple_counts(parent1, parent2, the_accession);
+	    double ddd = (ftcs.l4>0)? (double)ftcs.l1/ftcs.l4 : 2;
+	    if(ddd < max_ok_d){
+	      fprintf(stdout, "%20s     %20s %20s  %ld %ld %ld %ld  %8.6f  %ld %ld\n",
+		      the_accession->id->a, parent1->id->a, parent2->id->a,
+		      ftcs.l1, ftcs.l2, ftcs.l3, ftcs.l4, ddd, dtcs.l1, dtcs.l2);
+	      good_triple_count++;
+	    }
 	  }
 	}
-      }
-      }
+      } // end of getting triple forbidden counts for this progeny accession
       fmptriples_time += hi_res_time()-ttt;
       fprintf(stdout, "# number of candidate parents: %ld  good triples: %ld \n", parent_candidates->size, good_triple_count);
       // free_vaccession(parent_candidates);
     }
-          fprintf(stdout, "# time to get candidate parents for %ld accs: %6.5f\n", nn, pppairs_time);
+    fprintf(stdout, "# time to get candidate parents for %ld accs: %6.5f\n", nn, pppairs_time);
 
     fprintf(stdout, "# time to get candidate parent pairs for %ld accs: %6.5f\n", nn, fmptriples_time);
 
@@ -406,4 +397,9 @@ double hi_res_time(void){
   return (double)clock()/(double)CLOCKS_PER_SEC;
 }
 
-
+void print_command_line(FILE* ostream, int argc, char** argv){
+  fprintf(ostream, "# command line:  ");
+  for(int i=0; i<argc; i++){
+    fprintf(ostream, "%s  ", argv[i]);
+  }fprintf(ostream, "\n");
+}
