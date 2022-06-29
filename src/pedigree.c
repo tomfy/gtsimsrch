@@ -171,6 +171,78 @@ two_longs gamete_dosage_range(long d, long ploidy){
   return result;
 }
 
+two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2, Accession* progacc){
+  long allowed_count = 0;
+  long forbidden_count = 0;
+  long count22_2a = 0;
+  long count22_01a = 0;
+  long n01_2 = 0;
+  long n10_2 = 0;
+  
+  for(long i=0; i<acc1->alt_homozygs->size; i++){
+    long index = acc1->alt_homozygs->a[i];
+    assert(acc1->genotypes->a[index] == '2');
+    char gt2 = acc2->genotypes->a[index];
+    char gtprog = progacc->genotypes->a[index];
+    if(gt2 == MISSING_DATA_CHAR  ||  gtprog == MISSING_DATA_CHAR) continue;
+    if(gt2 == '0'){
+      if(gtprog == '1'){
+	allowed_count++;
+      }else{
+	forbidden_count++;
+      }
+    }else if(gt2 == '1'){
+      if(gtprog == '0'){
+	forbidden_count++;
+      }else{
+	allowed_count++;
+      }
+    }else if(gt2 == '2'){
+      if(gtprog == '2'){
+	count22_2a++;
+      }else{
+	count22_01a++;
+      }
+
+    }
+  }
+
+   long count22_2b = 0;
+  long count22_01b = 0;
+  for(long i=0; i<acc2->alt_homozygs->size; i++){
+      long index = acc2->alt_homozygs->a[i];
+    char gt1 = acc1->genotypes->a[index];
+    char gtprog = progacc->genotypes->a[index];
+    if(gt1 == MISSING_DATA_CHAR  ||  gtprog == MISSING_DATA_CHAR) continue;
+    if(gt1 == '0'){
+      if(gtprog == '1'){
+	allowed_count++;
+      }else{
+	forbidden_count++;
+      }
+    }else if(gt1 == '1'){
+      if(gtprog == '0'){
+	forbidden_count++;
+      }else{
+	allowed_count++;
+      }
+    }else if(gt1 == '2'){
+      if(gtprog == '2'){
+	count22_2b++;
+      }else{
+	count22_01b++;
+      }
+    }
+  }
+  assert(count22_2a == count22_2b);
+  assert(count22_01a == count22_01b);
+  forbidden_count += count22_01a;
+  allowed_count += count22_2a;
+  // fprintf(stderr, "%ld %ld  %ld %ld   %ld %ld \n", count22_2a, count22_01a, count22_2b, count22_01b, allowed_count, forbidden_count);
+  two_longs result = {forbidden_count, allowed_count};
+  return result;
+}
+
 four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long ploidy){ 
   // version for any (even) ploidy, counts all triples that shouldn't happen if
   // gts1, gts2 are parents of proggts.
