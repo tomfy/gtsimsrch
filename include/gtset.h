@@ -27,7 +27,8 @@ typedef struct{
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
   // Vlong* heterozygs;
-  Vlong* alt_homozygs; // 
+  Vlong* alt_homozygs; //
+  //  Vlong* high_dosages; // indices of the markers for which this acc has dosage > ploidy/2
 }Accession;
 
 typedef struct{
