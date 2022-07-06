@@ -817,7 +817,7 @@ ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){ // 
   return result; // hgmr;
 }
 
-ND forbidden_x(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny){
+ND ghgmr(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny){ // generalized hgmr (ploidy can be > 2; reduces to hgmr for diploid)
   if(parent1 == NULL  ||  progeny == NULL){
     ND result = {0, 0};
     return result;
@@ -830,16 +830,12 @@ ND forbidden_x(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny)
     long b_dosage = progeny->genotypes->a[i];
     if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
     a_dosage -= 48; b_dosage -= 48;
-    assert(a_dosage >= 0  &&  a_dosage <= ploidy);
-    assert(b_dosage >= 0  &&  b_dosage <= ploidy);
     long delta_dosage = labs(a_dosage - b_dosage);
-    //  fprintf(stderr, "# %c %c \n", (char)a_dosage, (char)b_dosage);
     if(2*delta_dosage > ploidy){
       forbidden_count++;
     }
     else if(2*a_dosage != ploidy  &&  2*b_dosage != ploidy){
-            denom++;
-	    // fprintf(stderr, "### denom: %ld \n", denom);
+      denom++;
     }
   }
   denom += forbidden_count;
@@ -848,102 +844,115 @@ ND forbidden_x(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny)
 }
 
 
-four_longs forbidden(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny){
+ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny){
   if(parent1 == NULL  ||  progeny == NULL){
-   four_longs result = {0, 0, 0, 0};
+    ND result = {0, 0};
     return result;
   }
   long forbidden1_count = 0;
-  long denom1 = 0;
-   long forbidden2_count = 0;
-   long denom2 = 0;
-   // long denom2 = 0;
+  long denom = 0;
+  long forbidden2_count = 0;
+  // long denom2 = 0;
+  // long denom2 = 0;
   long ploidy = the_gtsset->ploidy;
-  for(long i=0; i<the_gtsset->n_markers; i++){
-    long a_dosage = parent1->genotypes->a[i];
-    long b_dosage = progeny->genotypes->a[i];
-    if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
-    if(ploidy == 2){
+  if(ploidy == 2){
+    for(long i=0; i<the_gtsset->n_markers; i++){
+      long a_dosage = parent1->genotypes->a[i];
+      long b_dosage = progeny->genotypes->a[i];
+      if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
+      //   if(ploidy == 2){
       if(a_dosage == '0'){
 	if(b_dosage == '2'){
 	  forbidden1_count++;
 	} else if(b_dosage == '0'){
-	  denom1++;
+	  denom++;
 	}	
       }else if(a_dosage == '2'){
 	if(b_dosage == '0'){
 	  forbidden1_count++;
 	}else if (b_dosage == '2'){
-	  denom1++;
+	  denom++;
 	}
       }
-    }else if(ploidy == 4){
-      if(a_dosage == '0'){ // 03, 04 forbidden
-	if(b_dosage == '4'){
-	  forbidden2_count++;
-	} else if(b_dosage == '3'){
-	  forbidden1_count++;
-	}else if(b_dosage == 0){
-	  denom2++;
-	}else{
-	  denom1++;
-	}
-      }else if(a_dosage == '1'){ // 14 forbidden
-	if(b_dosage == '4'){
-	  forbidden1_count++;
-	}else{
-	  denom1++;
-	}
-      }else if(a_dosage == '3'){ // 30 forbidden
-	if(b_dosage == '0'){
-	  forbidden1_count++;
-	}else{
-	  denom1++;	}
-      }else if(a_dosage == '4'){ // 40, 41 forbidden
-	if(b_dosage == '1'){
-	  forbidden1_count++;
-	}else if(b_dosage == '0'){
-	  forbidden2_count++;
-	}else if(b_dosage == '4'){
-	  denom2++;
-	}else{
-	  denom1++;
-	}
-      }
-    }else if(ploidy == 8){
-      if(a_dosage == '0'){ // 05,06,07,08 forbidden
-	if(b_dosage-48 >= 5){
-	  forbidden1_count++;
-	}else{
-	  denom1++;
-	}
-      }else if(a_dosage == '1'){ // 16, 17, 18 forbidden
-	if(b_dosage-48 >= 6){
-	  forbidden1_count++;
-	}else{
-	  denom1++;
-	}
-      }else if(a_dosage == '2'){ // 27, 28 forbidden
-	if(b_dosage-48 >=7){
-	  forbidden1_count++;
-	}else{
-	  denom1++;
-	}
-      }else if(a_dosage == '3'){ // 38 forbidden
-	if(b_dosage == '8'){
-	  forbidden1_count++;
-	}else{
-	  denom1++;
-	}
-      }
-     }else{
-      fprintf(stderr, "# lls not implemented for ploidy == %ld", ploidy);
-    } 
-  } // loop over markers
+    }
+  }
 
-  denom1 += forbidden1_count;
-  denom2 += forbidden2_count;
-  four_longs result = {forbidden1_count, denom1, forbidden2_count, denom2};
+ 
+  if(ploidy == 4){
+    for(long i=0; i<the_gtsset->n_markers; i++){
+      long a_dosage = parent1->genotypes->a[i];
+      long b_dosage = progeny->genotypes->a[i];
+      if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
+      if(a_dosage != '2'){
+	if(a_dosage == '0'){ // 03, 04 forbidden
+	  if(b_dosage == '2'){ // don't count
+	  }else if(b_dosage == '3'){
+	    forbidden1_count++;
+	  } else if(b_dosage == '4'){
+	    forbidden2_count++;
+	  }else{ // b_dosage is '0' or '1'
+	    denom++;
+	  }
+	}else if(a_dosage == '1'){ // 14 forbidden
+	  if(b_dosage == '2'){  // don't count
+	  }else if(b_dosage == '4'){
+	    forbidden1_count++;
+	  }else{ // b_dosage is '0', '1', or '3'
+	    denom++;
+	  }
+	}else if(a_dosage == '3'){ // 30 forbidden
+	  if(b_dosage == '0'){
+	    forbidden1_count++;
+	  }else if(b_dosage != '2'){
+	    denom++;	}
+	}else if(a_dosage == '4'){ // 40, 41 forbidden
+	  if(b_dosage == '1'){
+	    forbidden1_count++;
+	  }else if(b_dosage == '0'){
+	    forbidden2_count++;
+	  }else if(b_dosage != '2'){
+	    denom++;
+	  }
+	}
+      }
+      // *******************************
+    }
+  }
+
+  /*   else if(ploidy == 8){ */
+  /*     if(a_dosage == '0'){ // 05,06,07,08 forbidden */
+  /* 	if(b_dosage-48 >= 5){ */
+  /* 	  forbidden1_count++; */
+  /* 	}else{ */
+  /* 	  denom++; */
+  /* 	} */
+  /*     }else if(a_dosage == '1'){ // 16, 17, 18 forbidden */
+  /* 	if(b_dosage-48 >= 6){ */
+  /* 	  forbidden1_count++; */
+  /* 	}else{ */
+  /* 	  denom++; */
+  /* 	} */
+  /*     }else if(a_dosage == '2'){ // 27, 28 forbidden */
+  /* 	if(b_dosage-48 >=7){ */
+  /* 	  forbidden1_count++; */
+  /* 	}else{ */
+  /* 	  denom++; */
+  /* 	} */
+  /*     }else if(a_dosage == '3'){ // 38 forbidden */
+  /* 	if(b_dosage == '8'){ */
+  /* 	  forbidden1_count++; */
+  /* 	}else{ */
+  /* 	  denom++; */
+  /* 	} */
+  /*     } */
+  /*   }else{ */
+  /*     fprintf(stderr, "# lls not implemented for ploidy == %ld", ploidy); */
+  /*   }  */
+  /* } // loop over markers */
+  long numer = forbidden1_count+forbidden2_count;
+  denom += numer;
+  //denom2 += forbidden2_count;
+  ND result = {numer, denom};
   return result;
 } 
  
