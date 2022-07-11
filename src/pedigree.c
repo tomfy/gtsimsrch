@@ -243,6 +243,65 @@ two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2
   return result;
 }
 
+four_longs tfc(char* gts1, char* gts2, char* proggts, long ploidy){
+  char c1, c2, c3;
+   long f1_count = 0;
+    long f2_count = 0; // small if gts1, gts2 parents of proggts
+    long f1_denom = 0;
+    long f2_denom = 0;
+  long i = 0;
+  while((c3 = proggts[i]) != '\0'){ // go until hit null termination of proggts
+    if(c3 == MISSING_DATA_CHAR) {i++; continue;}
+    if((c1 = gts1[i]) == MISSING_DATA_CHAR) {i++; continue;}
+    if((c2 = gts2[i]) == MISSING_DATA_CHAR) {i++; continue;}
+    long progd = c3 - 48;
+    long p1d = c1 - 48;
+    long p2d = c2 - 48;
+   
+    if(p1d == 1  &&  p2d == 1) {i++; continue;}
+    f1_denom++;
+    if(p1d == 0  && p2d == 0){
+      f2_denom++;
+      if(progd == 2){
+	f1_count++;
+      }else if(progd == 1){
+	f2_count++;
+      }
+	  
+    }else if(p1d == 2  &&  p2d == 2){
+      f2_denom++;
+      if(progd == 0){
+	f1_count++;
+      }else if(progd == 1){
+	f2_count++;
+      }
+    }else{
+      if(p1d > p2d){ long t = p1d; p1d = p2d; p2d = t;}
+      if(p1d == 0){
+	if(p2d == 1){
+	  if(progd == 2){
+	    f1_count++;
+	  }
+	}else if(p2d == 2){
+	  if(progd != 1){
+	    f1_count++;
+	  }
+	}
+      }else if(p1d == 1){
+	if(p2d == 2){
+	  if(progd == 0){
+	    f1_count++;
+	  }
+	}
+      }
+    }
+    i++;
+  } // end of loop
+  four_longs result = {f1_count, f1_denom, f2_count, f2_denom};
+  return result;
+}
+
+
 four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long ploidy){ 
   // version for any (even) ploidy, counts all triples that shouldn't happen if
   // gts1, gts2 are parents of proggts.
