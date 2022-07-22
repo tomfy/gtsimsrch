@@ -292,15 +292,24 @@ main(int argc, char *argv[])
     //   two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
     //  long ZZZd = ZZZ.l1 + ZZZ.l2;
 
-    four_longs tfc = tfca(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
+    four_longs tfc = //{0, 0, 0, 0};
+      tfca(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
+    long numer1 = tfc.l1;
+    long denom1 = tfc.l2;
+    long numer2 = tfc.l3;
+    long denom2 = tfc.l4;
       // triple_forbidden_counts(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
     ND tfcxx = TFC(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
     
-    fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f",
+    fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f", //  %ld %ld %8.5f",
 	    //	    ZZZ.l1, ZZZd, (ZZZd > 0)? (double)ZZZ.l1/ZZZd : 2,
-	    tfc.l1 + tfc.l3, tfc.l2, (tfc.l2 > 0)? (double)(tfc.l1 + tfc.l3)/tfc.l2 : 2,
-	    tfc.l1, tfc.l2, (tfc.l2 > 0)? (double)tfc.l1/tfc.l2 : 2, tfc.l3, tfc.l4, (tfc.l4 > 0)? (double)tfc.l3/tfc.l4 : 2, 
-	    tfcxx.n, tfcxx.d, (tfcxx.d > 0)? (double)tfcxx.n/tfcxx.d : 2);
+	    numer1+numer2, denom1, (denom1 > 0)? (double)(numer1+numer2)/denom1 : 2,
+	    numer1, denom1, (denom1>0)? (double)numer1/denom1 : 2,
+	    numer2, denom2, (denom2>0)? (double)numer2/denom2 : 2);
+	    //  tfc.l1 + tfc.l3, tfc.l2, (tfc.l2 > 0)? (double)(tfc.l1 + tfc.l3)/tfc.l2 : 2,
+	    //tfc.l1, tfc.l2, (tfc.l2 > 0)? (double)tfc.l1/tfc.l2 : 2,
+	    //tfc.l3, tfc.l4, (tfc.l4 > 0)? (double)tfc.l3/tfc.l4 : 2, 
+      //  tfcxx.n, tfcxx.d, (tfcxx.d > 0)? (double)tfcxx.n/tfcxx.d : 2);
     // llF.x1, llF.x2,  llM.x1, llM.x2); 
  
     if(0){
