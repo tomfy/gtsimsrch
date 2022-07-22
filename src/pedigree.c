@@ -243,7 +243,63 @@ two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2
   return result;
 }
 
-ND tfcx(char* gts1, char* gts2, char* proggts, long ploidy){
+
+ND tfc_tetraploid(char* gts1, char* gts2, char* proggts){ // 
+  char c1, c2, c3;
+  long numer = 0; // small if gts1, gts2 parents of proggts
+  long denom = 0;
+ 
+  long i = 0;
+  while((c3 = proggts[i]) != '\0'){ // go until hit null termination of proggts
+    if(c3 == MISSING_DATA_CHAR) {i++; continue;}
+    if((c1 = gts1[i]) == MISSING_DATA_CHAR) {i++; continue;}
+    if((c2 = gts2[i]) == MISSING_DATA_CHAR) {i++; continue;}
+    long progd = c3 - 48;
+    long p1d = c1 - 48;
+    long p2d = c2 - 48;
+    if(p1d == 0){
+      if(p2d == 0){ // x,0,0
+	denom++;
+	if(progd == 1 || progd == 2) numer++;
+      }else if(p2d == 1){ // x,0,1
+	denom++;
+	if(progd == 2) numer++;
+      }
+    }else if(p1d == 1){
+      if(p2d == 0){ // x,1,0
+	denom++;
+	if(progd == 2) numer++;
+      }else if(p2d == 1){ // x,1,1
+	denom++;
+	if(progd == 3) numer++;
+      }
+    }else if(p1d + p2d  <= 5){
+      // do nothing
+    }else if(p1d == 3){
+      if(p2d == 3){ // x,3,3
+	denom++;
+	if(progd == 1) numer++;
+      }else if(p2d == 4){ // x,3,4
+	denom++;
+	if(progd == 2) numer++;
+      }
+    }else if(p1d == 4){
+      if(p2d == 3){ // x,4,3
+	denom++;
+	if(progd == 2) numer++;
+      }else if(p2d == 4){ // x,1,1
+	denom++;
+	if(progd == 2 || progd == 3) numer++;
+      }
+    }
+    i++;
+  }
+  ND result = {numer, denom};
+  return result;
+}
+
+
+ND tfc_diploid(char* gts1, char* gts2, char* proggts){ // just (n100 + n122)/(nx00 + nx22)
   char c1, c2, c3;
   long numer = 0; // small if gts1, gts2 parents of proggts
   long denom = 0;
@@ -269,7 +325,19 @@ ND tfcx(char* gts1, char* gts2, char* proggts, long ploidy){
   return result;
 }
 
-four_longs tfc(char* gts1, char* gts2, char* proggts, long ploidy){
+ND TFC(char* gts1, char* gts2, char* proggts, long ploidy){
+  ND result = {-1, -1};
+  if(ploidy == 2){
+    result = tfc_diploid(gts1, gts2, proggts);
+  }else if(ploidy == 4){
+    result = tfc_tetraploid(gts1, gts2, proggts);
+  }else{
+    fprintf(stderr, "# TFC not implemented for ploidy = %ld \n", ploidy);
+  }
+  return result;
+}
+
+four_longs tfca(char* gts1, char* gts2, char* proggts, long ploidy){
   char c1, c2, c3;
   long f1_count = 0;
   long f2_count = 0; // small if gts1, gts2 parents of proggts
@@ -544,7 +612,9 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   long n_0 = // 15 triples consistent with true parents-offspring relationship,
     // with no genotyping errors
     n_00_0 + n_01_0 + n_01_1 + n_02_1 +
-    n_10_0 + n_10_1 + n_11_0 + n_11_1 + n_11_2 + n_12_1 + n_12_2 +
+    n_10_0 + n_10_1 +
+    n_11_0 + n_11_1 + n_11_2 +
+    n_12_1 + n_12_2 +
     n_20_1 + n_21_1 + n_21_2 + n_22_2; // can happen in no-error case
   long n_1 = // 10 triple requiring one (0<->1 or 1<->2) error for consistency 
     n_00_1 + n_01_2 + n_02_0 + n_02_2 +
@@ -1388,6 +1458,7 @@ long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset){
   for(long i=0; i<the_gtsset->n_accessions; i++){
     char* id = the_gtsset->accessions->a[i]->id->a;
     long idx = index_of_id_in_vidxid(vidxid, id);
+    // fprintf(stderr, "%ld %ld %s\n", i, idx, id);
     if(idx != i) return 0;
   }
   return 1;

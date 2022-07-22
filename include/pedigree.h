@@ -69,8 +69,10 @@ long long_max(long a, long b);
 
 two_longs gamete_dosage_range(long d, long ploidy);
 two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2, Accession* progacc);
-ND tfcx(char* gts1, char* gts2, char* proggts, long ploidy);
-four_longs tfc(char* gts1, char* gts2, char* proggts, long ploidy);
+ND tfc_tetraploid(char* gts1, char* gts2, char* proggt);
+ND tfc_diploid(char* gts1, char* gts2, char* proggts);
+ND TFC(char* gts1, char* gts2, char* proggts, long ploidy);
+four_longs tfca(char* gts1, char* gts2, char* proggts, long ploidy);
 four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts,
 			   long* d0counts, long* d1counts, long* d2counts);
