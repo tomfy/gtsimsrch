@@ -289,14 +289,18 @@ main(int argc, char *argv[])
     //  four_longs F_fd = forbidden(the_genotypes_set, F, A);
     //  fprintf(o_stream, "  %ld %ld  %7.5f ", F_fd.l1, F_fd.l2, (F_fd.l2 > 0)? (double)F_fd.l1/F_fd.l2 : 2);
 
-    two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
-    long ZZZd = ZZZ.l1 + ZZZ.l2;
+    //   two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
+    //  long ZZZd = ZZZ.l1 + ZZZ.l2;
 
-    four_longs tfc = triple_forbidden_counts(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
+    four_longs tfc = tfca(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
+      // triple_forbidden_counts(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
+    ND tfcxx = TFC(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
     
-    fprintf(o_stream, "  %ld %ld  %8.5g  %ld %ld %ld %8.5f  ",
-	    ZZZ.l1, ZZZd, (ZZZd > 0)? (double)ZZZ.l1/ZZZd : 2,
-	    tfc.l1, tfc.l3, tfc.l4, (tfc.l4 > 0)? (double)tfc.l1/tfc.l4 : 2);
+    fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f",
+	    //	    ZZZ.l1, ZZZd, (ZZZd > 0)? (double)ZZZ.l1/ZZZd : 2,
+	    tfc.l1 + tfc.l3, tfc.l2, (tfc.l2 > 0)? (double)(tfc.l1 + tfc.l3)/tfc.l2 : 2,
+	    tfc.l1, tfc.l2, (tfc.l2 > 0)? (double)tfc.l1/tfc.l2 : 2, tfc.l3, tfc.l4, (tfc.l4 > 0)? (double)tfc.l3/tfc.l4 : 2, 
+	    tfcxx.n, tfcxx.d, (tfcxx.d > 0)? (double)tfcxx.n/tfcxx.d : 2);
     // llF.x1, llF.x2,  llM.x1, llM.x2); 
  
     if(0){

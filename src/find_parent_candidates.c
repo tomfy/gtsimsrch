@@ -21,6 +21,7 @@ void print_command_line(FILE* ostream, int argc, char** argv);
 // **********************************************************************************************
 
 
+
 int
 main(int argc, char *argv[])
 {
@@ -256,6 +257,7 @@ main(int argc, char *argv[])
       }
 
 	  hgmr = (x.d > 0)? (double)x.n/x.d : 2; //
+	  fprintf(stderr, "%ld %ld %8.6f \n", x.n, x.d, hgmr);
       // 	ND    xxx =  hgmr_nd(the_accession->genotypes->a, the_other_accession->genotypes->a, (char)(the_genotypes_set->ploidy+48)); forbidden_rate_xxx = (xxx.d > 0)? (double)xxx.n/xxx.d : 2; //
 	  //	ND xxxx = ghgmr_old(the_genotypes_set, the_accession, the_other_accession); long d = xxxx.d; long n = xxxx.n;	double forbidden_rate_xxxx = (d>0)? (double)n/d : 2;
 
@@ -285,8 +287,13 @@ main(int argc, char *argv[])
 	for(long jj = ii; jj < parent_candidates->size; jj++){
 	  Accession* parent2 = parent_candidates->a[jj];
 	  //	  fprintf(stderr, "# jj: %ld  parent2 idx: %ld \n", jj, parent2->index);
-	  four_longs TFCs = tfc(parent1->genotypes->a, parent2->genotypes->a, prog_gts, ploidy);
-	  ND tnd = tfcx(parent1->genotypes->a, parent2->genotypes->a, prog_gts, ploidy);
+	  four_longs TFCs = tfca(parent1->genotypes->a, parent2->genotypes->a, prog_gts, ploidy);
+	  ND tnd;
+	  if(ploidy == 2){
+	    tnd = tfc_diploid(parent1->genotypes->a, parent2->genotypes->a, prog_gts);
+	  }else if(ploidy == 4){
+	    tnd = tfc_tetraploid(parent1->genotypes->a, parent2->genotypes->a, prog_gts);
+	  }
 	  four_longs ftcs = triple_forbidden_counts(parent1->genotypes->a, parent2->genotypes->a, prog_gts, ploidy);
 	  //	  two_longs dtcs = diploid_quick_and_dirty_triple_counts(parent1, parent2, the_accession);
 	  double D1 = (TFCs.l2 > 0)? (double)TFCs.l1/TFCs.l2 : 2;
