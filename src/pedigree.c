@@ -1044,6 +1044,39 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ /
 								     }
 }
 
+/* const Vlong* three_generations(Vaccessions* the_accs, const Vpedigree* the_vped, Vlong* parents, long n_accessions){ */
+/*   Three_generations** tgs = (Three_generations**)malloc(the_accs->size*sizeof(Three_generations*)); */
+  
+  
+/*   for(long i=0; i<the_vped->size; i++){ */
+/*     Pedigree* the_ped = the_vped->a[i]; */
+/*     Accession* A = the_ped->A; */
+/*     Accession* F = the_ped->F; */
+/*     Accession* M = the_ped->M; */
+/*     Three_generations* the_gt = (Three_generations*)malloc(Three_generations); */
+    
+    
+    
+  
+/*   Vlong* offspring_counts = construct_vlong_zeroes(n_accessions); */
+/*   for(long i=0; i<the_vped->size; i++){ */
+/*     const Pedigree* the_ped = the_vped->a[i]; */
+/*     // fprintf(stderr, "%ld %ld \n", the_ped->F->index, the_ped->Fparent->index); */
+/*     if(the_ped->F != NULL) offspring_counts->a[the_ped->F->index]++; */
+/*     if(the_ped->M != NULL) offspring_counts->a[the_ped->M->index]++;  */
+/*   } */
+/*   Vlong* accidxs_with_offspring = construct_vlong(100); */
+/*   //  Vaccession* accessions = construct_vaccession(100); */
+/*   for(long i=0; i<offspring_counts->size; i++){ */
+/*     if(offspring_counts->a[i] > 0){ */
+/*       add_long_to_vlong(accidxs_with_offspring, i); */
+/*       //    add_accession_to_vaccession(accessions, the_gtsset->accessions->a[i]; */
+/*     } */
+/*   } */
+/*   free_vlong(offspring_counts); */
+/*   return accidxs_with_offspring; */
+/* } */
+
 
 const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessions){
   Vlong* offspring_counts = construct_vlong_zeroes(n_accessions);

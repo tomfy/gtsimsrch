@@ -36,6 +36,13 @@ typedef struct{
   double hgmr;
 }Idxhgmr;
 
+typedef struct{
+  long idxA;
+  long idxFp;
+  long idxMp;
+  Vlong* progeny; // indices of progeny
+}Three_generations;
+
 // *****  function declarations  *****
 
 // *****  Pedigree  *****
