@@ -16,7 +16,10 @@ use Graph::Undirected;
 # the simsearch output should have all the agmrs for all the pairs in each cluster,
 # and in that case the 4th field ('nbad') will be 0. If nbad > 0,
 # consider rerunning this script with a smaller $max_agmr,
-# or rerun simsearch with a larger value of 'max estimated agmr' 
+# or rerun simsearch with a larger value of 'max estimated agmr'
+
+# usage:
+# agmr_cluster.pl < simsrch.out  >  agmr_clusters
 
 my $max_agmr = shift // 0.04; # default clustering parameter - max edge weight of graph
 my $g = Graph::Undirected->new;

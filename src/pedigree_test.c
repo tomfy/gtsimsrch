@@ -299,13 +299,23 @@ main(int argc, char *argv[])
     long numer2 = tfc.l3;
     long denom2 = tfc.l4;
       // triple_forbidden_counts(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
-    ND tfcxx = TFC(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
-    
+    //   ND tfcxx = TFC(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
+
+    four_longs tfc_FF = //{0, 0, 0, 0};
+      tfca(F->genotypes->a, F->genotypes->a, A->genotypes->a, ploidy);
+      long numer1FF = tfc_FF.l1;
+    long denom1FF = tfc_FF.l2;
+    long numer2FF = tfc_FF.l3;
+    long denom2FF = tfc_FF.l4;
     fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f", //  %ld %ld %8.5f",
 	    //	    ZZZ.l1, ZZZd, (ZZZd > 0)? (double)ZZZ.l1/ZZZd : 2,
 	    numer1+numer2, denom1, (denom1 > 0)? (double)(numer1+numer2)/denom1 : 2,
 	    numer1, denom1, (denom1>0)? (double)numer1/denom1 : 2,
 	    numer2, denom2, (denom2>0)? (double)numer2/denom2 : 2);
+    fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f",
+  numer1FF+numer2FF, denom1FF, (denom1FF > 0)? (double)(numer1FF+numer2FF)/denom1FF : 2,
+	    numer1FF, denom1FF, (denom1FF>0)? (double)numer1FF/denom1FF : 2,
+	    numer2FF, denom2FF, (denom2FF>0)? (double)numer2FF/denom2FF : 2);
 	    //  tfc.l1 + tfc.l3, tfc.l2, (tfc.l2 > 0)? (double)(tfc.l1 + tfc.l3)/tfc.l2 : 2,
 	    //tfc.l1, tfc.l2, (tfc.l2 > 0)? (double)tfc.l1/tfc.l2 : 2,
 	    //tfc.l3, tfc.l4, (tfc.l4 > 0)? (double)tfc.l3/tfc.l4 : 2, 
