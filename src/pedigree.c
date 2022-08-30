@@ -620,7 +620,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   long n_1 = // 10 triple requiring one (0<->1 or 1<->2) error for consistency 
     n_00_1 + n_01_2 + n_02_0 + n_02_2 +
       n_10_2 + n_12_0 +
-      n_20_0 + n_20_2 + n_21_0 + n_22_1;  // can happen if just one error of 0<->1 of 1<->2 type.
+      n_20_0 + n_20_2 + n_21_0 + n_22_1;  // can happen if just one error of 0<->1 or 1<->2 type.
   long n_2 = n_00_2 + n_22_0; // can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
   
   long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0;
@@ -645,9 +645,6 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     + n_2x_0 + n_2x_1 + n_2x_2
     + n_3x_0 + n_3x_1 + n_3x_2
     + n_33_x + n_xy_3;
-
-  //  fprintf(stderr, "XXXXXX: %ld %ld  %ld %ld \n", i, total, n_33_x, n_xy_3);
-    
 
   long n_x0_0 = n_00_0 + n_10_0 + n_20_0 + n_30_0;
   long n_x0_1 = n_00_1 + n_10_1 + n_20_1 + n_30_1;
@@ -692,7 +689,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   pedigree_stats->par1_hgmr = hgmr1_nd;
   ND R1_nd = {r0x1or2_numer, r0x1or2_denom};
   pedigree_stats->par1_R = R1_nd;
-  
+ 
   ND hgmr2_nd = {hgmr2_numer, hgmr2_denom};
   pedigree_stats->par2_hgmr = hgmr2_nd; 
   ND R2_nd = {rx01or2_numer, rx01or2_denom};
