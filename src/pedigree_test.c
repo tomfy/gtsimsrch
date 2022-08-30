@@ -30,7 +30,7 @@ main(int argc, char *argv[])
   int do_alternative_pedigrees = 0; // 0: none, 1: only when given pedigree is 'bad', 2: all
   // double delta = 0.05; // default; control this with -d command line option.
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
-  double min_minor_allele_frequency = -1; // 
+  double min_minor_allele_frequency = 0; // 
     char* pedigree_test_output_filename = "pedigree_test_info";
     char* genotypes_matrix_output_filename = "genotype_matrix_out";
     double max_self_agmr12 = 1; // need to specify if doing alternative pedigrees 
@@ -54,13 +54,12 @@ main(int argc, char *argv[])
     // c: do checks,
     // d: dosages filename, g: genotypes filename (must have either d or g)
     // p: pedigree filename,
-    // w: (width for rounding is +-w),
     // x: max fraction of missing data for markers,
     // o: output filename.
     // a: max 'self' agmr, h: max ok hgmr,  r: max 'self' r, D: max ok d;
     int c;
     //  int genotype_file_type = UNKNOWN;
-    while((c = getopt(argc, argv, "A:cd:g:p:w:x:o:a:h:r:D:e:")) != -1){
+    while((c = getopt(argc, argv, "A:cd:g:p:x:o:a:h:r:D:")) != -1){
       switch(c){
       case 'A':
 	if(optarg == 0){
@@ -106,15 +105,6 @@ main(int argc, char *argv[])
       case 'o':
 	pedigree_test_output_filename = optarg;
 	break;
-	/* case 'w': */
-	/*   if(optarg == 0){ */
-	/* 	perror("option w requires a numerical argument > 0\n"); */
-	/* 	exit(EXIT_FAILURE); */
-	/*   }else{ */
-	/* 	delta = atof(optarg); */
-	/* 	if(delta < 0) exit(EXIT_FAILURE); */
-	/*   } */
-	/*   break; */
       case 'x':
 	if(optarg == 0){
 	  perror("option x requires a numerical argument > 0\n");
@@ -156,15 +146,6 @@ main(int argc, char *argv[])
 	}else{
 	  max_self_r = atof(optarg);
 	  if (max_self_r < 0) exit(EXIT_FAILURE);
-	}
-	break;
-      case 'e': // epsilon
-	if(optarg == 0){
-	  perror("option e requires a numerical argument > 0\n");
-	  exit(EXIT_FAILURE);
-	}else{
-	  epsilon = atof(optarg);
-	  if (epsilon < 0) exit(EXIT_FAILURE);
 	}
 	break;
       case 'D': // d > this argument means this a is poor candidate triple of parents and offspring
@@ -318,18 +299,7 @@ main(int argc, char *argv[])
 	  Accession* a = pedigrees->a[i]->A;
 	  Accession* f = pedigrees->a[i]->F;
 	  Accession* m = pedigrees->a[i]->M;
-	  //   ND af = quick_and_dirty_hgmr(a, f);
-	  //   ND am = quick_and_dirty_hgmr(a, m);
 	  ND hf = quick_and_dirty_hgmr(a, f, ploidy_char);
-	  //   ND hm = quick_and_dirty_hgmr_a(a, m, the_genotypes_set->ploidy);
-
-	  //  Pedigree_stats* ps = the_pedigree_stats; // triple_counts(f->genotypes->a, m->genotypes->a, a->genotypes->a);
-	  //  long n = ps->par1_hgmr.n;
-	  // long d = ps->par1_hgmr.d;
-	  //   fprintf(o_stream, "  %ld %ld  %7.5f  ",  n, d, (d > 0)? (double)n/d : 2);
-	  // fprintf(o_stream, "   %ld %ld %ld %ld   ", af.n, af.d, am.n, am.d);
-	  //    ND hhh = hgmr_nd(a->genotypes->a, f->genotypes->a);
-	  //   fprintf(o_stream, "  %ld %ld  %6.5f  ", hhh.n, hhh.d, (hhh.d>0)? (double)hhh.n/hhh.d : 2);
 	  fprintf(o_stream, "   %ld %ld %6.5f  ", hf.n, hf.d, (hf.d>0)? (double)hf.n/hf.d : 2);
 	}
 	if(do_alternative_pedigrees == 1){

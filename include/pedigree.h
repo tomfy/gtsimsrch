@@ -7,13 +7,9 @@
 typedef struct{
   ND agmr12;
   ND par1_hgmr;
-  //  ND par1_r;
   ND par1_R;
   ND par2_hgmr;
-  //  ND par2_r;
   ND par2_R;
-  //  ND d1;
-  //  ND d2;
   ND d;
   ND pseudo_hgmr;
 }Pedigree_stats; // 
