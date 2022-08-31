@@ -11,6 +11,7 @@ typedef struct{
   ND par2_hgmr;
   ND par2_R;
   ND d;
+  ND z;
   ND pseudo_hgmr;
 }Pedigree_stats; // 
 
