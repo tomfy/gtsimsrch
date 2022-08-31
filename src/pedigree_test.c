@@ -240,7 +240,11 @@ main(int argc, char *argv[])
   
     const Vlong* parent_idxs = accessions_with_offspring(pedigrees, the_genotypes_set->n_accessions);
     printf("# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
-
+    for(long i=0; i< parent_idxs->size; i++){
+      long p_index = parent_idxs->a[i];
+      fprintf(stdout, "%ld  %s %ld\n", p_index, the_genotypes_set->accessions->a[p_index]->id->a, the_genotypes_set->accessions->a[p_index]->index); 
+    }
+    
     t_start = hi_res_time();
     char ploidy_char = (char)(the_genotypes_set->ploidy + 48);
     for(long i=0; i<pedigrees->size; i++){
