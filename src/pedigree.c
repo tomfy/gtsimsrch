@@ -3,6 +3,7 @@
 #include "gtset.h"
 // #include "vect.h"
 #include "pedigree.h"
+// #include "various.h"
 
 #define PEDIGREE_FIELDS 7 // number of whitespace separated fields in pedigree file, with ids in last 3 fields.
 
@@ -639,6 +640,9 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   long n_3x_1 = n_30_1 + n_31_1 + n_32_1; // + n_03_1;
   long n_3x_2 = n_30_2 + n_31_2 + n_32_2; // + n_03_2;
 
+  long z_numer = n_00_1 + n_22_1;
+  long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0;
+
   long total =
     n_0x_0 + n_0x_1 + n_0x_2
     + n_1x_0 + n_1x_1 + n_1x_2
@@ -697,6 +701,9 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   
   ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2};
   pedigree_stats->d = d_nd;
+
+  ND z_nd = {z_numer, z_denom};
+  pedigree_stats->z = z_nd; 
 
   return pedigree_stats;
 }
@@ -1164,6 +1171,7 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, get_hgmr2(the_pedigree_stats));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, get_R2(the_pedigree_stats));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, get_d(the_pedigree_stats));
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->z.d, n_over_d(the_pedigree_stats->z));
 }
 
 double get_agmr12(Pedigree_stats* p){
@@ -1189,6 +1197,10 @@ double get_R2(Pedigree_stats* p){
 /* } */
 double get_d(Pedigree_stats* p){
   return (p->d.d > 0)? (double)(p->d.n)/(double)(p->d.d) : 2;
+}
+
+double n_over_d(ND nd){
+  return (nd.d > 0)? (double)nd.n/(double)nd.d : 2;
 }
 
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees){
