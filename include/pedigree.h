@@ -86,6 +86,7 @@ long marker_d_counts(Pedigree* the_pedigree,
 		     // char* gts1, char* gts2, char* proggts,
 		     long* d0counts, long* d1counts, long* d2counts);
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
+double n_over_d(ND nd);
 // void print_pedigree_stats_x(FILE* fh, Pedigree_stats* the_pedigree_stats);
 double get_agmr12(Pedigree_stats* p);
 double get_hgmr1(Pedigree_stats* p);
