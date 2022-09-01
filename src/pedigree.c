@@ -1243,6 +1243,70 @@ void free_pedigree(const Pedigree* the_pedigree){
 }
 
 // *****  Vpedigree  *****
+// read pedigree from file in 3 whitespace-separated cols format
+Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset){ 
+
+  char* line = NULL;
+  size_t len = 0;
+  ssize_t nread;
+  char* saveptr = NULL;
+  /* if((nread = getline(&line, &len, p_stream)) != -1){ */
+  /*   char* token = strtok_r(line, "\t \n\r", &saveptr); */
+  /*   if((token == NULL)  || (strcmp(token, "Accession") != 0)){ */
+  /*     exit(EXIT_FAILURE); */
+  /*   } */
+  /* } */
+  Vpedigree* pedigrees = construct_vpedigree(1000);
+  while((nread = getline(&line, &len, p_stream)) != -1){
+    Vstr* fields = construct_vstr(3);
+    char* token = strtok_r(line, "\t \n\r", &saveptr);
+ 
+    add_string_to_vstr(fields, strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token)); // store copy of accession id
+    while(1){
+      token = strtok_r(NULL, "\t \n\r", &saveptr);
+      if(token == NULL) break;
+      add_string_to_vstr(fields, strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token)); // store copy of accession id
+    }
+    // construct a Pedigree struct from first 3 fields  
+	 char* acc_id = ith_str_from_vstr(fields, 0); // ith_str ... copies the string, i.e. allocates more memory
+    char* fempar_id = ith_str_from_vstr(fields, 1);
+    char* malpar_id = ith_str_from_vstr(fields, 2);
+    // fprintf(stderr, "### %s %s %s \n", acc_id, fempar_id, malpar_id);
+  
+    long acc_idx, fempar_idx, malpar_idx;
+    if( // none of the ids are "NA" and id is present in genotypes data set
+	strcmp(acc_id, "NA") != 0){
+      acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id);
+      fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id);
+      malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id);
+      /* if(acc_idx != -1  && (fempar_idx != -1  ||  malpar_idx != -1)){ */
+      /*   fprintf(stderr, "## %s %s %s %ld %ld %ld \n", acc_id, fempar_id, malpar_id, */
+      /* 	    index_of_id_in_vidxid(the_vidxid, acc_id), */
+      /* 	    index_of_id_in_vidxid(the_vidxid, fempar_id), */
+      /* 	    index_of_id_in_vidxid(the_vidxid, malpar_id)); */
+      /* } */
+      if(
+	 ((strcmp(fempar_id, "NA") != 0) || (strcmp(malpar_id, "NA") != 0)) &&
+	 ((acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id)) != -1) &&
+	 (((fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id)) != -1) ||
+	  ((malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id)) != -1))
+	 ){
+     
+	Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
+	Accession* Fpar = (fempar_idx != -1)? the_gtsset->accessions->a[fempar_idx] : NULL; // id->index;
+	Accession* Mpar = (malpar_idx != -1)? the_gtsset->accessions->a[malpar_idx] : NULL; // id->index;
+	//	fprintf(stderr, "# %p %p %p \n", Acc, Fpar, Mpar);
+	Pedigree* a_pedigree = construct_pedigree(Acc, Fpar, Mpar);
+	//	fprintf(stderr, "## added %s %s %s  to pedigree\n", Acc->id->a, Fpar->id->a, Mpar->id->a);
+	add_pedigree_to_vpedigree(pedigrees, a_pedigree);
+      }
+    }
+    free_vstr(fields);
+  } // done reading all lines
+  free(line); // only needs to be freed once.
+  // fprintf(stderr, "# size of Vpedigree pedigrees: %ld \n", pedigrees->size);
+  return pedigrees;
+} // end of read pedigrees (3 whitespace-separated column format)
 
 Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset){
 

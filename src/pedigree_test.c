@@ -195,31 +195,38 @@ main(int argc, char *argv[])
     }
     // fprintf(stderr, "# genotypes file type: %d\n", genotype_file_type);
     //  char* geno_file_type = (genotype_file_type == DOSAGES)? "dosages" : "genotypes";
-    fprintf(stderr, "# genotypes filename: %s max marker missing data: %5.3lf\n",
-	    genotypes_filename, max_marker_missing_data_fraction);
-    fprintf(stderr, "# pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
-
+    fprintf(stdout, "# Genotypes filename: %s max marker missing data: %5.2lf%c\n", genotypes_filename, max_marker_missing_data_fraction*100, '%');
+    fprintf(stdout, "# Pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
+    fprintf(o_stream, "# Genotypes filename: %s max marker missing data: %5.2lf%c\n", genotypes_filename, max_marker_missing_data_fraction*100, '%');
+    fprintf(o_stream, "# Pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
   
     // *****  done processing command line  *****
 
     // ***************  read the genotypes file  *******************************
-    double t_start = hi_res_time();
+    double t_a = hi_res_time();
     GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
     add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set); // load the new set of accessions
-    clean_genotypesset(the_genotypes_set); 
+    double t_b = hi_res_time();
+       fprintf(stdout, "# Done reading genotypes file. %ld accessions:\n", the_genotypes_set->n_accessions);
+     fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
+    clean_genotypesset(the_genotypes_set);
+    double t_c = hi_res_time();
+     fprintf(stdout, "# Time to clean genotype data: %6.3f sec.\n", t_c - t_b);
     rectify_markers(the_genotypes_set);
     store_homozygs(the_genotypes_set);
+    double t_d = hi_res_time();
+    fprintf(stdout, "# Time to rectify genotype data: %6.3f sec.\n", t_d - t_c);
   
     if(0){
       double t0 = hi_res_time();
       quick_and_dirty_hgmrs(the_genotypes_set);  
-      fprintf(stderr, "# time for hgmrs: %10.3f \n", hi_res_time() - t0);
+      fprintf(stdout, "# time for hgmrs: %10.3f \n", hi_res_time() - t0);
       exit(0);
     }
-    t_start = hi_res_time();
-    fprintf(stderr, "# n accessions: %ld \n", the_genotypes_set->n_accessions);
+    double t_start = hi_res_time();
+ 
     Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set);
-    fprintf(stderr, "# size of the_vidxid: %ld \n", the_vidxid->size);
+    // fprintf(stderr, "# size of the_vidxid: %ld \n", the_vidxid->size);
     for(long i=0; i<the_vidxid->size; i++){
       long index = the_vidxid->a[i]->index;
       //   fprintf(stderr, "# i idx id: %ld %ld  %s\n", i, index, the_vidxid->a[i]->id); 
@@ -228,28 +235,30 @@ main(int argc, char *argv[])
     }
     // exit(0);
     // ***************  read the pedigrees file  ***************************
- 
-    const Vpedigree* pedigrees = read_the_pedigrees_file_and_store(p_stream, the_vidxid, the_genotypes_set);
+      const Vpedigree* pedigrees = read_and_store_pedigrees_3col(p_stream, the_vidxid, the_genotypes_set);  
+
+      //  const Vpedigree* pedigrees = read_the_pedigrees_file_and_store(p_stream, the_vidxid, the_genotypes_set);
     fclose(p_stream);
-    fprintf(stderr, "# Done reading genotypes file and pedigree file. \n");
-    fprintf(stderr, "# Stored genotypes of %ld accessions, and  %ld pedigrees. Time: %6.3f\n",
-	    the_genotypes_set->accessions->size, pedigrees->size, hi_res_time() - t_start);
+    fprintf(stdout, "# Done reading pedigree file. Time to read pedigree file: %6.3f\n", hi_res_time() - t_start);
+    fprintf(stdout, "# Stored genotypes of %ld accessions, and  %ld pedigrees. \n", the_genotypes_set->accessions->size, pedigrees->size);
 
     // ***************  Done reading input files  ******************************
 
   
     const Vlong* parent_idxs = accessions_with_offspring(pedigrees, the_genotypes_set->n_accessions);
-    printf("# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
-    for(long i=0; i< parent_idxs->size; i++){
-      long p_index = parent_idxs->a[i];
-      fprintf(stdout, "%ld  %s %ld\n", p_index, the_genotypes_set->accessions->a[p_index]->id->a, the_genotypes_set->accessions->a[p_index]->index); 
-    }
+    fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
+    fprintf(stdout, "# Cumulative time so far: %6.3f sec.\n", hi_res_time() - t_begin_main);
+    /* for(long i=0; i< parent_idxs->size; i++){ */
+    /*   long p_index = parent_idxs->a[i]; */
+    /*   fprintf(stdout, "%ld  %s %ld\n", p_index, the_genotypes_set->accessions->a[p_index]->id->a, the_genotypes_set->accessions->a[p_index]->index);  */
+    /* } */
+    
     
     t_start = hi_res_time();
     char ploidy_char = (char)(the_genotypes_set->ploidy + 48);
     for(long i=0; i<pedigrees->size; i++){
       if(i % 1000  == 0){
-	fprintf(stderr, "# Done testing %ld pedigrees.\n", i);
+	fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
       }
       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set->ploidy); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
       // assert(strcmp(pedigrees->a[i]->Accession->id, pedigrees->a[i]->A->id->a) == 0);
@@ -321,7 +330,7 @@ main(int argc, char *argv[])
     
     } // end loop over pedigrees
   
-    fprintf(stderr, "# Done testing %ld pedigrees.\n", pedigrees->size);
+    fprintf(stdout, "# Done testing %ld pedigrees. Time to test pedigrees %6.3f sec.\n", pedigrees->size, hi_res_time() - t_start);
 
     // ********************  cleanup  **************************
     t_start = hi_res_time();
@@ -334,7 +343,7 @@ main(int argc, char *argv[])
     free_vlong(parent_idxs);
     // fprintf(stderr, "# Done with cleanup\n");
     // getchar();
-    fprintf(stderr, "# Total time: %10.4lf sec.\n", hi_res_time() - t_begin_main);
+    fprintf(stdout, "# Total time: %10.4lf sec.\n", hi_res_time() - t_begin_main);
 }
 // **********************************************************
 // ********************  end of main  ***********************

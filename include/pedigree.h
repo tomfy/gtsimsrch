@@ -52,6 +52,7 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, 
 void free_pedigree(const Pedigree* the_pedigree);
 
 // *****  Vpedigree  *****
+Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset);
 Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset); 
 Vpedigree* construct_vpedigree(long cap);
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
