@@ -1,32 +1,32 @@
 #!/usr/bin/perl -w
 use strict;
 use Getopt::Long;
+use List::Util qw(min max sum);
 
 # vcf file should have one of :
-# dosage DS, 
+# dosage DS,
 # genotype GT, e.g. 0/0/0/1  or  0|0|0|1
 # allele depth AD, e.g. 21,19
 # and if it has GP (genotype prob.) or GQ (genotype quality) 
-# we can also reject entries if these are not good enough (i.e. regard as missing data)
-
-#my $out_ploidy = shift // -1; # default: same as in_ploidy, which will be auto-detected
+# we can also reject entries (i.e. regard as missing data) if these are not good enough
 
 my $minGQ = 96;                 #
-my $maxGP = 0.1; # GP required to be <= $maxGP or >= 1-$maxGP , i.e. one allele strongly preferred.
+my $minGP = 0.9; # there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $transpose = 1; # default is to transpose; use -notrans to output untransposed.
+# vcf: columns correspond to accessions, rows to markers
 
 my $ploidy = -1;
 
 GetOptions(
-	   'transpose!' => \$transpose, # -noplot to suppress plot - just see histogram as text.
-	   'GQmin|qmin' => \$minGQ,	# min genotype quality.
-	   'GPmax|delta' => \$maxGP, # either ref. or alt. allele required to have prob. less than this.
+	   'transpose!' => \$transpose, # -notranspose to output untransposed. (simsrch requires transposed)
+	   'GQmin' => \$minGQ,	# min genotype quality.
+	   'GPmin' => \$minGP, # must
 	  );
 
 
 
 # read lines up to and including first starting with a single #
-# that lines has identifiers for columns 9, 10, ...
+# that line has accession identifiers for columns 9, 10, ...
 #
 my @col_ids = ();
 my @row_ids = ();
@@ -45,7 +45,7 @@ while (<>) {
 #print "# number of col ids: #  ", scalar @col_ids, "\n";
 #sleep(2);
 # read the rows with genotype data
-my $in_ploidy;
+# my $in_ploidy;
 my $format_string = 'xxx';
 my $missing_data_count = 0;
 while (<>) {
@@ -60,49 +60,50 @@ while (<>) {
   #    die;
   #   }
   # }
-  push @row_ids, $row_id;
+  push @row_ids, $row_id; # store row (marker) id
   # print "$row_id  "; # the row id
   
   my @fields = split(':', $format_str);
   my $nfields = scalar @fields;
   my ($DSidx, $GTidx, $ADidx, $GPidx, $GQidx) = (-1, -1, -1, -1, -1);
   while (my($i, $f) = each @fields) {
-    if ($f eq 'DS') {
+    if ($f eq 'DS') { # dosage. e.g. 0 or 1, but can be non-integer.
       $DSidx = $i;
-    } elsif ($f eq 'GT') {
+    } elsif ($f eq 'GT') { # genotype. e.g. 0/1 (unphased) or 0|1 (phased), or 0/0/0/1 (tetraploid)
       $GTidx = $i;
-    } elsif ($f eq 'AD') {
+    } elsif ($f eq 'AD') { # allele depth. e.g. 142,31
       $ADidx = $i;
-    } elsif ($f eq 'GP') {
+    } elsif ($f eq 'GP') { # genotype probability. e.g. 0.002,0.998,0.001   
       $GPidx = $i;
-    } elsif ($f eq 'GQ') {
+    } elsif ($f eq 'GQ') { # genotype quality. e.g. 
       $GQidx = $i;
     }
   }
   @cols = @cols[9..$#cols]; # a typical elem: 0/0/0/0/0/1:79,18:97   GT:AD:DP  (genotype:allele depths:read depth)
-  for my $e (@cols) { 
-    my $dosage = 'NA';
+  for my $e (@cols) {
+    my $dosage = 'NA'; # indicates missing data
     my @field_values = split(":", $e);
     die if(scalar @field_values != $nfields);
-    if ($DSidx >= 0) {		# use DS if present in vcf file.
+    if ($DSidx >= 0) {		# DS; use dosage if present in vcf file.
       $dosage = $field_values[$DSidx];
-    } elsif ($GTidx >= 0) {			# use GT if present
-      if (! ($field_values[$GTidx] =~ /[.]/)) { # if not '.' present if GT
-	my $refallele_count = $field_values[$GTidx] =~ tr/0/0/;
-	my $altallele_count = $field_values[$GTidx] =~ tr/1/1/;
-	$dosage = $altallele_count;
+    } elsif ($GTidx >= 0) {	# GT; use genotype if present
+      if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
+      }else{ # count 0's and 1's
+	my $ref_allele_count = $field_values[$GTidx] =~ tr/0/0/;
+	my $alt_allele_count = $field_values[$GTidx] =~ tr/1/1/;
+	$dosage = $alt_allele_count;
       }
-    } elsif ($ADidx >= 0) {
+    } elsif ($ADidx >= 0) { # AD; use allele depth 
       my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
       my $read_depth = $ref_depth + $alt_depth;
       $dosage = int($alt_depth/$read_depth + 0.5) if($read_depth > 0);
     }
     # check if GQ present but too low:
     $dosage = 'NA' if($GQidx >= 0  and  $field_values[$GQidx] < $minGQ);
-    # check if GP present but insufficiently strong preference for one allele:
+    # check if GP present but insufficiently strong preference for one genotype:
     if ($GPidx >= 0) {
-      my ($ref_prob, $alt_prob) = split(',', $field_values[$GPidx]);
-      $dosage = 'NA' if($ref_prob > $maxGP  and  $alt_prob > $maxGP);
+      my @gt_probs = split(',', $field_values[$GPidx]);
+      $dosage = 'NA' if(max(@gt_probs) < $minGP);
     }
     if ($dosage eq 'NA') {
       $missing_data_count++ 
