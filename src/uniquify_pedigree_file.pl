@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 
-# read in a cluster file (output of ...) and a
+# read in a cluster file (output of agmr_cluster ) and a
 # pedigree file (tab separated, accession, Fparent, Mparent ids in last 3 cols of each line)
 # output to stdout a pedigree file with the parental ids replaced with the representative of the cluster
 
