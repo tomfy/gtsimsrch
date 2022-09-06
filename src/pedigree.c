@@ -1391,7 +1391,7 @@ void add_pedigree_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped){
   the_vped->size++;
 }
 
-Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_d){
+Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z){
   long n_parents = parent_idxs->size;
 
   char* acc_id = the_pedigree->A->id->a; //Accession->id;
@@ -1434,7 +1434,7 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
   }
   free(the_idxhgmrs);
 
-  long ub = long_min(best_parent_candidate_idxs->size, 8); // set the number of possible parents to consider.
+  long ub = long_min(best_parent_candidate_idxs->size, 10000); // set the number of possible parents to consider.
   // fprintf(stderr, "XXX: %8.4lf %8.4lf  %ld \n", max_ok_hgmr, max_ok_d1, ub); 
   Vpedigree* alt_pedigrees = construct_vpedigree(10);
   for(long i=0; i<ub; i++){
@@ -1451,7 +1451,8 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
 	Pedigree* alt_pedigree = construct_pedigree(the_pedigree->A, acc1, acc2); // arbitrarily put acc1 as Female parent, acc2 as male
 	Pedigree_stats* alt_pedigree_stats = triple_counts(gts1, gts2, acc_gts, the_gtsset->ploidy);
 	//if(get_hgmr1(alt_pedigree_stats) <= 0.05  && get_hgmr2(alt_pedigree_stats) <= 0.05  &&
-	if(get_d(alt_pedigree_stats) <= max_ok_d){   
+	// if(get_d(alt_pedigree_stats) <= max_ok_d){
+	  if(n_over_d(alt_pedigree_stats->z) <= max_ok_z){
 	  alt_pedigree->pedigree_stats = alt_pedigree_stats;
 	  add_pedigree_to_vpedigree(alt_pedigrees, alt_pedigree);
 	}
