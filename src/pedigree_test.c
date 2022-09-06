@@ -37,6 +37,7 @@ main(int argc, char *argv[])
 							      double max_ok_hgmr = 1; // accept everything as ok
     double max_self_r = 1; // need to specify if doing alternative pedigrees 
 							 double max_ok_d = 1; // accept everything as ok
+    double max_ok_z = 0.04;
     double ploidy = 2;
     double epsilon = 0.01;
     // ***** process command line *****
@@ -316,12 +317,12 @@ main(int argc, char *argv[])
 	  fprintf(o_stream, "   %ld %ld %6.5f  ", hf.n, hf.d, (hf.d>0)? (double)hf.n/hf.d : 2);
 	}
 	if(do_alternative_pedigrees == 1){
-	  Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_d);
+	  Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z);
 	  print_pedigree_alternatives(o_stream, alt_pedigrees);
 	}else if((do_alternative_pedigrees == 2)){
 	  // || (pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0)){
 	  //   fprintf(stderr, "About to get alt. pedigrees. max_ok_hgmr: %8.4lf,  max_ok_d: %8.4lf \n", max_ok_hgmr, max_ok_d);
-	  Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_d);
+	  Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z);
 	  print_pedigree_alternatives(o_stream, alt_pedigrees);
 	}
 	free(the_pedigree_stats);
