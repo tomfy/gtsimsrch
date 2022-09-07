@@ -74,6 +74,7 @@ long long_max(long a, long b);
 
 two_longs gamete_dosage_range(long d, long ploidy);
 two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2, Accession* progacc);
+four_longs q_and_d_n22x_diploid(Accession* acc1, Accession* acc2, Accession* progacc);
 ND tfc_tetraploid(char* gts1, char* gts2, char* proggt);
 ND tfc_diploid(char* gts1, char* gts2, char* proggts);
 ND TFC(char* gts1, char* gts2, char* proggts, long ploidy);

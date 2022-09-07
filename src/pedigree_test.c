@@ -258,7 +258,7 @@ main(int argc, char *argv[])
     t_start = hi_res_time();
     char ploidy_char = (char)(the_genotypes_set->ploidy + 48);
     for(long i=0; i<pedigrees->size; i++){
-      if(i % 1000  == 0){
+      if(i % 10  == 0){
 	fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
       }
       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set->ploidy); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
@@ -285,25 +285,27 @@ main(int argc, char *argv[])
 
 	//   two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
 	//  long ZZZd = ZZZ.l1 + ZZZ.l2;
-	if(0){
+	if(1){
 	  four_longs tfc = //{0, 0, 0, 0};
 	    tfca(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
 	  long numer1 = tfc.l1;
 	  long denom1 = tfc.l2;
 	  long numer2 = tfc.l3;
 	  long denom2 = tfc.l4;
-	  // triple_forbidden_counts(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
-	  //   ND tfcxx = TFC(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
-
+	    fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f", //  %ld %ld %8.5f",
+		  numer1+numer2, denom1, (denom1 > 0)? (double)(numer1+numer2)/denom1 : 2,
+		  numer1, denom1, (denom1>0)? (double)numer1/denom1 : 2,
+		  numer2, denom2, (denom2>0)? (double)numer2/denom2 : 2);
+	    four_longs qd_n22x = q_and_d_n22x_diploid(F,M,A);
+	    fprintf(o_stream, "  %ld %ld %ld %ld  %8.5f  ",
+		    qd_n22x.l1, qd_n22x.l2, qd_n22x.l3, qd_n22x.l4, (qd_n22x.l4 > 0)? (double)qd_n22x.l2/qd_n22x.l4 : 2.0);
+	}
+	if(0){
 	  four_longs tfc_FF = tfca(F->genotypes->a, F->genotypes->a, A->genotypes->a, ploidy);
 	  long numer1FF = tfc_FF.l1;
 	  long denom1FF = tfc_FF.l2;
 	  long numer2FF = tfc_FF.l3;
-	  long denom2FF = tfc_FF.l4;
-	  fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f", //  %ld %ld %8.5f",
-		  numer1+numer2, denom1, (denom1 > 0)? (double)(numer1+numer2)/denom1 : 2,
-		  numer1, denom1, (denom1>0)? (double)numer1/denom1 : 2,
-		  numer2, denom2, (denom2>0)? (double)numer2/denom2 : 2);
+	  long denom2FF = tfc_FF.l4;	
 	  fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f",
 		  numer1FF+numer2FF, denom1FF, (denom1FF > 0)? (double)(numer1FF+numer2FF)/denom1FF : 2,
 		  numer1FF, denom1FF, (denom1FF>0)? (double)numer1FF/denom1FF : 2,

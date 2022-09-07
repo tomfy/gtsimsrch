@@ -180,7 +180,7 @@ two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2
   long n01_2 = 0;
   long n10_2 = 0;
   
-  for(long i=0; i<acc1->alt_homozygs->size; i++){
+  for(long i=0; i<acc1->alt_homozygs->size; i++){ // just look at markers with gt1 = 2
     long index = acc1->alt_homozygs->a[i];
     assert(acc1->genotypes->a[index] == '2');
     char gt2 = acc2->genotypes->a[index];
@@ -244,7 +244,65 @@ two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2
   return result;
 }
 
+four_longs q_and_d_n22x_diploid(Accession* acc1, Accession* acc2, Accession* progacc){
+  long n22_0 = 0;
+  long n22_1 = 0;
+  long n22_2 = 0;
+  long n00_0 = 0;
+  long n00_1 = 0;
+  long n00_2 = 0;
+  long n00 = 0;
+  long n22 = 0;
+  
+  for(long i=0; i<acc1->alt_homozygs->size; i++){ // just look at markers with gt1 = 2
+    long index = acc1->alt_homozygs->a[i];
+    assert(acc1->genotypes->a[index] == '2');
+    char gt2 = acc2->genotypes->a[index];
+    if(gt2 == MISSING_DATA_CHAR) continue;
+    char gtprog = progacc->genotypes->a[index];
+    if(gtprog == MISSING_DATA_CHAR) continue;
+    if(gt2 == '2'){
+      n22++;
+      if(gtprog == '2'){
+	n22_2++;
+      }else if(gtprog == '1'){
+	n22_1++;
+      }else if(gtprog == '0'){
+	n22_0++;
+      }
+    }
+  }
+ 
+    for(long i=0; i<acc1->ref_homozygs->size; i++){ // just look at markers with gt1 = 2
+    long index = acc1->ref_homozygs->a[i];
+    assert(acc1->genotypes->a[index] == '0');
+    char gt2 = acc2->genotypes->a[index];
+    if(gt2 == MISSING_DATA_CHAR) continue;
+    char gtprog = progacc->genotypes->a[index];
+    if(gtprog == MISSING_DATA_CHAR) continue;
+    if(gt2 == '0'){
+      n00++;
+      if(gtprog == '0'){
+	n00_0++;
+      }else if(gtprog == '1'){
+	n00_1++;
+      }else if(gtprog == '2'){
+	n00_2++;
+      }
+    }
+    if(n00 >= 400) break;
+  }
 
+    //fprintf(stderr, "%ld %ld %ld  %ld    %ld %ld %ld  %ld \n", n00_0, n00_1, n00_2, n00, n22_0, n22_1, n22_2, n22);
+    //   fprintf(stderr, "%ld %ld %ld  %ld \n", n00_0 + n22_2, n00_1 + n22_1, n00_2 + n22_0, n00 + n22);
+    n22_0 += n00_2;
+    n22_1 += n00_1;
+    n22_2 += n00_0;
+ 
+  four_longs result = {n22_0, n22_1, n22_2, n22_0 + n22_1 + n22_2};
+  return result;
+}
+    
 ND tfc_tetraploid(char* gts1, char* gts2, char* proggts){ // 
   char c1, c2, c3;
   long numer = 0; // small if gts1, gts2 parents of proggts
@@ -1448,14 +1506,17 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
       char* id2 = acc2->id->a; // _ids->a[idx2];
       if(! ((idx1 == fparent_idx && idx2 == mparent_idx) || (idx1 == mparent_idx && idx2 == fparent_idx))){  
 	char* gts2 = acc2->genotypes->a; // the_gtsset->genotype_sets->a[idx2];
-	Pedigree* alt_pedigree = construct_pedigree(the_pedigree->A, acc1, acc2); // arbitrarily put acc1 as Female parent, acc2 as male
-	Pedigree_stats* alt_pedigree_stats = triple_counts(gts1, gts2, acc_gts, the_gtsset->ploidy);
+		Pedigree* alt_pedigree = construct_pedigree(the_pedigree->A, acc1, acc2); // arbitrarily put acc1 as Female parent, acc2 as male
+		Pedigree_stats* alt_pedigree_stats = triple_counts(gts1, gts2, acc_gts, the_gtsset->ploidy);
+		four_longs fls = q_and_d_n22x_diploid(acc1, acc2, the_pedigree->A);
 	//if(get_hgmr1(alt_pedigree_stats) <= 0.05  && get_hgmr2(alt_pedigree_stats) <= 0.05  &&
 	// if(get_d(alt_pedigree_stats) <= max_ok_d){
-	  if(n_over_d(alt_pedigree_stats->z) <= max_ok_z){
+
+		/* */
+	  if(0 || n_over_d(alt_pedigree_stats->z) <= max_ok_z){
 	  alt_pedigree->pedigree_stats = alt_pedigree_stats;
 	  add_pedigree_to_vpedigree(alt_pedigrees, alt_pedigree);
-	}
+	  }  /* */
       }
     }
   }
