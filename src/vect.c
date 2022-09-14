@@ -247,23 +247,24 @@ void sort_vidxid_by_id(Vidxid* the_vidxid){ // sort in place
 
 long index_of_id_in_vidxid(Vidxid* the_vidxid, char* id){
   // find the index corresponding to id  by binary search
+  // returns -1 if id not found.
   long lb = 0;
   long ub = the_vidxid->size - 1;
   long idx_guess = (lb + ub)/2;
   char* id_guess = the_vidxid->a[idx_guess]->id;
-   if(lb > ub) getchar();
+  if(lb > ub) getchar();
   int icmp;
   while((icmp = strcmp(id_guess, id)) != 0){
     if(ub - lb > 1){
-    if(icmp < 0){
-      lb = idx_guess;
-    }else if(icmp > 0){
-      ub = idx_guess;
-    }else{
-      exit(EXIT_FAILURE);
-    }
-    idx_guess = (lb + ub)/2;
-    id_guess = the_vidxid->a[idx_guess]->id;
+      if(icmp < 0){
+	lb = idx_guess;
+      }else if(icmp > 0){
+	ub = idx_guess;
+      }else{
+	exit(EXIT_FAILURE);
+      }
+      idx_guess = (lb + ub)/2;
+      id_guess = the_vidxid->a[idx_guess]->id;
     }else if(ub - lb == 1){
       idx_guess = lb;
       id_guess = the_vidxid->a[idx_guess]->id;
@@ -276,7 +277,7 @@ long index_of_id_in_vidxid(Vidxid* the_vidxid, char* id){
       if(strcmp(the_vidxid->a[ub]->id, id) == 0){
 	return the_vidxid->a[idx_guess]->index;
       }
-      return -1;
+      return -1; // if id not found in the_vidxid (e.g. if id == "NA")
     }else{
       exit(EXIT_FAILURE);
     }
