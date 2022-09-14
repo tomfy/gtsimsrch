@@ -14,15 +14,15 @@ while (my $line = <>) {
   for my $c (@cols) {
     my ($gt, $ad, $dp) = split(":", $c);
     #  print "$gt    $ad    $dp    ";
+    my ($ref_depth, $alt_depth) = split(",", $ad);
+      die if($ref_depth + $alt_depth != $dp);
     if ($gt =~ /\./) {
-      print "x   x  ";
+      print "x   x   $dp  ";
     } else {
       my $ref_count = $gt =~ tr/0/0/;
       my $alt_count = $gt =~ tr/1/1/;
-      print "$alt_count  $dp  ";
+      print "o  $alt_count  $dp  ";
     }
-    my ($ref_depth, $alt_depth) = split(",", $ad);
-    die if($ref_depth + $alt_depth != $dp);
     my $s = "$ref_depth  $alt_depth   ";
     $s .= ($dp > 0)? $ploidy*$alt_depth/$dp . "\n" : 2*$ploidy . "\n";
     print $s;
