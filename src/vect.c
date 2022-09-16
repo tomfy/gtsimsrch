@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include "various.h"
 #include "vect.h"
 
 // *****  Vlong  **********************************************
@@ -246,8 +247,9 @@ void sort_vidxid_by_id(Vidxid* the_vidxid){ // sort in place
 }
 
 long index_of_id_in_vidxid(Vidxid* the_vidxid, char* id){
-  // find the index corresponding to id  by binary search
-  // returns -1 if id not found.
+  // find the index corresponding to id by binary search
+  // returns ID_NA_INDEX if id == "NA"  or id not found in the_vidxid.
+  if(strcmp(id, "NA") == 0) return ID_NA_INDEX;
   long lb = 0;
   long ub = the_vidxid->size - 1;
   long idx_guess = (lb + ub)/2;
@@ -277,7 +279,7 @@ long index_of_id_in_vidxid(Vidxid* the_vidxid, char* id){
       if(strcmp(the_vidxid->a[ub]->id, id) == 0){
 	return the_vidxid->a[idx_guess]->index;
       }
-      return -1; // if id not found in the_vidxid (e.g. if id == "NA")
+      return ID_NA_INDEX; // if id not found in the_vidxid (e.g. if id == "NA")
     }else{
       exit(EXIT_FAILURE);
     }
