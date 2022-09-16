@@ -280,6 +280,17 @@ main(int argc, char *argv[])
 
 	//   two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
 	//  long ZZZd = ZZZ.l1 + ZZZ.l2;
+	if(1){
+	  four_longs zeroes4 = {0, 0, 0, 0};
+	  four_longs FhR = (F != NULL)? hgmr_R(F->genotypes->a, A->genotypes->a, (char)(the_genotypes_set->ploidy+48)) : zeroes4;
+	  four_longs MhR = (M != NULL)? hgmr_R(M->genotypes->a, A->genotypes->a, (char)(the_genotypes_set->ploidy+48)) : zeroes4;
+	  fprintf(o_stream, "    %ld %8.5f  %ld %8.5f     %ld %8.5f %ld %8.5f  ",
+		  FhR.l2, (FhR.l2>0)? (double)FhR.l1/FhR.l2 : 2.0,
+		  FhR.l4, (FhR.l4>0)? (double)FhR.l3/FhR.l4 : 2.0,
+		  MhR.l2, (MhR.l2>0)? (double)MhR.l1/MhR.l2 : 2.0,
+		  MhR.l4, (MhR.l4>0)? (double)MhR.l3/MhR.l4 : 2.0
+		  );
+	}
 	if(0){
 	  four_longs tfc = //{0, 0, 0, 0};
 	    tfca(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
