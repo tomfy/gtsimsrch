@@ -249,16 +249,11 @@ main(int argc, char *argv[])
     const Vlong* parent_idxs = accessions_with_offspring(pedigrees, the_genotypes_set->n_accessions);
     fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
     fprintf(stdout, "# Cumulative time so far: %6.3f sec.\n", hi_res_time() - t_begin_main);
-    /* for(long i=0; i< parent_idxs->size; i++){ */
-    /*   long p_index = parent_idxs->a[i]; */
-    /*   fprintf(stdout, "%ld  %s %ld\n", p_index, the_genotypes_set->accessions->a[p_index]->id->a, the_genotypes_set->accessions->a[p_index]->index);  */
-    /* } */
-    
     
     t_start = hi_res_time();
     char ploidy_char = (char)(the_genotypes_set->ploidy + 48);
     for(long i=0; i<pedigrees->size; i++){
-      if(i % 10  == 0){
+      if(i % 1000  == 0){
 	fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
       }
       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set->ploidy); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
@@ -266,7 +261,7 @@ main(int argc, char *argv[])
       Accession* A = pedigrees->a[i]->A;
       Accession* F = pedigrees->a[i]->F;
       Accession* M = pedigrees->a[i]->M;
-      if(F != NULL  &&  M != NULL){
+      if(1 || F != NULL  &&  M != NULL){
    
 	fprintf(o_stream, "%20s %5ld %20s %20s  ",
 		A->id->a, A->missing_data_count,
@@ -285,7 +280,7 @@ main(int argc, char *argv[])
 
 	//   two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
 	//  long ZZZd = ZZZ.l1 + ZZZ.l2;
-	if(1){
+	if(0){
 	  four_longs tfc = //{0, 0, 0, 0};
 	    tfca(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
 	  long numer1 = tfc.l1;
