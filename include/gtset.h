@@ -100,7 +100,7 @@ ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
 four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
 //ND quick_and_dirty_hgmr_a(Accession* acc1, Accession* acc2);
 double hgmr(char* gts1, char* gts2);
-ND hgmr_nd(char* gts1, char* gts2, char ploidy_char);
+four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char);
 ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // get quick 'hgmr', and then if not large get true hgmr.
 two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon);
 ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
