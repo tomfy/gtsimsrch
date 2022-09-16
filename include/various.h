@@ -1,5 +1,7 @@
 #include <time.h>
 
+#define ID_NA_INDEX -1 //
+
 typedef struct{
   long n; // numerator
   long d; // denominator
