@@ -89,16 +89,5 @@ long marker_d_counts(Pedigree* the_pedigree,
 		     long* d0counts, long* d1counts, long* d2counts);
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
 double n_over_d(ND nd);
-// void print_pedigree_stats_x(FILE* fh, Pedigree_stats* the_pedigree_stats);
-double get_agmr12(Pedigree_stats* p);
-double get_hgmr1(Pedigree_stats* p);
-//double get_r1(Pedigree_stats* p);
-double get_R1(Pedigree_stats* p);
-double get_hgmr2(Pedigree_stats* p);
-//double get_r2(Pedigree_stats* p);
-double get_R2(Pedigree_stats* p);
-//double get_d1(Pedigree_stats* p);
-//double get_d2(Pedigree_stats* p);
-double get_d(Pedigree_stats* p);
 
 long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset);
