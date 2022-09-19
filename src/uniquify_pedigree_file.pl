@@ -26,11 +26,12 @@ close $fhin;
 print STDERR "# n clusters: ", scalar keys %repids, "  n ids: ", scalar keys %clusterids_repid, "\n";
 
 open $fhin, "<", "$pedigree_file";
-my $line1 = <$fhin>;
-print $line1;
+# my $line1 = <$fhin>;
+# print "xxx: ", $line1;
 while(my $line = <$fhin>){
+  next if($line =~ /^\s*#/);
   $line =~ s/\s+$//; # remove newline, any other whitespace at end.
-    my @cols = split("\t", $line);
+    my @cols = split(" ", $line);
     # replace the last 2 elements of @cols with cluster representatives, if belong to cluster
     #   print STDERR $cols[-1], "  ", $cols[-2], "  ";
     # my $mparent = $cols[-1];
@@ -41,6 +42,6 @@ while(my $line = <$fhin>){
     $cols[-1] = $clusterids_repid{$cols[-1]} // $cols[-1];
     $cols[-2] = $clusterids_repid{$cols[-2]} // $cols[-2];
  #   print STDERR $cols[-1], "\t", $cols[-2], "\n";
-    print join("\t", @cols), "\n";
+    print join(" ", @cols), "\n";
 }
 close $fhin;
