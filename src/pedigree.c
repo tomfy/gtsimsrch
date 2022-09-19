@@ -660,7 +660,6 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
 	    n_32_2++;
 	  }
 	}else{ // 33y
-	  // do nothing
 	  n_33_x++;
 	}
       }
@@ -1086,7 +1085,7 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ /
     the_ps->agmr12.d = 0;
     the_ps->d.n = 0;
     the_ps->d.d = 0;
-    if(the_pedigree->F != NULL){ // female ok, no male parent:
+    if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
       four_longs hgmrR = hgmr_R(the_pedigree->F->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
       the_ps->par1_hgmr.n = hgmrR.l1;
       the_ps->par1_hgmr.d = hgmrR.l2;
@@ -1097,7 +1096,7 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ /
       the_ps->par2_R.n = 0;
       the_ps->par2_R.d = 0;
 
-    }else{ // no female parent, male parent ok
+    }else{ // we have male parent id, no female parent id
       if(DO_ASSERT) assert(the_pedigree->M != NULL);
       the_ps->par1_hgmr.n = 0;
       the_ps->par1_hgmr.d = 0;
@@ -1106,8 +1105,8 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ /
       four_longs hgmrR = hgmr_R(the_pedigree->M->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
       the_ps->par2_hgmr.n = hgmrR.l1;
       the_ps->par2_hgmr.d = hgmrR.l2;
-        the_ps->par1_R.n = hgmrR.l3;
-      the_ps->par1_R.d = hgmrR.l4;
+        the_ps->par2_R.n = hgmrR.l3;
+      the_ps->par2_R.d = hgmrR.l4;
     }
     //construct_pedigree_stats(the_pedigree, ploidy); //the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
     // the_ps->agmr12.n = 0;
@@ -1141,7 +1140,7 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_R.d, n_over_d(the_pedigree_stats->par1_R));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, n_over_d(the_pedigree_stats->par2_hgmr));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, n_over_d(the_pedigree_stats->par2_R));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, n_over_d(the_pedigree_stats->d));
+  //  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, n_over_d(the_pedigree_stats->d));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->z.d, n_over_d(the_pedigree_stats->z));
 }
 
