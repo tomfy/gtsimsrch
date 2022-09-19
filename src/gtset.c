@@ -735,31 +735,34 @@ double hgmr(char* gts1, char* gts2){
   //  fprintf(stderr, "hgmr   n,d: %ld %ld  ", n_numer, n_denom); 
   return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
 }
+
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hgmr numerator and denominator
   char c1, c2;
-  long n_numer = 0;
-  long n_denom = 0;
-  long R_numer = 0;
-  long R_denom = 0;
   long i=0;
-  // fprintf(stderr, "## %c  \n", ploidy_char);
+  long n02n20 = 0;
+  long n00n22 = 0;
+  long n0xn2x = 0;
+  long n01n21 = 0;
   while((c1 = par_gts[i]) != '\0'){
-    if((c1 == '0') || (c1 == ploidy_char)){ // c1 homozygous
-      R_denom++;
+    if((c1 == '0') || (c1 == ploidy_char)){ // c1 homozygous 
       c2 = prog_gts[i];
-      if((c2 == '0') || (c2 == ploidy_char)){ // c2 homozygous
-	n_denom++;
-	if(c1 != c2) n_numer++;
-      }else{
-	R_numer++;
+      if(c2 != MISSING_DATA_CHAR){
+	n0xn2x++;
+	if((c2 == '0') || (c2 == ploidy_char)){ // c2 homozygous
+	  if(c1 != c2) {
+	    n02n20++;
+	  }else{
+	     n00n22++;
+	  }
+	}else{
+	  n01n21++;
+	}
       }
     }
     i++;
   }
-  four_longs result = {n_numer, n_denom, R_numer, R_denom};
-  return result;
-  //  fprintf(stderr, "hgmr   n,d: %ld %ld  ", n_numer, n_denom); 
-  //  return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
+  four_longs result = {n02n20, n02n20+n00n22, n02n20+n01n21, n0xn2x};
+  return result; 
 }
 
 ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char){ // get quick 'hgmr', and then if not large get true hgmr.
