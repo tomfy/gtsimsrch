@@ -280,7 +280,7 @@ main(int argc, char *argv[])
 
 	//   two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
 	//  long ZZZd = ZZZ.l1 + ZZZ.l2;
-	if(1){
+	if(0){
 	  four_longs zeroes4 = {0, 0, 0, 0};
 	  four_longs FhR = (F != NULL)? hgmr_R(F->genotypes->a, A->genotypes->a, (char)(the_genotypes_set->ploidy+48)) : zeroes4;
 	  four_longs MhR = (M != NULL)? hgmr_R(M->genotypes->a, A->genotypes->a, (char)(the_genotypes_set->ploidy+48)) : zeroes4;

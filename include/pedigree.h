@@ -10,7 +10,7 @@ typedef struct{
   ND par1_R;
   ND par2_hgmr;
   ND par2_R;
-  ND d;
+   //  ND d;
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
   ND pseudo_hgmr;
 }Pedigree_stats; // 

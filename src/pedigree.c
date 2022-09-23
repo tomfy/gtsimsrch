@@ -756,8 +756,8 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   ND R2_nd = {rx01or2_numer, rx01or2_denom};
   pedigree_stats->par2_R = R2_nd;
   
-  ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2};
-  pedigree_stats->d = d_nd;
+  // ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2};
+  // pedigree_stats->d = d_nd;
 
   ND z_nd = {z_numer, z_denom};
   pedigree_stats->z = z_nd; 
@@ -765,284 +765,284 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   return pedigree_stats;
 }
 
-Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, // 
-				long* d0counts, long* d1counts, long* d2counts){ // Pedigree* the_pedigree, GenotypesSet* the_gtsset){
+/* Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, //  */
+/* 				long* d0counts, long* d1counts, long* d2counts){ // Pedigree* the_pedigree, GenotypesSet* the_gtsset){ */
 
-  char c1, c2, c3;
-  long n_00_0 = 0, n_00_1 = 0, n_00_2 = 0;
-  long n_01_0 = 0, n_01_1 = 0, n_01_2 = 0;
-  long n_02_0 = 0, n_02_1 = 0, n_02_2 = 0;
-  long n_03_0 = 0, n_03_1 = 0, n_03_2 = 0;
+/*   char c1, c2, c3; */
+/*   long n_00_0 = 0, n_00_1 = 0, n_00_2 = 0; */
+/*   long n_01_0 = 0, n_01_1 = 0, n_01_2 = 0; */
+/*   long n_02_0 = 0, n_02_1 = 0, n_02_2 = 0; */
+/*   long n_03_0 = 0, n_03_1 = 0, n_03_2 = 0; */
   
-  long n_10_0 = 0, n_10_1 = 0, n_10_2 = 0;
-  long n_11_0 = 0, n_11_1 = 0, n_11_2 = 0;
-  long n_12_0 = 0, n_12_1 = 0, n_12_2 = 0;
-  long n_13_0 = 0, n_13_1 = 0, n_13_2 = 0;
+/*   long n_10_0 = 0, n_10_1 = 0, n_10_2 = 0; */
+/*   long n_11_0 = 0, n_11_1 = 0, n_11_2 = 0; */
+/*   long n_12_0 = 0, n_12_1 = 0, n_12_2 = 0; */
+/*   long n_13_0 = 0, n_13_1 = 0, n_13_2 = 0; */
   
-  long n_20_0 = 0, n_20_1 = 0, n_20_2 = 0;
-  long n_21_0 = 0, n_21_1 = 0, n_21_2 = 0;
-  long n_22_0 = 0, n_22_1 = 0, n_22_2 = 0;
-  long n_23_0 = 0, n_23_1 = 0, n_23_2 = 0;
+/*   long n_20_0 = 0, n_20_1 = 0, n_20_2 = 0; */
+/*   long n_21_0 = 0, n_21_1 = 0, n_21_2 = 0; */
+/*   long n_22_0 = 0, n_22_1 = 0, n_22_2 = 0; */
+/*   long n_23_0 = 0, n_23_1 = 0, n_23_2 = 0; */
 
-  long n_30_0 = 0, n_30_1 = 0, n_30_2 = 0;
-  long n_31_0 = 0, n_31_1 = 0, n_31_2 = 0;
-  long n_32_0 = 0, n_32_1 = 0, n_32_2 = 0;
+/*   long n_30_0 = 0, n_30_1 = 0, n_30_2 = 0; */
+/*   long n_31_0 = 0, n_31_1 = 0, n_31_2 = 0; */
+/*   long n_32_0 = 0, n_32_1 = 0, n_32_2 = 0; */
   
-  long i=0;
-  while((c3 = proggts[i]) != '\0'){
-    if(c3 != '3'){
-      c1 = gts1[i];
-      c2 = gts2[i];
-      if(c1 == '0'){ // 0xy
-	if(c2 == '0'){ // 00y
-	  if(c3 == '0'){ 
-	    n_00_0++; d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_00_1++; d1counts[i]++;
-	  }else if(c3 == '2'){
-	    n_00_2++; d2counts[i]++;
-	  }
-	}else if(c2 == '1'){ // 01y
-	  if(c3 == '0'){ 
-	    n_01_0++; d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_01_1++; d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_01_2++; d1counts[i]++;
-	  }
-	}else if(c2 == '2'){ // 02y
-	  if(c3 == '0'){
-	    n_02_0++; d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_02_1++; d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_02_2++; d1counts[i]++;
-	  }
-	}
-	else if(c2 == '3'){ // 03y
-	  if(c3 == '0'){
-	    n_03_0++;
-	  }else if(c3 == '1'){
-	    n_03_1++;
-	  }else if(c3 == '2'){
-	    n_03_2++;
-	  }
-	}
-      }else if(c1 == '1'){ // 1xy
-	if(c2 == '0'){ // 10y
-	  if(c3 == '0'){
-	    n_10_0++; d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_10_1++; d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_10_2++; d1counts[i]++;
-	  }
-	}else if(c2 == '1'){ // 11y
-	  if(c3 == '0'){
-	    n_11_0++; d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_11_1++; d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_11_2++; d0counts[i]++;
-	  }
-	}else if(c2 == '2'){ // 12y
-	  if(c3 == '0'){
-	    n_12_0++; d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_12_1++; d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_12_2++; d0counts[i]++;
-	  }
-	}else if(c2 == '3'){ // 13y
-	  if(c3 == '0'){
-	    n_13_0++;
-	  }else if(c3 == '1'){
-	    n_13_1++;
-	  }else if(c3 == '2'){
-	    n_13_2++;
-	  }
-	}
-      }else if(c1 == '2'){ // 2xy
-	if(c2 == '0'){ // 20y
-	  if(c3 == '0'){
-	    n_20_0++; d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_20_1++; d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_20_2++; d1counts[i]++;
-	  }
-	}else if(c2 == '1'){ // 21y
-	  if(c3 == '0'){
-	    n_21_0++; d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_21_1++; d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_21_2++; d0counts[i]++;
-	  }
-	}else if(c2 == '2'){ // 22y
-	  if(c3 == '0'){
-	    n_22_0++; d2counts[i]++;
-	  }else if(c3 == '1'){
-	    n_22_1++; d1counts[i]++;
-	  }else if(c3 == '2'){
-	    n_22_2++; d0counts[i]++;
-	  }
-	}else if(c2 == '3'){ // 23y
-	  if(c3 == '0'){
-	    n_23_0++;
-	  }else if(c3 == '1'){
-	    n_23_1++;
-	  }else if(c3 == '2'){
-	    n_23_2++;
-	  }
-	}
-      }else if(c1 == '3'){ // 3xy
-	if(c2 == '0'){ // 30y
-	  if(c3 == '0'){
-	    n_30_0++;
-	  }else if(c3 == '1'){
-	    n_30_1++;
-	  }else if(c3 == '2'){
-	    n_30_2++;
-	  }
-	}else if(c2 == '1'){ // 31y
-	  if(c3 == '0'){
-	    n_31_0++;
-	  }else if(c3 == '1'){
-	    n_31_1++;
-	  }else if(c3 == '2'){
-	    n_31_2++;
-	  }
-	}else if(c2 == '2'){ // 32y
-	  if(c3 == '0'){
-	    n_32_0++;
-	  }else if(c3 == '1'){
-	    n_32_1++;
-	  }else if(c3 == '2'){
-	    n_32_2++;
-	  }
-	}else{ // 33y
-	  // do nothing
-	}
-      }
-    }
-    i++;
-  }
-  long n_0 =
-    n_00_0 + n_01_0 + n_01_1 + n_02_1 +
-    n_10_0 + n_10_1 + n_11_0 + n_11_1 + n_11_2 + n_12_1 + n_12_2 +
+/*   long i=0; */
+/*   while((c3 = proggts[i]) != '\0'){ */
+/*     if(c3 != '3'){ */
+/*       c1 = gts1[i]; */
+/*       c2 = gts2[i]; */
+/*       if(c1 == '0'){ // 0xy */
+/* 	if(c2 == '0'){ // 00y */
+/* 	  if(c3 == '0'){  */
+/* 	    n_00_0++; d0counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_00_1++; d1counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_00_2++; d2counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '1'){ // 01y */
+/* 	  if(c3 == '0'){  */
+/* 	    n_01_0++; d0counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_01_1++; d0counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_01_2++; d1counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '2'){ // 02y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_02_0++; d1counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_02_1++; d0counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_02_2++; d1counts[i]++; */
+/* 	  } */
+/* 	} */
+/* 	else if(c2 == '3'){ // 03y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_03_0++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_03_1++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_03_2++; */
+/* 	  } */
+/* 	} */
+/*       }else if(c1 == '1'){ // 1xy */
+/* 	if(c2 == '0'){ // 10y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_10_0++; d0counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_10_1++; d0counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_10_2++; d1counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '1'){ // 11y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_11_0++; d0counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_11_1++; d0counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_11_2++; d0counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '2'){ // 12y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_12_0++; d1counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_12_1++; d0counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_12_2++; d0counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '3'){ // 13y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_13_0++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_13_1++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_13_2++; */
+/* 	  } */
+/* 	} */
+/*       }else if(c1 == '2'){ // 2xy */
+/* 	if(c2 == '0'){ // 20y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_20_0++; d1counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_20_1++; d0counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_20_2++; d1counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '1'){ // 21y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_21_0++; d1counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_21_1++; d0counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_21_2++; d0counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '2'){ // 22y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_22_0++; d2counts[i]++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_22_1++; d1counts[i]++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_22_2++; d0counts[i]++; */
+/* 	  } */
+/* 	}else if(c2 == '3'){ // 23y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_23_0++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_23_1++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_23_2++; */
+/* 	  } */
+/* 	} */
+/*       }else if(c1 == '3'){ // 3xy */
+/* 	if(c2 == '0'){ // 30y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_30_0++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_30_1++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_30_2++; */
+/* 	  } */
+/* 	}else if(c2 == '1'){ // 31y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_31_0++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_31_1++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_31_2++; */
+/* 	  } */
+/* 	}else if(c2 == '2'){ // 32y */
+/* 	  if(c3 == '0'){ */
+/* 	    n_32_0++; */
+/* 	  }else if(c3 == '1'){ */
+/* 	    n_32_1++; */
+/* 	  }else if(c3 == '2'){ */
+/* 	    n_32_2++; */
+/* 	  } */
+/* 	}else{ // 33y */
+/* 	  // do nothing */
+/* 	} */
+/*       } */
+/*     } */
+/*     i++; */
+/*   } */
+/*   long n_0 = */
+/*     n_00_0 + n_01_0 + n_01_1 + n_02_1 + */
+/*     n_10_0 + n_10_1 + n_11_0 + n_11_1 + n_11_2 + n_12_1 + n_12_2 + */
 
-    n_20_1 + n_21_1 + n_21_2 + n_22_2; // can happen in no-error case
-  long n_1 =
-    n_00_1 + n_01_2 + n_02_0 + n_02_2 +
-    n_10_2 + n_12_0 +
-    n_20_0 + n_20_2 + n_21_0 + n_22_1;  // can happen if just one error of 0<->1 of 1<->2 type.
-  long n_2 = n_00_2 + n_22_0; // can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
+/*     n_20_1 + n_21_1 + n_21_2 + n_22_2; // can happen in no-error case */
+/*   long n_1 = */
+/*     n_00_1 + n_01_2 + n_02_0 + n_02_2 + */
+/*     n_10_2 + n_12_0 + */
+/*     n_20_0 + n_20_2 + n_21_0 + n_22_1;  // can happen if just one error of 0<->1 of 1<->2 type. */
+/*   long n_2 = n_00_2 + n_22_0; // can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type. */
 
-  //  double d1 = (n_0 > 0)? (double)n_1/(double)(n_0 + n_1) : 2;
-  //  double d2 = (n_0 > 0)? (double)n_2/(double)(n_0 + n_2) : 2;
+/*   //  double d1 = (n_0 > 0)? (double)n_1/(double)(n_0 + n_1) : 2; */
+/*   //  double d2 = (n_0 > 0)? (double)n_2/(double)(n_0 + n_2) : 2; */
   
-  long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0;
-  long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1;
-  long n_0x_2 = n_00_2 + n_01_2 + n_02_2 + n_03_2;
+/*   long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0; */
+/*   long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1; */
+/*   long n_0x_2 = n_00_2 + n_01_2 + n_02_2 + n_03_2; */
   
-  long n_1x_0 = n_10_0 + n_11_0 + n_12_0 + n_13_0;
-  long n_1x_1 = n_10_1 + n_11_1 + n_12_1 + n_13_1;
-  long n_1x_2 = n_10_2 + n_11_2 + n_12_2 + n_13_2;
+/*   long n_1x_0 = n_10_0 + n_11_0 + n_12_0 + n_13_0; */
+/*   long n_1x_1 = n_10_1 + n_11_1 + n_12_1 + n_13_1; */
+/*   long n_1x_2 = n_10_2 + n_11_2 + n_12_2 + n_13_2; */
   
-  long n_2x_0 = n_20_0 + n_21_0 + n_22_0 + n_23_0;
-  long n_2x_1 = n_20_1 + n_21_1 + n_22_1 + n_23_1;
-  long n_2x_2 = n_20_2 + n_21_2 + n_22_2 + n_23_2;
+/*   long n_2x_0 = n_20_0 + n_21_0 + n_22_0 + n_23_0; */
+/*   long n_2x_1 = n_20_1 + n_21_1 + n_22_1 + n_23_1; */
+/*   long n_2x_2 = n_20_2 + n_21_2 + n_22_2 + n_23_2; */
 
-  long n_x0_0 = n_00_0 + n_10_0 + n_20_0 + n_30_0;
-  long n_x0_1 = n_00_1 + n_10_1 + n_20_1 + n_30_1;
-  long n_x0_2 = n_00_2 + n_10_2 + n_20_2 + n_30_2;
+/*   long n_x0_0 = n_00_0 + n_10_0 + n_20_0 + n_30_0; */
+/*   long n_x0_1 = n_00_1 + n_10_1 + n_20_1 + n_30_1; */
+/*   long n_x0_2 = n_00_2 + n_10_2 + n_20_2 + n_30_2; */
   
-  long n_x1_0 = n_01_0 + n_11_0 + n_21_0 + n_31_0;
-  long n_x1_1 = n_01_1 + n_11_1 + n_21_1 + n_31_1;
-  long n_x1_2 = n_01_2 + n_11_2 + n_21_2 + n_31_2;
+/*   long n_x1_0 = n_01_0 + n_11_0 + n_21_0 + n_31_0; */
+/*   long n_x1_1 = n_01_1 + n_11_1 + n_21_1 + n_31_1; */
+/*   long n_x1_2 = n_01_2 + n_11_2 + n_21_2 + n_31_2; */
   
-  long n_x2_0 = n_02_0 + n_12_0 + n_22_0 + n_32_0;
-  long n_x2_1 = n_02_1 + n_12_1 + n_22_1 + n_32_1;
-  long n_x2_2 = n_02_2 + n_12_2 + n_22_2 + n_32_2;
+/*   long n_x2_0 = n_02_0 + n_12_0 + n_22_0 + n_32_0; */
+/*   long n_x2_1 = n_02_1 + n_12_1 + n_22_1 + n_32_1; */
+/*   long n_x2_2 = n_02_2 + n_12_2 + n_22_2 + n_32_2; */
 
-  long hgmr1_numer = n_0x_2 + n_2x_0;
-  long hgmr2_numer = n_x0_2 + n_x2_0;
-  long hgmr1_denom = n_0x_0 + n_2x_2 + hgmr1_numer;
-  long hgmr2_denom = n_x0_0 + n_x2_2 + hgmr2_numer;
-  // double hgmr1 = (hgmr1_denom > 0)? (double)hgmr1_numer/(double)hgmr1_denom : 2;
-  // double hgmr2 = (hgmr2_denom > 0)? (double)hgmr2_numer/(double)hgmr2_denom : 2;
+/*   long hgmr1_numer = n_0x_2 + n_2x_0; */
+/*   long hgmr2_numer = n_x0_2 + n_x2_0; */
+/*   long hgmr1_denom = n_0x_0 + n_2x_2 + hgmr1_numer; */
+/*   long hgmr2_denom = n_x0_0 + n_x2_2 + hgmr2_numer; */
+/*   // double hgmr1 = (hgmr1_denom > 0)? (double)hgmr1_numer/(double)hgmr1_denom : 2; */
+/*   // double hgmr2 = (hgmr2_denom > 0)? (double)hgmr2_numer/(double)hgmr2_denom : 2; */
 
-  //  long r0x1_numer = n_0x_1 + n_2x_1;
-  //  long r0x1_denom = r0x1_numer + n_0x_0 + n_2x_2;
-  //  long rx01_numer = n_x0_1 + n_x2_1;
-  //  long rx01_denom = rx01_numer + n_x0_0 + n_x2_2;
-  long r0x1or2_numer = n_0x_1 + n_0x_2 + n_2x_1 + n_2x_0;
-  long r0x1or2_denom = r0x1or2_numer + n_0x_0 + n_2x_2;
-  long rx01or2_numer = n_x0_1 + n_x0_2 + n_x2_1 + n_x2_0;
-  long rx01or2_denom = rx01or2_numer + n_x0_0 + n_x2_2;
-  // double r0x1 = (r0x1_denom > 0)? (double)r0x1_numer/(double)r0x1_denom : 2;
-  // double rx01 = (rx01_denom > 0)? (double)rx01_numer/(double)rx01_denom : 2;
+/*   //  long r0x1_numer = n_0x_1 + n_2x_1; */
+/*   //  long r0x1_denom = r0x1_numer + n_0x_0 + n_2x_2; */
+/*   //  long rx01_numer = n_x0_1 + n_x2_1; */
+/*   //  long rx01_denom = rx01_numer + n_x0_0 + n_x2_2; */
+/*   long r0x1or2_numer = n_0x_1 + n_0x_2 + n_2x_1 + n_2x_0; */
+/*   long r0x1or2_denom = r0x1or2_numer + n_0x_0 + n_2x_2; */
+/*   long rx01or2_numer = n_x0_1 + n_x0_2 + n_x2_1 + n_x2_0; */
+/*   long rx01or2_denom = rx01or2_numer + n_x0_0 + n_x2_2; */
+/*   // double r0x1 = (r0x1_denom > 0)? (double)r0x1_numer/(double)r0x1_denom : 2; */
+/*   // double rx01 = (rx01_denom > 0)? (double)rx01_numer/(double)rx01_denom : 2; */
 
-  long agmr12_numer =
-    n_01_0 + n_01_1 + n_01_2 + //n_01_3 +
-    n_02_0 + n_02_1 + n_02_2 + //n_02_3 +
-    n_10_0 + n_10_1 + n_10_2 + //n_10_3 +
-    n_12_0 + n_12_1 + n_12_2 + //n_12_3 +
-    n_20_0 + n_20_1 + n_20_2 + //n_20_3 +
-    n_21_0 + n_21_1 + n_21_2; //n_21_3;
+/*   long agmr12_numer = */
+/*     n_01_0 + n_01_1 + n_01_2 + //n_01_3 + */
+/*     n_02_0 + n_02_1 + n_02_2 + //n_02_3 + */
+/*     n_10_0 + n_10_1 + n_10_2 + //n_10_3 + */
+/*     n_12_0 + n_12_1 + n_12_2 + //n_12_3 + */
+/*     n_20_0 + n_20_1 + n_20_2 + //n_20_3 + */
+/*     n_21_0 + n_21_1 + n_21_2; //n_21_3; */
   
-  long agmr12_denom = agmr12_numer +
-    n_00_0 + n_00_1 + n_00_2 + //n_00_3 +
-    n_11_0 + n_11_1 + n_11_2 + //n_11_3 +
-    n_22_0 + n_22_1 + n_22_2; //n_22_3;
+/*   long agmr12_denom = agmr12_numer + */
+/*     n_00_0 + n_00_1 + n_00_2 + //n_00_3 + */
+/*     n_11_0 + n_11_1 + n_11_2 + //n_11_3 + */
+/*     n_22_0 + n_22_1 + n_22_2; //n_22_3; */
     
-  /* long agmr1_numer = hgmr1_numer + n_0x_1 + n_2x_1 + n_1x_0 + n_1x_2; */
-  /* long agmr2_numer = hgmr2_numer + n_x0_1 + n_x2_1 + n_x1_0 + n_x1_2; */
-  /* long agmr1_denom = agmr1_numer + n_0x_0 + n_1x_1 + n_2x_2; */
-  /* long agmr2_denom = agmr2_numer + n_x0_0 + n_x1_1 + n_x2_2; */
-  /* double agmr1 = (agmr1_denom > 0)? (double)agmr1_numer/(double)agmr1_denom : 2; */
-  /* double agmr2 = (agmr2_denom > 0)? (double)agmr2_numer/(double)agmr2_denom : 2; */
-  /* fprintf(stderr, "%6.5lf %6.5lf %6.5lf  ", agmr1,  hgmr1, r0x1); */
-  /* fprintf(stderr, "%6.5lf %6.5lf %6.5lf  ", agmr2,  hgmr2, rx01); */
-  /* fprintf(stderr, "%6.5lf %6.5lf  ", d1, d2); */
+/*   /\* long agmr1_numer = hgmr1_numer + n_0x_1 + n_2x_1 + n_1x_0 + n_1x_2; *\/ */
+/*   /\* long agmr2_numer = hgmr2_numer + n_x0_1 + n_x2_1 + n_x1_0 + n_x1_2; *\/ */
+/*   /\* long agmr1_denom = agmr1_numer + n_0x_0 + n_1x_1 + n_2x_2; *\/ */
+/*   /\* long agmr2_denom = agmr2_numer + n_x0_0 + n_x1_1 + n_x2_2; *\/ */
+/*   /\* double agmr1 = (agmr1_denom > 0)? (double)agmr1_numer/(double)agmr1_denom : 2; *\/ */
+/*   /\* double agmr2 = (agmr2_denom > 0)? (double)agmr2_numer/(double)agmr2_denom : 2; *\/ */
+/*   /\* fprintf(stderr, "%6.5lf %6.5lf %6.5lf  ", agmr1,  hgmr1, r0x1); *\/ */
+/*   /\* fprintf(stderr, "%6.5lf %6.5lf %6.5lf  ", agmr2,  hgmr2, rx01); *\/ */
+/*   /\* fprintf(stderr, "%6.5lf %6.5lf  ", d1, d2); *\/ */
 
-  Pedigree_stats* pedigree_stats = (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
-  ND agmr12_nd = {agmr12_numer, agmr12_denom};
-  pedigree_stats->agmr12 = agmr12_nd;
-  ND hgmr1_nd = {hgmr1_numer, hgmr1_denom};
-  pedigree_stats->par1_hgmr = hgmr1_nd;
-  // fprintf(stderr, "  %7.5f ", (hgmr1_denom > 0)? (double)hgmr1_numer/hgmr1_denom : 2);
-  //  ND r1_nd = {r0x1_numer, r0x1_denom};
-  //  pedigree_stats->par1_r = r1_nd;
-  ND R1_nd = {r0x1or2_numer, r0x1or2_denom};
-  pedigree_stats->par1_R = R1_nd;
+/*   Pedigree_stats* pedigree_stats = (Pedigree_stats*)malloc(sizeof(Pedigree_stats)); */
+/*   ND agmr12_nd = {agmr12_numer, agmr12_denom}; */
+/*   pedigree_stats->agmr12 = agmr12_nd; */
+/*   ND hgmr1_nd = {hgmr1_numer, hgmr1_denom}; */
+/*   pedigree_stats->par1_hgmr = hgmr1_nd; */
+/*   // fprintf(stderr, "  %7.5f ", (hgmr1_denom > 0)? (double)hgmr1_numer/hgmr1_denom : 2); */
+/*   //  ND r1_nd = {r0x1_numer, r0x1_denom}; */
+/*   //  pedigree_stats->par1_r = r1_nd; */
+/*   ND R1_nd = {r0x1or2_numer, r0x1or2_denom}; */
+/*   pedigree_stats->par1_R = R1_nd; */
   
-  ND hgmr2_nd = {hgmr2_numer, hgmr2_denom};
-  pedigree_stats->par2_hgmr = hgmr2_nd; 
-  //  ND r2_nd = {rx01_numer, rx01_denom};
-  //  pedigree_stats->par2_r = r2_nd;
-  ND R2_nd = {rx01or2_numer, rx01or2_denom};
-  pedigree_stats->par2_R = R2_nd;
+/*   ND hgmr2_nd = {hgmr2_numer, hgmr2_denom}; */
+/*   pedigree_stats->par2_hgmr = hgmr2_nd;  */
+/*   //  ND r2_nd = {rx01_numer, rx01_denom}; */
+/*   //  pedigree_stats->par2_r = r2_nd; */
+/*   ND R2_nd = {rx01or2_numer, rx01or2_denom}; */
+/*   pedigree_stats->par2_R = R2_nd; */
   
-  /* ND d1_nd = {n_1, n_0 + n_1}; */
-  /* pedigree_stats->d1 = d1_nd; */
-  /* ND d2_nd = {n_2, n_0 + n_2}; */
-  /* pedigree_stats->d2 = d2_nd; */
+/*   /\* ND d1_nd = {n_1, n_0 + n_1}; *\/ */
+/*   /\* pedigree_stats->d1 = d1_nd; *\/ */
+/*   /\* ND d2_nd = {n_2, n_0 + n_2}; *\/ */
+/*   /\* pedigree_stats->d2 = d2_nd; *\/ */
 
-  ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2};
-  pedigree_stats->d = d_nd;
+/*   ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2}; */
+/*   pedigree_stats->d = d_nd; */
   
-  /* if(hgmr1 <= max_hgmr  &&  hgmr2 <= max_hgmr  &&  d1 <= max_d1){ */
-  /*   fprintf(stderr, "  %-30s %-30s  ", id1, id2); */
-  /*   fprintf(stderr, "%6.5lf %6.5lf  ", hgmr1, r0x1); */
-  /*   fprintf(stderr, "%6.5lf %6.5lf  ", hgmr2, rx01); */
-  /*   fprintf(stderr, "%6.5lf %6.5lf  ", d1, d2); */
-  /*   fprintf(stderr, "\n"); */
-  /* } */
+/*   /\* if(hgmr1 <= max_hgmr  &&  hgmr2 <= max_hgmr  &&  d1 <= max_d1){ *\/ */
+/*   /\*   fprintf(stderr, "  %-30s %-30s  ", id1, id2); *\/ */
+/*   /\*   fprintf(stderr, "%6.5lf %6.5lf  ", hgmr1, r0x1); *\/ */
+/*   /\*   fprintf(stderr, "%6.5lf %6.5lf  ", hgmr2, rx01); *\/ */
+/*   /\*   fprintf(stderr, "%6.5lf %6.5lf  ", d1, d2); *\/ */
+/*   /\*   fprintf(stderr, "\n"); *\/ */
+/*   /\* } *\/ */
 
-  return pedigree_stats;
-}
+/*   return pedigree_stats; */
+/* } */
 
 
 
@@ -1069,8 +1069,8 @@ Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy){
   the_ps->par2_hgmr.d = 0;
   the_ps->par2_R.n = 0;
   the_ps->par2_R.d = 0;
-  the_ps->d.n = 0;
-  the_ps->d.d = 0;
+  //  the_ps->d.n = 0;
+  //  the_ps->d.d = 0;
   the_ps->pseudo_hgmr.n = 0;
   the_ps->pseudo_hgmr.d = 0;  
 }
@@ -1083,8 +1083,8 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ /
     Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
     the_ps->agmr12.n = 0;
     the_ps->agmr12.d = 0;
-    the_ps->d.n = 0;
-    the_ps->d.d = 0;
+    the_ps->z.n = 0;
+    the_ps->z.d = 0;
     if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
       four_longs hgmrR = hgmr_R(the_pedigree->F->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
       the_ps->par1_hgmr.n = hgmrR.l1;
@@ -1157,24 +1157,24 @@ void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees){
   } 
 }
 
-long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_d){ // returns 2 for ok biparental, 1 for ok self, 0 for bad
+long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_z){ // returns 2 for ok biparental, 1 for ok self, 0 for bad
   double agmr12 = n_over_d(p->agmr12);
   double hgmr1 = n_over_d(p->par1_hgmr);
   double r1 = n_over_d(p->par1_R);
   double hgmr2 = n_over_d(p->par2_hgmr);
   double r2 = n_over_d(p->par2_R);
-  double d = n_over_d(p->d);
+  // double d = n_over_d(p->d);
   double z = n_over_d(p->z);
   long result = 0;
   /* fprintf(stderr, "%7.4lf %7.4lf %7.4lf %7.4lf    %7.4lf %7.4lf %7.4lf %7.4lf %7.4lf %7.4lf\n", */
   /* 	  max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d1, */
   /* 	  agmr12, hgmr1, r1, hgmr2, r2, d1); */
   if(agmr12 <= max_self_agmr12){ // pedigree says self (or parents very similar)
-    if( /*(agmr12 <= max_self_agmr12) && */ (hgmr1 <= max_ok_hgmr) && (hgmr2 <= max_ok_hgmr) && (r1 <= max_self_r) && (r2 <= max_self_r) && (d <= max_ok_d) ){
+    if( /*(agmr12 <= max_self_agmr12) && */ (hgmr1 <= max_ok_hgmr) && (hgmr2 <= max_ok_hgmr) && (r1 <= max_self_r) && (r2 <= max_self_r) && (z <= max_ok_z) ){
       result = 1;
     }
   }else{ // pedigree says biparental
-    if( (hgmr1 <= max_ok_hgmr) && (hgmr2 <= max_ok_hgmr) && (r1 > max_self_r) && (r2 > max_self_r) && (d <= max_ok_d) ){
+    if( (hgmr1 <= max_ok_hgmr) && (hgmr2 <= max_ok_hgmr) && (r1 > max_self_r) && (r2 > max_self_r) && (z <= max_ok_z) ){
       result = 2;
     }
   }
@@ -1447,7 +1447,7 @@ Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gts
   return best_parent_candidate_idxs;
 } // end of alternative_parents
 
-Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d){
+Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_z){
   ub = long_min(best_parent_candidate_idxs->size, ub); // set the number of possible parents to consider.
   // fprintf(stderr, "XXX: %8.4lf %8.4lf  %ld \n", max_ok_hgmr, max_ok_d1, ub); 
   Vpedigree* alt_pedigrees = construct_vpedigree(10);
@@ -1465,7 +1465,7 @@ Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gts
       Pedigree* alt_pedigree = construct_pedigree(the_acc, acc1, acc2); // arbitrarily put acc1 as Female parent, acc2 as male
       Pedigree_stats* alt_pedigree_stats = triple_counts(gts1, gts2, the_acc->genotypes->a, the_gtsset->ploidy);
       //if(get_hgmr1(alt_pedigree_stats) <= 0.05  && get_hgmr2(alt_pedigree_stats) <= 0.05  &&
-      if(n_over_d(alt_pedigree_stats->d) <= max_ok_d){   
+      if(n_over_d(alt_pedigree_stats->z) <= max_ok_z){   
 	alt_pedigree->pedigree_stats = alt_pedigree_stats;
 	add_pedigree_to_vpedigree(alt_pedigrees, alt_pedigree);
       }
