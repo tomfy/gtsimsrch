@@ -102,7 +102,7 @@ sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - 
 
 sub one_d_2cluster{ # cluster 1dim data into 2 clusters
   my $self = shift;
-  my $pow = $self->pow();	# cluster x**$pow (or log(x)
+  my $pow = $self->pow();	# cluster x**$pow ( or cluster log(x) if $pow eq 'log' )
 
   my $n_pts = scalar @{$self->txs()};
   my ($km_n_L, $km_h_opt, $km_mom, $q) = $self->kmeans_2cluster();
@@ -121,10 +121,11 @@ sub one_d_2cluster{ # cluster 1dim data into 2 clusters
 }
 
 
-sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t. h = 1/2 * (<x>_<h + <x>_>h)
+sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
+  # h = 1/2 * (<x>_<h + <x>_>h)  [ where <x>_<h means the average of the x values which are less than h ]
   # however instead of guessing some initial cluster centers and iteratively refining, just 
   # consider break points with 1, 2, 3, etc. pts in the L-hand cluster,
-  # until mean of means (i.e. mean of the mean of L cluster, and mean of R cluster)
+  # until mean of means (i.e. mean of (the mean of L cluster, and mean of R cluster) )
   # lies between the two clusters.
   my $self = shift;
   my $xs = $self->txs(); # array ref of transformed values.
@@ -157,28 +158,37 @@ sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t. h
   #my $q = qqq($xs, $n_left);
 #  print STDERR "# $var_left $var_right $var   $q  $q1\n";
   #  getchar();
-}
-  return ($n_left, $h_opt, $mean_of_means, qqq($xs, $n_left));
+  }
+  return ($n_left, $h_opt, $mean_of_means, qqq($xs, $n_left, 0.1));
 }
 
-sub qqq{
+sub qqq{ # intended to be a measure of how well-separated the 2 clusters are.
+  # small value indicates good separation.
+  # 
   my $xs = shift;
   my $nL = shift;
+   my $qile = shift // 0.1;
   my $n = scalar @$xs;
+ 
   my $nR = $n - $nL;
     my $Lmedian = $xs->[int(0.5*$nL)];
   my $Rmedian = $xs->[$n-1 - int(0.5*$nR)];
-  my $L90 = $xs->[int(0.9*$nL)];
-  my $R90 = $xs->[$n-1 - int(0.9*$nR)];
-  return (($L90 - $Lmedian) + ($Rmedian - $R90))/($Rmedian - $Lmedian);
+  my $L90 = $xs->[int((1-$qile)*$nL)]; # 90% of L cluster is to left of this.
+#  my $R90 = $xs->[$n-1 - int(0.9*$nR)]; # 90% of R cluster is to right of this.
+  my $R10 = $xs->[$nL + int($qile*$nR)]; #
+#  print STDERR "$Lmedian  $L90   $Rmedian  $R90  $R10 \n";
+#  print STDERR exp($Lmedian), " ",  exp($L90), "  ", exp($Rmedian), "  ", exp($R90), "  ", exp($R10), " \n";
+  # return (($L90 - $Lmedian) + ($Rmedian - $R90))/($Rmedian - $Lmedian);
+  return 1 - ($R10 - $L90)/($Rmedian - $Lmedian);
 }
 
 sub kde_2cluster{
   # now refine using kernel density estimation.
   my $self = shift;
-  my $i_opt = shift; # look for min of kde in neighborhood of $xar->[$i_opt] 
+  my $i_opt = shift; # look for min of kde in neighborhood of $xar->[$i_opt]
+  my $kernel_width = shift // $self->kernel_width();
  my $xs = $self->txs(); # shift;
-  my $kernel_width = $self->kernel_width();
+  # my $kernel_width = $self->kernel_width();
   my $n = scalar @$xs;
   my $n_left = $i_opt+1;
   my $n_right = $n - $n_left;

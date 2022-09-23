@@ -29,7 +29,7 @@ my $pedigree_table_filename = undef;
 
 # *****  parameters for processing dosages, eliminating low-quality markers
 # my $delta = 0.05; # real-number genotypes (dosages) are rounded to nearest integer (0,1,2) if within +- $delta
-my $max_bad_gt_fraction = 0.2; # exclude markers with greater than this proportion of missing data.
+my $max_bad_gt_fraction = 0.1; # exclude markers with greater than this proportion of missing data.
 
 # *****  output filenames:
 my $base_output_filename = 'out';
@@ -95,32 +95,30 @@ printf(STDERR "# Time to read pedigree file, create PedigreesDAG obj: %5.3f\n\n"
 
 
 # *****  Read in the genotype matrix file. Determine whether has dosages or 0,1,2,3 genotypes.
-my $input_type = 'unknown';
-my $c_program_gt_input_option = '-g';
-open my $fhgt, "<", "$gtfilename";
-while (my $line = <$fhgt>){
-  last if($line =~ /^\s*MARKER/);
-}
-my $line = <$fhgt>;
-my @cols = split(" ", $line);
-if (scalar @cols == 2) {	# genotypes (0, 1, 2, or 3);
-  if ($cols[1] =~ /[456789]+/) {
-    print STDERR "# Should be only digits 0123 in genotypes. Exiting.\n";
-    exit;
-  }
-  #  $input_type = 'genotypes0123';
-  $c_program_gt_input_option = '-g';
-} elsif (scalar @cols > 2) {	# dosages
-  #  $input_type = 'dosages';
-  $c_program_gt_input_option = '-d';
-} else {
-  print STDERR "# Number of columns is ", scalar @cols, ". Should be >= 2. Exiting.\n";
-  exit;
-}
+# my $input_type = 'unknown';
+# open my $fhgt, "<", "$gtfilename";
+# while (my $line = <$fhgt>){
+#   last if($line =~ /^\s*MARKER/);
+# }
+# my $line = <$fhgt>;
+# my @cols = split(" ", $line);
+# if (scalar @cols == 2) {	# genotypes (0, 1, 2, or 3);
+#   if ($cols[1] =~ /[456789]+/) {
+#     print STDERR "# Should be only digits 0123 in genotypes. Exiting.\n";
+#     exit;
+#   }
+#   #  $input_type = 'genotypes0123';
+# } elsif (scalar @cols > 2) {	# dosages
+#   #  $input_type = 'dosages';
+#   $c_program_gt_input_option = '-d';
+# } else {
+#   print STDERR "# Number of columns is ", scalar @cols, ". Should be >= 2. Exiting.\n";
+#   exit;
+# }
 # *****  Done loading the genotypes data  *******
 
 # *****  Run c program to get stats on pedigrees in pedigree table:  *****
-my $command = "pedigree_test $c_program_gt_input_option $gtfilename -p $pedigree_table_filename ";
+my $command = "pedigree_test -g $gtfilename -p $pedigree_table_filename ";
 $command .= " -x $max_bad_gt_fraction  -o $c_output_filename_no_alt ";
 print STDERR "# Testing pedigrees using genotypes\n";
 print STDERR  "# command: $command \n";
@@ -135,10 +133,11 @@ print "# Number of pedigrees to be analyzed: ", scalar @lines, "\n";
 my @matpat_agmrs = ();
 #my @array_of_lines_as_cols = ();
 while (my ($j, $line) = each @lines) {
+  next if($line =~ /^\s*#/);
   my @cols = split(" ", $line);
   push @matpat_agmrs, $cols[5];
 }
-my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => $pow});
+my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => 0.1});
 my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
 printf("# clustering of agmr between parents: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
 
@@ -153,6 +152,7 @@ my @d_denoms = ();
 my @ds = ();
 
 while (my ($j, $line) = each @lines) {
+  next if($line =~ /^\s*#/);
   my @cols = split(" ", $line);
 
   my ($accid, $bad_gt_count) = @cols[0,1];
@@ -213,6 +213,7 @@ if ($find_alternatives > 0) {
 
   open my $fhbest, ">", "$best_pedigrees_filename";
   while (my ($j, $line) = each @lines) {
+    next if($line =~ /^\s*#/);
     my @cols = split(" ", $line);
     my ($acc_id, $acc_md) = @cols[0,1];
     my ($mat_id, $pat_id) = @cols[2,3];
