@@ -10,8 +10,8 @@ typedef struct{
   ND par1_R;
   ND par2_hgmr;
   ND par2_R;
-   //  ND d;
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
+  ND d;
   ND pseudo_hgmr;
 }Pedigree_stats; // 
 
@@ -58,7 +58,7 @@ Vpedigree* construct_vpedigree(long cap);
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
 
 Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
-Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z);
+Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
 Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d);
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees);
 void add_pedigree_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
