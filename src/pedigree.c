@@ -756,8 +756,8 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   ND R2_nd = {rx01or2_numer, rx01or2_denom};
   pedigree_stats->par2_R = R2_nd;
   
-  // ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2};
-  // pedigree_stats->d = d_nd;
+  ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2};
+  pedigree_stats->d = d_nd;
 
   ND z_nd = {z_numer, z_denom};
   pedigree_stats->z = z_nd; 
@@ -1140,8 +1140,9 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_R.d, n_over_d(the_pedigree_stats->par1_R));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, n_over_d(the_pedigree_stats->par2_hgmr));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, n_over_d(the_pedigree_stats->par2_R));
-  //  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, n_over_d(the_pedigree_stats->d));
   fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->z.d, n_over_d(the_pedigree_stats->z));
+  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, n_over_d(the_pedigree_stats->d));
+ 
 }
 
 double n_over_d(ND nd){
@@ -1327,7 +1328,7 @@ void add_pedigree_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped){
   the_vped->size++;
 }
 
-Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z){
+Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d){
   long n_parents = parent_idxs->size;
 
   char* acc_id = the_pedigree->A->id->a; //Accession->id;
@@ -1390,7 +1391,9 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
 	//if(get_hgmr1(alt_pedigree_stats) <= 0.05  && get_hgmr2(alt_pedigree_stats) <= 0.05  &&
 
 	/* */
-	if(0 || n_over_d(alt_pedigree_stats->z) <= max_ok_z){
+	if(n_over_d(alt_pedigree_stats->z) <= max_ok_z
+	   &&
+	   n_over_d(alt_pedigree_stats->d) <= max_ok_d){
 	  alt_pedigree->pedigree_stats = alt_pedigree_stats;
 	  add_pedigree_to_vpedigree(alt_pedigrees, alt_pedigree);
 	}  /* */
