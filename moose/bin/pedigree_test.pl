@@ -204,7 +204,7 @@ while (my ($j, $line) = each @lines) {
       push @ds, $d;
   }
 
- # push @hgmr_denoms, @cols[6,10];
+# push @hgmr_denoms, @cols[6,10];
 #  push @hgmrs, ($mat_hgmr, $pat_hgmr);
 #  push @r_denoms, @cols[8,12];
 #  push @rs, ($mat_r, $pat_r);
@@ -260,6 +260,7 @@ if ($find_alternatives > 0) {
   my $factor = 0.33; # denominators will be considered 'good' if >= factor*median denominator for the quantity
   my %category_counts = ();
   my $bad_denoms_count = 0;
+  my %filename_handle = ();
 
   open my $fhbest, ">", "$best_pedigrees_filename";
   while (my ($j, $line) = each @lines) {
@@ -269,21 +270,34 @@ if ($find_alternatives > 0) {
     my ($mat_id, $pat_id) = @cols[2,3];
     my $id_pair = "$mat_id $pat_id";
     my $ped_d = $cols[17];
-    my $category_string = '';
+
     my %allped_d = ();
     my $ok_pedigrees_count = 0; # counts all ok (small d) pedigrees for this accession, both pedigree from table and alternatives.
-    my $denoms_ok = are_denoms_ok(\@cols, 4, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_d_denom, $factor);
-    $category_string = ($denoms_ok)? category(\@cols, 4, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d) : 'x xx xx x';
+    my $denoms_ok = are_denoms_ok(\@cols, 4, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_z_denom, $median_d_denom);
+    my $category_string = ($denoms_ok)? category(\@cols, 4, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d) : 'x xx xx xx';
+    my $no_space_cat_str = $category_string;
+    $no_space_cat_str =~ s/ /_/g;
+    if(exists $filename_handle{$no_space_cat_str}){
+      my $fh = $filename_handle{$no_space_cat_str};
+       print $fh join("  ", @cols[0..17]), "\n";
+    }else{
+      open my $fh, ">", "$no_space_cat_str";
+      $filename_handle{$no_space_cat_str} = $fh;
+        print $fh join("  ", @cols[0..17]), "\n";
+    }
+   
     my $ped_str = sprintf("  ped  %20s %20s  ", $mat_id, $pat_id) . "  $category_string";
     if ($denoms_ok) {
       $ok_pedigrees_count++ if ($category_string eq '0 00 00 00'  or  $category_string eq '1 01 01 00');
       $category_counts{$category_string}++;
     } else {
       $bad_denoms_count++;
+   #   print STDERR join("  ", @cols[0..17]), "\n";
+      $category_counts{'x xx xx xx'}++;
     }
-    $allped_d{$ped_str} = $ped_d;
+    $allped_d{$ped_str} = $ped_d if(looks_like_number($ped_d));
 
-    my $n_cols_per_ped = 16;
+    my $n_cols_per_ped = 16; # Fpar id, Mpar id, denom and numer/denom for agmrFM, hgmrF, rF, hgmrM, rM, z, d
     # alternative pedigrees:
     my $n_alternatives = $cols[$n_cols_per_ped+2] // 0; #
     my %okalt_d = ();
@@ -292,35 +306,36 @@ if ($find_alternatives > 0) {
       my $alt_category_string = '';
       my $alt_id_pair = sprintf("%20s %20s", $cols[$first-2],  $cols[$first-1]);
       my $alt_d = $cols[$first+13];
-      $denoms_ok = are_denoms_ok(\@cols, $first, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_d_denom, $factor);
+      $denoms_ok = are_denoms_ok(\@cols, $first, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_z_denom, $median_d_denom);
       if ($denoms_ok) {
 	$alt_category_string = category(\@cols, $first, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d);
 	if ($alt_category_string eq '0 00 00 00'  or $alt_category_string eq '1 01 01 00') {
 	  $ok_pedigrees_count++;
-	  $okalt_d{"  alt  $alt_id_pair  $alt_category_string"} = $alt_d;
+	  $okalt_d{"  alt  $alt_id_pair  $alt_category_string"} = $alt_d if(looks_like_number($alt_d));
 	}
       } else {
 	$alt_category_string = 'x xx xx xx';
       }
-      $allped_d{"  alt  $alt_id_pair  $alt_category_string"} = $alt_d;
+      $allped_d{"  alt  $alt_id_pair  $alt_category_string"} = $alt_d if(looks_like_number($alt_d));
     }
 
     my $output_string = $cols[0] . "  $ok_pedigrees_count  ";
     my @sorted_alts = #sort {$okalt_d{$a} <=> $okalt_d{$b} } keys %okalt_d;
-    sort { # sort first by number of x's (low to high), then by d (low_to_high)
-  my $acat = ($a =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
-  my $bcat = ($b =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
-  my $ax = () = $acat =~ /x/g;
-  my $bx = () = $bcat =~ /x/g;
-  (($ax <=> $bx) or ($okalt_d{$a} <=> $okalt_d{$b})); } keys %okalt_d;
+      sort { # sort first by number of x's (low to high), then by d (low_to_high)
+	my $acat = ($a =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
+	my $bcat = ($b =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
+	my $ax = () = $acat =~ /x/g;
+	my $bx = () = $bcat =~ /x/g;
+	(($ax <=> $bx) or ($okalt_d{$a} <=> $okalt_d{$b})); } keys %okalt_d;
     
     my @sorted_allpeds = # sort {$allped_d{$a} <=> $allped_d{$b} } keys %allped_d;
- sort {
-  my $acat = ($a =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
-  my $bcat = ($b =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
-  my $ax = () = $acat =~ /x/g;
-  my $bx = () = $bcat =~ /x/g;
-  (($ax <=> $bx) or ($allped_d{$a} <=> $allped_d{$b})); } keys %allped_d;
+      sort {
+	my $acat = ($a =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
+	my $bcat = ($b =~ /(\S+\s+\S+\s+\S+\s+\S+)\s*$/)? $1 : 'x xx xx xx';
+	my $ax = () = $acat =~ /x/g;
+	my $bx = () = $bcat =~ /x/g;
+	(($ax <=> $bx) or ($allped_d{$a} <=> $allped_d{$b}));
+      } keys %allped_d;
       
     if ($category_string eq '0 00 00 00'  or  $category_string eq '1 01 01 00') { # pedigree from table is 'good'
       $output_string .= "  ped" . $ped_str . "  " . $ped_d; # ped  " . $id_pair . "  $category_string  $ped_d";
@@ -344,23 +359,27 @@ if ($find_alternatives > 0) {
   print $fhbest "# Bad denoms count: $bad_denoms_count\n";
   my @scategories = sort {$a cmp $b} keys %category_counts;
   # while (my($cat, $count) = each %category_counts) {
+  my $total_count = 0;
   for my $cat (@scategories) {
-    print "$cat ", $category_counts{$cat}, "\n";
+    my $cat_count = $category_counts{$cat};
+    print "$cat  $cat_count \n";
+    $total_count += $cat_count;
   }
+  print "total:  $total_count\n";
 }
 
 
 sub are_denoms_ok{
   my @cols = @{my $cls = shift};
   my $first = shift; # the col with the matpat_agmr denom.
-  my $factor = shift;
+  my $factor = shift; # denom is ok if it is >= factor*median_denom
   my ($median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_z_denom, $median_d_denom) = @_;
   my $last = $first + 13; # col with d
   my ($FMagmr_denom, $FMagmr, $Fhgmr_denom, $Fhgmr, $Fr_denom, $Fr, $Mhgmr_denom, $Mhgmr, $Mr_denom, $Mr, $z_denom, $z, $d_denom, $d) = @cols[$first..$last];
   my $agmr_denom_ok = ($FMagmr_denom >= $factor*$median_matpat_agmr_denom);
   my $hgmr_denoms_ok = ($Fhgmr_denom >= $factor*$median_hgmr_denom  and  $Mhgmr_denom >= $factor*$median_hgmr_denom);
   my $r_denoms_ok = ($Fr_denom >= $factor*$median_r_denom  and  $Mr_denom >= $factor*$median_r_denom);
-   my $z_denom_ok = ($z_denom >= $factor*$median_z_denom);
+  my $z_denom_ok = ($z_denom >= $factor*$median_z_denom);
   my $d_denom_ok = ($d_denom >= $factor*$median_d_denom);
   my $denoms_ok = ($agmr_denom_ok  and  $hgmr_denoms_ok  and  $r_denoms_ok  and  $z_denom_ok  and  $d_denom_ok);
   return $denoms_ok;
