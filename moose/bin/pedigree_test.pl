@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
+use Scalar::Util qw(looks_like_number);
 use List::Util qw(min max sum);
 use Getopt::Long;
 use File::Basename 'dirname';
@@ -135,7 +136,9 @@ my @matpat_agmrs = ();
 while (my ($j, $line) = each @lines) {
   next if($line =~ /^\s*#/);
   my @cols = split(" ", $line);
-  push @matpat_agmrs, $cols[5];
+  if(looks_like_number($cols[5])){
+      push @matpat_agmrs, $cols[5];
+  }
 }
 my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => 0.1});
 my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
@@ -160,20 +163,55 @@ while (my ($j, $line) = each @lines) {
   my ($accid, $bad_gt_count) = @cols[0,1];
   my ($mat_id, $pat_id) = @cols[2,3];
 
-  my $matpat_agmr = $cols[5];
-  my ($mat_hgmr, $pat_hgmr) = @cols[7,11];
-  my ($mat_r, $pat_r) = @cols[9,13];
+#  my $matpat_agmr = $cols[5];
+#  my ($mat_hgmr, $pat_hgmr) = @cols[7,11];
+#  my ($mat_r, $pat_r) = @cols[9,13];
 #  my ($d1, $d2) = @cols[15,17];
-  my $z = $cols[15];
-  my $d = $cols[17];
-  push @hgmr_denoms, @cols[6,10];
-  push @hgmrs, ($mat_hgmr, $pat_hgmr);
-  push @r_denoms, @cols[8,12];
-  push @rs, ($mat_r, $pat_r);
-  push @z_denoms, $cols[14];
-  push @zs, $z;
-  push @d_denoms, $cols[16];
-  push @ds, $d;
+#  my $z = $cols[15];
+#  my $d = $cols[17];
+
+  my ($mat_hgmr_denom, $mat_hgmr) = @cols[6,7];
+  if(looks_like_number($mat_hgmr)){
+      push @hgmr_denoms, $mat_hgmr_denom;
+      push @hgmrs, $mat_hgmr;
+  }
+   my ($pat_hgmr_denom, $pat_hgmr) = @cols[10,11];
+  if(looks_like_number($pat_hgmr)){
+      push @hgmr_denoms, $pat_hgmr_denom;
+      push @hgmrs, $pat_hgmr;
+  }
+
+  my ($mat_R_denom, $mat_R) = @cols[8,9];
+  if(looks_like_number($mat_R)){
+      push @r_denoms, $mat_R_denom;
+      push @rs, $mat_R;
+  }
+   my ($pat_R_denom, $pat_R) = @cols[12,13];
+  if(looks_like_number($pat_R)){
+      push @r_denoms, $pat_R_denom;
+      push @rs, $pat_R;
+  }
+
+   my ($z_denom, $z) = @cols[14,15];
+  if(looks_like_number($z)){
+      push @z_denoms, $z_denom;
+      push @zs, $z;
+  }
+  
+   my ($d_denom, $d) = @cols[16,17];
+  if(looks_like_number($d)){
+      push @d_denoms, $d_denom;
+      push @ds, $d;
+  }
+
+ # push @hgmr_denoms, @cols[6,10];
+#  push @hgmrs, ($mat_hgmr, $pat_hgmr);
+#  push @r_denoms, @cols[8,12];
+#  push @rs, ($mat_r, $pat_r);
+#  push @z_denoms, $cols[14];
+#  push @zs, $z;
+#  push @d_denoms, $cols[16];
+#  push @ds, $d;
 }
 my $median_matpat_agmr_denom = $matpat_agmrs[int(scalar @matpat_agmrs / 2)];
 my $median_hgmr_denom = $hgmr_denoms[int(scalar @hgmr_denoms / 2)];
@@ -235,7 +273,7 @@ if ($find_alternatives > 0) {
     my %allped_d = ();
     my $ok_pedigrees_count = 0; # counts all ok (small d) pedigrees for this accession, both pedigree from table and alternatives.
     my $denoms_ok = are_denoms_ok(\@cols, 4, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_d_denom, $factor);
-    $category_string = ($denoms_ok)? category(\@cols, 4, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_d) : 'x xx xx x';
+    $category_string = ($denoms_ok)? category(\@cols, 4, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d) : 'x xx xx x';
     my $ped_str = sprintf("  ped  %20s %20s  ", $mat_id, $pat_id) . "  $category_string";
     if ($denoms_ok) {
       $ok_pedigrees_count++ if ($category_string eq '0 00 00 00'  or  $category_string eq '1 01 01 00');
@@ -256,7 +294,7 @@ if ($find_alternatives > 0) {
       my $alt_d = $cols[$first+13];
       $denoms_ok = are_denoms_ok(\@cols, $first, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_d_denom, $factor);
       if ($denoms_ok) {
-	$alt_category_string = category(\@cols, $first, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_d);
+	$alt_category_string = category(\@cols, $first, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d);
 	if ($alt_category_string eq '0 00 00 00'  or $alt_category_string eq '1 01 01 00') {
 	  $ok_pedigrees_count++;
 	  $okalt_d{"  alt  $alt_id_pair  $alt_category_string"} = $alt_d;
