@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 #include "gtset.h"
 // #include "vect.h"
 #include "pedigree.h"
@@ -1135,18 +1136,35 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessi
 }
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->agmr12.d, n_over_d(the_pedigree_stats->agmr12));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_hgmr.d, n_over_d(the_pedigree_stats->par1_hgmr));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_R.d, n_over_d(the_pedigree_stats->par1_R));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, n_over_d(the_pedigree_stats->par2_hgmr));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, n_over_d(the_pedigree_stats->par2_R));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->z.d, n_over_d(the_pedigree_stats->z));
-  fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, n_over_d(the_pedigree_stats->d));
- 
+  print_d_r(fh, the_pedigree_stats->agmr12);
+   print_d_r(fh, the_pedigree_stats->par1_hgmr);
+    print_d_r(fh, the_pedigree_stats->par1_R);
+     print_d_r(fh, the_pedigree_stats->par2_hgmr);
+      print_d_r(fh, the_pedigree_stats->par2_R);
+       print_d_r(fh, the_pedigree_stats->z);
+        print_d_r(fh, the_pedigree_stats->d);
+  /* 	 print_d_r(fh, the_pedigree_stats->agmr12); */
+  /* double x; */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->agmr12.d, isnan(x = n_over_d(the_pedigree_stats->agmr12))? "-" : x); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_hgmr.d, n_over_d(the_pedigree_stats->par1_hgmr)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_R.d, n_over_d(the_pedigree_stats->par1_R)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_hgmr.d, n_over_d(the_pedigree_stats->par2_hgmr)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par2_R.d, n_over_d(the_pedigree_stats->par2_R)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->z.d, n_over_d(the_pedigree_stats->z)); */
+  /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->d.d, n_over_d(the_pedigree_stats->d)); */
 }
 
+void print_d_r(FILE* fh, ND nd){
+  if(nd.d == 0){
+    fprintf(fh, "    0     -  ");
+  }else{
+    fprintf(fh, "%5ld %6.5lf  ", nd.d, (double)nd.n/(double)nd.d);
+  }
+}
+ 
+
 double n_over_d(ND nd){
-  return (nd.d > 0)? (double)nd.n/(double)nd.d : 2;
+  return (nd.d > 0)? (double)nd.n/(double)nd.d : NAN;
 }
 
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees){

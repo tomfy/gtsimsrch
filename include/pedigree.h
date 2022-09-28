@@ -88,6 +88,7 @@ long marker_d_counts(Pedigree* the_pedigree,
 		     // char* gts1, char* gts2, char* proggts,
 		     long* d0counts, long* d1counts, long* d2counts);
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
+void print_d_r(FILE* fh, ND nd);
 double n_over_d(ND nd);
 
 long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset);
