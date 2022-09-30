@@ -140,11 +140,13 @@ while (my ($j, $line) = each @lines) {
       push @matpat_agmrs, $cols[5];
   }
 }
-my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => 0.1});
+my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => $pow});
 my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
 printf("# clustering of agmr between parents: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
 
 my $max_self_agmr = $km_h_opt;
+
+# exit;
 
 # #####  Clustering of hgmr, r, z, d  ##########################
 my @hgmr_denoms = ();
@@ -219,7 +221,7 @@ my $median_r_denom = $r_denoms[int(scalar @r_denoms / 2)];
 my $median_z_denom = $z_denoms[int(scalar @z_denoms / 2)];
 my $median_d_denom = $d_denoms[int(scalar @d_denoms / 2)];
 
-$cluster1d_obj = Cluster1d->new({label => 'hgmr', xs => \@hgmrs, pow => $pow});
+$cluster1d_obj = Cluster1d->new({label => 'hgmr', xs => \@hgmrs, pow => $pow, median_denom => $median_matpat_agmr_denom});
 ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
 printf("# clustering of hgmr: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
 my $max_ok_hgmr = $km_h_opt;
@@ -234,6 +236,7 @@ $cluster1d_obj = Cluster1d->new({label => 'z', xs => \@zs, pow => $pow});
 printf("# clustering of   z: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
 my $max_ok_z = $km_h_opt;
 
+print STDERR "Clustering d!!!!!\n";
 $cluster1d_obj = Cluster1d->new({label => 'd', xs => \@ds, pow => $pow});
 ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
 printf("# clustering of   d: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
@@ -273,8 +276,8 @@ if ($find_alternatives > 0) {
 
     my %allped_d = ();
     my $ok_pedigrees_count = 0; # counts all ok (small d) pedigrees for this accession, both pedigree from table and alternatives.
-    my $denoms_ok = are_denoms_ok(\@cols, 4, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_z_denom, $median_d_denom);
-    my $category_string = ($denoms_ok)? category(\@cols, 4, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d) : 'x xx xx xx';
+#    my $denoms_ok = are_denoms_ok(\@cols, 4, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_z_denom, $median_d_denom);
+    my $category_string = category(\@cols, 4, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d);
     my $no_space_cat_str = $category_string;
     $no_space_cat_str =~ s/ /_/g;
     if(exists $filename_handle{$no_space_cat_str}){
@@ -287,7 +290,7 @@ if ($find_alternatives > 0) {
     }
    
     my $ped_str = sprintf("  ped  %20s %20s  ", $mat_id, $pat_id) . "  $category_string";
-    if ($denoms_ok) {
+    if (1){ #  or  $denoms_ok) {
       $ok_pedigrees_count++ if ($category_string eq '0 00 00 00'  or  $category_string eq '1 01 01 00');
       $category_counts{$category_string}++;
     } else {
@@ -306,8 +309,8 @@ if ($find_alternatives > 0) {
       my $alt_category_string = '';
       my $alt_id_pair = sprintf("%20s %20s", $cols[$first-2],  $cols[$first-1]);
       my $alt_d = $cols[$first+13];
-      $denoms_ok = are_denoms_ok(\@cols, $first, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_z_denom, $median_d_denom);
-      if ($denoms_ok) {
+ #     $denoms_ok = are_denoms_ok(\@cols, $first, $factor, $median_matpat_agmr_denom, $median_hgmr_denom, $median_r_denom, $median_z_denom, $median_d_denom);
+      if (1){ #  or  $denoms_ok) {
 	$alt_category_string = category(\@cols, $first, $max_self_agmr, $max_ok_hgmr, $max_self_r, $max_ok_z, $max_ok_d);
 	if ($alt_category_string eq '0 00 00 00'  or $alt_category_string eq '1 01 01 00') {
 	  $ok_pedigrees_count++;
@@ -392,16 +395,39 @@ sub category{
   my $last = $first + 13;
   my ($FMagmr_denom, $FMagmr, $Fhgmr_denom, $Fhgmr, $Fr_denom, $Fr, $Mhgmr_denom, $Mhgmr, $Mr_denom, $Mr, $z_denom, $z, $d_denom, $d) = @cols[$first..$last];
   my $category_string = '';
-  $category_string .= ($FMagmr <= $max_self_agmr)? '0' : '1';
+  # $category_string .= ($FMagmr <= $max_self_agmr)? '0' : '1';
+  # $category_string .= ' ';
+  # $category_string .= ($Fhgmr <= $max_ok_hgmr)? '0' : '1';
+  # $category_string .= ($Fr <= $max_self_r)? '0' : '1';
+  # $category_string .= ' ';
+  # $category_string .= ($Mhgmr <= $max_ok_hgmr)? '0' : '1';
+  # $category_string .= ($Mr <= $max_self_r)? '0' : '1';
+  # $category_string .= ' ';
+  # $category_string .= ($z <= $max_ok_z)? '0' : '1';
+  # $category_string .= ($d <= $max_ok_d)? '0' : '1';
+
+  $category_string .= category_character($FMagmr_denom, $FMagmr, $max_self_agmr);
   $category_string .= ' ';
-  $category_string .= ($Fhgmr <= $max_ok_hgmr)? '0' : '1';
-  $category_string .= ($Fr <= $max_self_r)? '0' : '1';
+   $category_string .= category_character($Fhgmr_denom, $Fhgmr, $max_ok_hgmr);
+   $category_string .= category_character($Fr_denom, $Fr, $max_self_r);
   $category_string .= ' ';
-  $category_string .= ($Mhgmr <= $max_ok_hgmr)? '0' : '1';
-  $category_string .= ($Mr <= $max_self_r)? '0' : '1';
+   $category_string .= category_character($Mhgmr_denom, $Mhgmr, $max_ok_hgmr);
+   $category_string .= category_character($Mr_denom, $Mr, $max_self_r);
   $category_string .= ' ';
-  $category_string .= ($z <= $max_ok_z)? '0' : '1';
-  $category_string .= ($d <= $max_ok_d)? '0' : '1';
+   $category_string .= category_character($z_denom, $z, $max_ok_z);
+  $category_string .= category_character($d_denom, $d, $max_ok_d);
+  
   return $category_string;
+}
+
+sub category_character{
+  my $denom = shift;
+  my $r = shift;
+  my $max = shift;
+  if($denom <= 0){
+    return 'x';
+  }else{
+    return ($r <= $max)? '0' : '1';
+  }
 }
 

@@ -31,6 +31,13 @@ has pow => ( # if this is a number y, cluster x^y, if it is 'log', cluster log(x
 	    default => 'log',
 	   );
 
+has median_denom => (
+		     isa => 'Num',
+		     is => 'ro',
+		     default => 3000,
+		     # required => 1,
+		     );
+
 has txs => (			# transformed xs
 	    isa => 'ArrayRef[Num]',
 	    is => 'rw',
@@ -62,35 +69,39 @@ has kernel_width => (
 
 sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - skip
   my $self = shift;
-#  print STDERR "clustered quantity: ", $self->label(), "\n";
-#  print STDERR join(" ", $self->xs()->[0..20]), "\n";
+  #  print STDERR "clustered quantity: ", $self->label(), "\n";
+  #  print STDERR join(" ", $self->xs()->[0..20]), "\n";
   my @xs = sort {$a <=> $b} @{$self->xs()};
   $self->xs(\@xs);
-  my @txs = sort {$a <=> $b} @{$self->xs()};
+  my @txs = @xs;		# sort {$a <=> $b} @{$self->xs()};
   while ($txs[0] < 0) {		# shift the negatives away
     shift @txs;
   }
-  while ($txs[-1] > 1.1){ # pop away invalid data
-    pop @txs;
-  }
-
-  my $small_limit = 1e-8;
-  my $xsmall = undef;
-  for my $x (@txs) {  # find first (i.e. least) number >= $small_limit
-    if ($x >= $small_limit) {
-      $xsmall = $x;
-       last;
-    }
-  }
-  for my $x (@txs) {		# numbers < $xsmall get set to $xsmall
-    if ($x < $xsmall) {
-      $x = $xsmall
-    } else {
-      last;
-    }
-  }
-#  print STDERR "#  size of txs array: ", scalar @txs, "\n";
+  # while ($txs[-1] > 1.1){ # pop away invalid data
+  #   pop @txs;
+  # }
   my $pow = $self->pow();
+  if ($pow eq 'log') {
+    my $minx = 1.0/($self->median_denom());
+    @txs = map(max($minx, $_), @xs);
+    # my $small_limit = 1e-8;
+    # my $xsmall = undef;
+    # for my $x (@txs) { # find first (i.e. least) number >= $small_limit
+    #   if ($x >= $small_limit) {
+    # 	$xsmall = $x;
+    # 	last;
+    #   }
+    # }
+    # for my $x (@txs) {		# numbers < $xsmall get set to $xsmall
+    #   if ($x < $xsmall) {
+    # 	$x = $xsmall
+    #   } else {
+    # 	last;
+    #   }
+    # }
+  }
+  #  print STDERR "#  size of txs array: ", scalar @txs, "\n";
+
   if ($pow eq 'log') {
     @txs = map(log($_), @txs);
   } else {
@@ -105,16 +116,19 @@ sub one_d_2cluster{ # cluster 1dim data into 2 clusters
   my $pow = $self->pow();	# cluster x**$pow ( or cluster log(x) if $pow eq 'log' )
 
   my $n_pts = scalar @{$self->txs()};
+ # print STDERR "npts: $n_pts   pow: $pow  ";
   my ($km_n_L, $km_h_opt, $km_mom, $q) = $self->kmeans_2cluster();
+  print STDERR "$km_n_L  $km_h_opt $km_mom  $q  \n";
   my ($kde_n_L, $kde_h_opt, $min_kde_est) = $self->kde_2cluster($km_n_L-1);
+  $km_h_opt = $km_mom; # maybe mean of means is better?
   if ($pow eq 'log') {
     $km_h_opt = exp($km_h_opt);
     $kde_h_opt = exp($kde_h_opt);
   } else {
-   # print STDERR "pow, etc: $pow $km_h_opt   ";
+  # print STDERR "pow, etc: $pow $km_h_opt   ";
     $km_h_opt = $km_h_opt**(1/$pow);
     $kde_h_opt = $kde_h_opt**(1/$pow);
-  #  print STDERR " $km_h_opt \n";
+  # print STDERR " $km_h_opt \n";
   }
   return ($n_pts, $km_n_L, $n_pts-$km_n_L, $km_h_opt, $q, 
 	  $kde_n_L, $n_pts-$kde_n_L, $kde_h_opt);
@@ -130,25 +144,41 @@ sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
   my $self = shift;
   my $xs = $self->txs(); # array ref of transformed values.
   my @xsqrs = map($_*$_, @$xs);
-  my $h_opt;
+  my $h_opt = -1;
   my ($n, $sumx, $sumxsqr) = (scalar @$xs, sum(@$xs), sum(@xsqrs)); # sum(map($_*$_, @xs)));
   my ($n_left, $sumx_left, $sumxsqr_left) = (0, 0, 0);
   my ($n_right, $sumx_right, $sumxsqr_right) = ($n, $sumx, $sumxsqr);
-
-  my $mean_of_means;
+ print STDERR "$n_left  $sumx_left    $n_right  $sumx_right  \n";
+  my $mean_of_means_opt = -1;
+  my $v_opt = $sumxsqr_right - $sumx_right*$sumx_right/$n_right;
+  my $n_left_opt = -1;
+  print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
   for my $x (@$xs[0 .. $#$xs-1]) {
     $n_left++; $n_right--;
     $sumx_left += $x; $sumx_right -= $x;
+ 
     $sumxsqr_left += $x*$x; $sumxsqr_right -= $x*$x;
- #   print STDERR "$sumx_left ", $sumx_left/$n_left, "  $sumxsqr_left       $sumx_right  ", ($sumx_right/$n_right)**2, "   $sumxsqr_right   ", $sumxsqr_right/$n_right, "  ", $x*$x, "\n";
-    $mean_of_means = 0.5*($sumx_left/$n_left + $sumx_right/$n_right);
-    if ($mean_of_means < $xs->[$n_left]  and  $mean_of_means >= $x) { # this is the place
-      $h_opt = 0.5*($x + $xs->[$n_left]);
-      last;
-    }
-  }
-  if(1){
+    #   print STDERR "$sumx_left ", $sumx_left/$n_left, "  $sumxsqr_left       $sumx_right  ", ($sumx_right/$n_right)**2, "   $sumxsqr_right   ", $sumxsqr_right/$n_right, "  ", $x*$x, "\n";
 
+    my $v = ($sumxsqr_left - $sumx_left*$sumx_left/$n_left) +  ($sumxsqr_right - $sumx_right*$sumx_right/$n_right);
+    if($v < $v_opt){
+      $v_opt = $v;
+      $n_left_opt = $n_left;
+      $mean_of_means_opt =  0.5*($sumx_left/$n_left + $sumx_right/$n_right);
+      $h_opt = 0.5*($x + $xs->[$n_left]);
+      print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
+    }
+    # my ($Lmean, $Rmean) = ($sumx_left/$n_left, $sumx_right/$n_right);
+    # $mean_of_means = 0.5*($Lmean + $Rmean);
+    #  print STDERR "$x  ",  $xs->[$n_left-1], "  ", $xs->[$n_left], "  $n_left  $sumx_left  $Lmean   $n_right  $sumx_right  $Rmean    $mean_of_means;\n";
+    # if ($mean_of_means < $xs->[$n_left]  and  $mean_of_means >= $x) { # this is the place
+    #   $h_opt = 0.5*($x + $xs->[$n_left]);
+    # print STDERR " Left: $sumx_left  $n_left $Lmean  Right: $sumx_right  $n_right  $Rmean  \n";
+    #   last;
+    # }
+  }
+  
+#  if(1){
   # my ($mean_left, $mean_right, $mean) = ($sumx_left/$n_left, $sumx_right/$n_right, $sumx/$n);
   # my $var_left = ($sumxsqr_left/$n_left - $mean_left**2);
   # my $var_right = ($sumxsqr_right/$n_right - $mean_right**2);
@@ -158,8 +188,9 @@ sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
   #my $q = qqq($xs, $n_left);
 #  print STDERR "# $var_left $var_right $var   $q  $q1\n";
   #  getchar();
-  }
-  return ($n_left, $h_opt, $mean_of_means, qqq($xs, $n_left, 0.1));
+  #  }
+print STDERR "XXX:  $n_left_opt $h_opt $mean_of_means_opt \n";
+  return ($n_left_opt, $h_opt, $mean_of_means_opt, qqq($xs, $n_left_opt, 0.1));
 }
 
 sub qqq{ # intended to be a measure of how well-separated the 2 clusters are.
@@ -176,7 +207,7 @@ sub qqq{ # intended to be a measure of how well-separated the 2 clusters are.
   my $L90 = $xs->[int((1-$qile)*$nL)]; # 90% of L cluster is to left of this.
 #  my $R90 = $xs->[$n-1 - int(0.9*$nR)]; # 90% of R cluster is to right of this.
   my $R10 = $xs->[$nL + int($qile*$nR)]; #
-#  print STDERR "$Lmedian  $L90   $Rmedian  $R90  $R10 \n";
+  print STDERR "$Lmedian  $L90   $Rmedian  $R10 \n";
 #  print STDERR exp($Lmedian), " ",  exp($L90), "  ", exp($Rmedian), "  ", exp($R90), "  ", exp($R10), " \n";
   # return (($L90 - $Lmedian) + ($Rmedian - $R90))/($Rmedian - $Lmedian);
   return 1 - ($R10 - $L90)/($Rmedian - $Lmedian);
