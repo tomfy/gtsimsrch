@@ -137,10 +137,9 @@ sub one_d_2cluster{ # cluster 1dim data into 2 clusters
 
 sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
   # h = 1/2 * (<x>_<h + <x>_>h)  [ where <x>_<h means the average of the x values which are less than h ]
-  # however instead of guessing some initial cluster centers and iteratively refining, just 
-  # consider break points with 1, 2, 3, etc. pts in the L-hand cluster,
-  # until mean of means (i.e. mean of (the mean of L cluster, and mean of R cluster) )
-  # lies between the two clusters.
+  # this is necessary but not sufficient to find global optimum,
+  # so consider break points with 1, 2, 3, etc. pts in the L-hand cluster,
+  # and minimize n_left*var_left + n_right*var_right
   my $self = shift;
   my $xs = $self->txs(); # array ref of transformed values.
   my @xsqrs = map($_*$_, @$xs);
