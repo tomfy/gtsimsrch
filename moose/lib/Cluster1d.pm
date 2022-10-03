@@ -82,7 +82,9 @@ sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - 
   # }
   my $pow = $self->pow();
   if ($pow eq 'log') {
-    my $minx = 1.0/($self->median_denom());
+      my $minx = 1.0/($self->median_denom());
+      print STDERR "minx $minx \n";
+    #  exit;
     @txs = map(max($minx, $_), @xs);
     # my $small_limit = 1e-8;
     # my $xsmall = undef;
@@ -116,11 +118,11 @@ sub one_d_2cluster{ # cluster 1dim data into 2 clusters
   my $pow = $self->pow();	# cluster x**$pow ( or cluster log(x) if $pow eq 'log' )
 
   my $n_pts = scalar @{$self->txs()};
- # print STDERR "npts: $n_pts   pow: $pow  ";
+  print STDERR "label: ", $self->label(), "  npts: $n_pts   pow: $pow  ";
   my ($km_n_L, $km_h_opt, $km_mom, $q) = $self->kmeans_2cluster();
   print STDERR "$km_n_L  $km_h_opt $km_mom  $q  \n";
   my ($kde_n_L, $kde_h_opt, $min_kde_est) = $self->kde_2cluster($km_n_L-1);
-  $km_h_opt = $km_mom; # maybe mean of means is better?
+#  $km_h_opt = $km_mom; # maybe mean of means is better?
   if ($pow eq 'log') {
     $km_h_opt = exp($km_h_opt);
     $kde_h_opt = exp($kde_h_opt);
@@ -144,11 +146,14 @@ sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
   my $self = shift;
   my $xs = $self->txs(); # array ref of transformed values.
   my @xsqrs = map($_*$_, @$xs);
+  while (my ($i, $xx) = each @$xs){
+      print STDERR "$i $xx  ", $xsqrs[$i], "\n";
+	 }
   my $h_opt = -1;
   my ($n, $sumx, $sumxsqr) = (scalar @$xs, sum(@$xs), sum(@xsqrs)); # sum(map($_*$_, @xs)));
   my ($n_left, $sumx_left, $sumxsqr_left) = (0, 0, 0);
   my ($n_right, $sumx_right, $sumxsqr_right) = ($n, $sumx, $sumxsqr);
- print STDERR "$n_left  $sumx_left    $n_right  $sumx_right  \n";
+ print STDERR "ABC: $n_left  $sumx_left    $n_right  $sumx_right  $sumxsqr_right  \n";
   my $mean_of_means_opt = -1;
   my $v_opt = $sumxsqr_right - $sumx_right*$sumx_right/$n_right;
   my $n_left_opt = -1;
@@ -161,6 +166,7 @@ sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
     #   print STDERR "$sumx_left ", $sumx_left/$n_left, "  $sumxsqr_left       $sumx_right  ", ($sumx_right/$n_right)**2, "   $sumxsqr_right   ", $sumxsqr_right/$n_right, "  ", $x*$x, "\n";
 
     my $v = ($sumxsqr_left - $sumx_left*$sumx_left/$n_left) +  ($sumxsqr_right - $sumx_right*$sumx_right/$n_right);
+     print STDERR "$x  $v  $v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
     if($v < $v_opt){
       $v_opt = $v;
       $n_left_opt = $n_left;
@@ -174,7 +180,7 @@ sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
     # if ($mean_of_means < $xs->[$n_left]  and  $mean_of_means >= $x) { # this is the place
     #   $h_opt = 0.5*($x + $xs->[$n_left]);
     # print STDERR " Left: $sumx_left  $n_left $Lmean  Right: $sumx_right  $n_right  $Rmean  \n";
-    #   last;
+    #   last;q
     # }
   }
   

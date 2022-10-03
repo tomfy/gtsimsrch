@@ -140,7 +140,7 @@ while (my ($j, $line) = each @lines) {
       push @matpat_agmrs, $cols[5];
   }
 }
-my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => $pow});
+my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => $pow}); #, median_denom => $median_matpat_agmr_denom});
 my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
 printf("# clustering of agmr between parents: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
 
@@ -221,7 +221,7 @@ my $median_r_denom = $r_denoms[int(scalar @r_denoms / 2)];
 my $median_z_denom = $z_denoms[int(scalar @z_denoms / 2)];
 my $median_d_denom = $d_denoms[int(scalar @d_denoms / 2)];
 
-$cluster1d_obj = Cluster1d->new({label => 'hgmr', xs => \@hgmrs, pow => $pow, median_denom => $median_matpat_agmr_denom});
+$cluster1d_obj = Cluster1d->new({label => 'hgmr', xs => \@hgmrs, pow => $pow}); #
 ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
 printf("# clustering of hgmr: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
 my $max_ok_hgmr = $km_h_opt;
