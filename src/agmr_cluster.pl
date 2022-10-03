@@ -46,10 +46,10 @@ for my $acc (@ccs) {
   my $output_line_string = '';
   my @sorted_cc = sort {$a cmp $b} @$acc; # sort the accession ids in the cluster
   my ($ccminw, $ccmaxw, $nbad) = (100000, -1, 0);
-    while(my($i, $v) = each @sorted_cc){
+  while (my($i, $v) = each @sorted_cc) {
     my ($minw, $maxw) = (100000, -1);
-      for(my $j=$i+1; $j<scalar @sorted_cc; $j++){
-	my $u = $sorted_cc[$j];
+    for (my $j=$i+1; $j<scalar @sorted_cc; $j++) {
+      my $u = $sorted_cc[$j];
       next if($u eq $v);
       my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
       my $weight = $edge_weight{$edge_verts} // -1;
