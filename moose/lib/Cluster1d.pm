@@ -137,26 +137,25 @@ sub one_d_2cluster{ # cluster 1dim data into 2 clusters
 }
 
 
-sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
-  # h = 1/2 * (<x>_<h + <x>_>h)  [ where <x>_<h means the average of the x values which are less than h ]
-  # this is necessary but not sufficient to find global optimum,
-  # so consider break points with 1, 2, 3, etc. pts in the L-hand cluster,
-  # and minimize n_left*var_left + n_right*var_right
+sub kmeans_2cluster{ # divide into 2 clusters by minimizing
+  # n_left*var_left + n_right*var_right
+  # for N pts, just consider all N-1 possible ways of partitioning
+  # into non-empty L and R sets with every value in L set < every value in R set.
   my $self = shift;
   my $xs = $self->txs(); # array ref of transformed values.
   my @xsqrs = map($_*$_, @$xs);
-  while (my ($i, $xx) = each @$xs){
-      print STDERR "$i $xx  ", $xsqrs[$i], "\n";
-	 }
+  # while (my ($i, $xx) = each @$xs){
+  #     print STDERR "$i $xx  ", $xsqrs[$i], "\n";
+  # 	 }
   my $h_opt = -1;
   my ($n, $sumx, $sumxsqr) = (scalar @$xs, sum(@$xs), sum(@xsqrs)); # sum(map($_*$_, @xs)));
   my ($n_left, $sumx_left, $sumxsqr_left) = (0, 0, 0);
   my ($n_right, $sumx_right, $sumxsqr_right) = ($n, $sumx, $sumxsqr);
- print STDERR "ABC: $n_left  $sumx_left    $n_right  $sumx_right  $sumxsqr_right  \n";
+# print STDERR "ABC: $n_left  $sumx_left    $n_right  $sumx_right  $sumxsqr_right  \n";
   my $mean_of_means_opt = -1;
   my $v_opt = $sumxsqr_right - $sumx_right*$sumx_right/$n_right;
   my $n_left_opt = -1;
-  print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
+ # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
   for my $x (@$xs[0 .. $#$xs-1]) {
     $n_left++; $n_right--;
     $sumx_left += $x; $sumx_right -= $x;
@@ -165,13 +164,13 @@ sub kmeans_2cluster{ # divide into 2 clusters by finding dividing value h s.t.
     #   print STDERR "$sumx_left ", $sumx_left/$n_left, "  $sumxsqr_left       $sumx_right  ", ($sumx_right/$n_right)**2, "   $sumxsqr_right   ", $sumxsqr_right/$n_right, "  ", $x*$x, "\n";
 
     my $v = ($sumxsqr_left - $sumx_left*$sumx_left/$n_left) +  ($sumxsqr_right - $sumx_right*$sumx_right/$n_right);
-     print STDERR "$x  $v  $v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
-    if($v < $v_opt){
+   #  print STDERR "$x  $v  $v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
+    if($v < $v_opt){ # if best so far record new best solution.
       $v_opt = $v;
       $n_left_opt = $n_left;
       $mean_of_means_opt =  0.5*($sumx_left/$n_left + $sumx_right/$n_right);
       $h_opt = 0.5*($x + $xs->[$n_left]);
-      print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
+     # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
     }
     # my ($Lmean, $Rmean) = ($sumx_left/$n_left, $sumx_right/$n_right);
     # $mean_of_means = 0.5*($Lmean + $Rmean);

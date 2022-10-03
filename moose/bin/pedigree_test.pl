@@ -131,16 +131,19 @@ my @lines = <$fhin>;
 print "# Number of pedigrees to be analyzed: ", scalar @lines, "\n";
 
 # *****  Cluster agmr between parents in pedigree table
-my @matpat_agmrs = ();
+my @matpat_agmrs = (); my @matpat_agmr_denoms;
 #my @array_of_lines_as_cols = ();
 while (my ($j, $line) = each @lines) {
   next if($line =~ /^\s*#/);
   my @cols = split(" ", $line);
   if(looks_like_number($cols[5])){
-      push @matpat_agmrs, $cols[5];
+    push @matpat_agmrs, $cols[5];
+    push @matpat_agmr_denoms, $cols[4];
   }
 }
-my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => $pow}); #, median_denom => $median_matpat_agmr_denom});
+my $median_matpat_agmr_denom = $matpat_agmr_denoms[int(scalar @matpat_agmr_denoms / 2)];
+print STDERR "med agmr denom: $median_matpat_agmr_denom\n";
+my $cluster1d_obj = Cluster1d->new({label => 'agmr between parents', xs => \@matpat_agmrs, pow => $pow, median_denom => $median_matpat_agmr_denom});
 my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt) = $cluster1d_obj->one_d_2cluster();
 printf("# clustering of agmr between parents: %5d  k-means: %5d below %5d above %8.6f, q: %6.4f;  kde: %5d below %5d above %8.6f.\n", $n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt);
 
@@ -215,7 +218,7 @@ while (my ($j, $line) = each @lines) {
 #  push @d_denoms, $cols[16];
 #  push @ds, $d;
 }
-my $median_matpat_agmr_denom = $matpat_agmrs[int(scalar @matpat_agmrs / 2)];
+# my $median_matpat_agmr_denom = $matpat_agmrs[int(scalar @matpat_agmrs / 2)];
 my $median_hgmr_denom = $hgmr_denoms[int(scalar @hgmr_denoms / 2)];
 my $median_r_denom = $r_denoms[int(scalar @r_denoms / 2)];
 my $median_z_denom = $z_denoms[int(scalar @z_denoms / 2)];
