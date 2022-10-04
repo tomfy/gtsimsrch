@@ -10,11 +10,13 @@ use List::Util qw(min max sum);
 # and if it has GP (genotype prob.) or GQ (genotype quality) 
 # we can also reject entries (i.e. regard as missing data) if these are not good enough
 
+# usage:  vcf2dosage.pl <  <input vcf file>  >  <output file>
+
 my $minGQ = 96;                 #
 my $minGP = 0.9; # there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $transpose = 1; # default is to transpose; use -notrans to output untransposed.
 # vcf: columns correspond to accessions, rows to markers
-
+my $diploidize = 1; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
 my $ploidy = -1;
 
 GetOptions(
@@ -148,7 +150,17 @@ if (! $transpose) {
     # print col i as a row
     print "$col_id  ";
     while (my($j, $r) = each @rows) {
-      print $r->[$i], " ";
+      my $d = $r->[$i];
+      if($diploidize){
+	if($d eq 'NA'){
+	  # no change
+	}elsif($d eq $ploidy){
+	  $d = 2;
+	}elsif($d > 0){
+	  $d = 1;
+	}# else $d = 0, no change
+      }
+      print "$d ";
     }
     print "\n";
   }
