@@ -16,7 +16,10 @@ my $minGQ = 96;                 #
 my $minGP = 0.9; # there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $transpose = 1; # default is to transpose; use -notrans to output untransposed.
 # vcf: columns correspond to accessions, rows to markers
-my $diploidize = 1; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
+
+# if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
+# we can just lump together all heterozygous genotypes, map to just 3 genotypes:
+my $map_to_012 = 1; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
 my $ploidy = -1;
 
 GetOptions(
@@ -180,8 +183,9 @@ if (! $transpose) {
     # print col i as a row
     print "$col_id  ";
     while (my($j, $r) = each @rows) {
-      my $d = $r->[$i];
-      if($diploidize){
+	my $d = $r->[$i];
+	# at this point $d = 0, 1, 2, ... , ploidy or NA (missing data)
+      if($map_to_012){
 	if($d eq 'NA'){
 	  # no change
 	}elsif($d eq $ploidy){
