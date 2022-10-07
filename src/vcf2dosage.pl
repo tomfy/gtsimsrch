@@ -20,15 +20,26 @@ my $transpose = 1; # default is to transpose; use -notrans to output untranspose
 # if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
 # we can just lump together all heterozygous genotypes, map to just 3 genotypes:
 my $map_to_012 = 1; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
+my $field_to_use = 'AUTO';
 my $ploidy = -1;
+my $hw = 0.33;
+my $delta = 0.1; # if map_to_012 [0, $delta ->0], [1-$hw, $ploidy-1+$hw] -> 1, [$ploidy-$delta, $ploidy] -> 2
+my $min_read_depth = 1;
 
 GetOptions(
 	   'transpose!' => \$transpose, # -notranspose to output untransposed. (simsrch requires transposed)
-	   'GQmin' => \$minGQ,	# min genotype quality.
-	   'GPmin' => \$minGP, # must
+	   'GQmin=f' => \$minGQ,	# min genotype quality.
+	   'GPmin=f' => \$minGP, # must
+	   'field=s' => \$field_to_use,
+	   'ploidy=f' => \$ploidy,
+	   'map_to_012!' => \$map_to_012,
+	   'hw|half_width=f' => \$hw,
+	   'delta=f' => \$delta, 
+	   'min_read_depth=f' => \$min_read_depth,
 	  );
 
-
+die "if specifying use of AD (allele depth), ploidy must also be specified\n" if($field_to_use eq 'AD'  and  $ploidy == -1);
+#print STDERR "$transpose  $minGQ  $minGP  $field_to_use \n";
 
 # read lines up to and including first starting with a single #
 # that line has accession identifiers for columns 9, 10, ...
@@ -38,6 +49,7 @@ my @row_ids = ();
 my @rows = ();
 my @dosage_distribution = ();
 while (<>) {
+  my @cols = split(" ", $_);
   next if(/^\s*##/);
   if (/^\s*#/) {
     @col_ids = split(" ", $_);
@@ -111,26 +123,45 @@ while (<>) {
 	# AD; use allele depth 
 	my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
 	my $read_depth = $ref_depth + $alt_depth;
-	$dosage = int($alt_depth/$read_depth + 0.5) if($read_depth > 0);
+	if($read_depth >= $min_read_depth){
+	  my $float_dosage = $ploidy*$alt_depth/$read_depth;
+	  $dosage = int($float_dosage + 0.5);
+	  if($map_to_012){
+	    if(
+	       ($float_dosage > $delta  and  $float_dosage < 1-$hw)
+	       or
+	       ($float_dosage > $ploidy-1+$hw  and  $float_dosage < $ploidy-$delta)){
+	      $dosage = 'NA';
+	    }
+	  }else{
+	    $dosage = 'NA' if(abs($float_dosage - $dosage) > $hw);
+	  }
+	}
       } else {
 	die "Selected data field 'AD' not present.\n";
       }
-    }else{ # no data field selected, look for DS, then GT, then AD
-      if ($DSidx >= 0) {	      # DS; use dosage if present in vcf file.
-      $dosage = $field_values[$DSidx];
-    } elsif ($GTidx >= 0) {	# GT; use genotype if present
-      if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
-      } else {				    # count 0's and 1's
-	my $ref_allele_count = $field_values[$GTidx] =~ tr/0/0/;
-	my $alt_allele_count = $field_values[$GTidx] =~ tr/1/1/;
-	$dosage = $alt_allele_count;
+    } else {   # no data field selected, look for DS, then GT, then AD
+      if ($DSidx >= 0) {      # DS; use dosage if present in vcf file.
+	$dosage = $field_values[$DSidx];
+      } elsif ($GTidx >= 0) {	# GT; use genotype if present
+	if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
+	} else {			      # count 0's and 1's
+	  my $ref_allele_count = $field_values[$GTidx] =~ tr/0/0/;
+	  my $alt_allele_count = $field_values[$GTidx] =~ tr/1/1/;
+	  $dosage = $alt_allele_count;
+	}
+      } elsif ($ADidx >= 0) {	# AD; use allele depth 
+	my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
+	my $read_depth = $ref_depth + $alt_depth;
+#	$dosage = int($ploidy*$alt_depth/$read_depth + 0.5) if($read_depth > 0);
+		if($read_depth >= $min_read_depth){
+	  my $float_dosage = $ploidy*$alt_depth/$read_depth;
+	  $dosage = int($float_dosage + 0.5);
+	  $dosage = 'NA' if(abs($float_dosage - $dosage) > $hw);
+	}
       }
-    } elsif ($ADidx >= 0) {	# AD; use allele depth 
-      my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
-      my $read_depth = $ref_depth + $alt_depth;
-      $dosage = int($alt_depth/$read_depth + 0.5) if($read_depth > 0);
     }
-    }
+  
 
     ###   do quality checks here if GP or GQ available   ###
     # check if GQ present but too low:
