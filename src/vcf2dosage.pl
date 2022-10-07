@@ -83,23 +83,53 @@ while (<>) {
   }
   @cols = @cols[9..$#cols]; # a typical elem: 0/0/0/0/0/1:79,18:97   GT:AD:DP  (genotype:allele depths:read depth)
   for my $e (@cols) {
-    my $dosage = 'NA'; # indicates missing data
+    my $dosage = 'NA';		# indicates missing data
     my @field_values = split(":", $e);
     die if(scalar @field_values != $nfields);
-    if ($DSidx >= 0) {		# DS; use dosage if present in vcf file.
+    if ($field_to_use eq 'DS') {
+      if ($DSidx >= 0) {      # DS; use dosage if present in vcf file.
+	$dosage = $field_values[$DSidx];
+      } else {
+	die "Selected data field 'DS' not present.\n";
+      }
+    } elsif ($field_to_use eq 'GT') {
+      if ($GTidx >= 0) {	# GT; use genotype if present
+	if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
+	} else {			      # count 0's and 1's
+	  my $ref_allele_count = $field_values[$GTidx] =~ tr/0/0/;
+	  my $alt_allele_count = $field_values[$GTidx] =~ tr/1/1/;
+	  $dosage = $alt_allele_count;
+	}
+      } else {
+	die "Selected data field 'GT' not present.\n";
+      }
+    } elsif ($field_to_use eq 'AD') {
+      if ($ADidx >= 0) {
+	# AD; use allele depth 
+	my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
+	my $read_depth = $ref_depth + $alt_depth;
+	$dosage = int($alt_depth/$read_depth + 0.5) if($read_depth > 0);
+      } else {
+	die "Selected data field 'AD' not present.\n";
+      }
+    }else{ # no data field selected, look for DS, then GT, then AD
+      if ($DSidx >= 0) {	      # DS; use dosage if present in vcf file.
       $dosage = $field_values[$DSidx];
     } elsif ($GTidx >= 0) {	# GT; use genotype if present
       if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
-      }else{ # count 0's and 1's
+      } else {				    # count 0's and 1's
 	my $ref_allele_count = $field_values[$GTidx] =~ tr/0/0/;
 	my $alt_allele_count = $field_values[$GTidx] =~ tr/1/1/;
 	$dosage = $alt_allele_count;
       }
-    } elsif ($ADidx >= 0) { # AD; use allele depth 
+    } elsif ($ADidx >= 0) {	# AD; use allele depth 
       my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
       my $read_depth = $ref_depth + $alt_depth;
       $dosage = int($alt_depth/$read_depth + 0.5) if($read_depth > 0);
     }
+    }
+
+    ###   do quality checks here if GP or GQ available   ###
     # check if GQ present but too low:
     $dosage = 'NA' if($GQidx >= 0  and  $field_values[$GQidx] < $minGQ);
     # check if GP present but insufficiently strong preference for one genotype:
@@ -113,7 +143,7 @@ while (<>) {
       $ploidy = $dosage if($dosage > $ploidy);
       $dosage_distribution[$dosage]++;
     }
-    ###   do quality checks here if GP or GQ available   ###
+   
 
     push @dosages_this_row, $dosage;
   }				# end loop over entries in a row
