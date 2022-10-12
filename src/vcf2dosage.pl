@@ -20,9 +20,9 @@ my $transpose = 1; # default is to transpose; use -notrans to output untranspose
 # if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
 # we can just lump together all heterozygous genotypes, map to just 3 genotypes:
 my $map_to_012 = 1; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
-my $field_to_use = 'AUTO';
+my $field_to_use = 'AUTO'; # default is DS if present, then GT if present, then AD if present, then give up.
 my $ploidy = -1;
-my $hw = 0.33;
+my $hw = 0.33; # if not $map_to_012, round to integer if within +- $hw
 my $delta = 0.1; # if map_to_012 [0, $delta ->0], [1-$hw, $ploidy-1+$hw] -> 1, [$ploidy-$delta, $ploidy] -> 2
 my $min_read_depth = 1;
 
