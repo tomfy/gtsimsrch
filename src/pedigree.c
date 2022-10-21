@@ -676,11 +676,11 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     n_11_0 + n_11_1 + n_11_2 +
     n_12_1 + n_12_2 +
     n_20_1 + n_21_1 + n_21_2 + n_22_2; // can happen in no-error case
-  long n_1 = // 10 triple requiring one (0<->1 or 1<->2) error for consistency 
+  long n_1 = // 10 triples requiring one (0<->1 or 1<->2) error for consistency 
     n_00_1 + n_01_2 + n_02_0 + n_02_2 +
     n_10_2 + n_12_0 +
-    n_20_0 + n_20_2 + n_21_0 + n_22_1;  // can happen if just one error of 0<->1 or 1<->2 type.
-  long n_2 = n_00_2 + n_22_0; // can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
+    n_20_0 + n_20_2 + n_21_0 + n_22_1;  // these 10 can happen if just one error of 0<->1 or 1<->2 type.
+  long n_2 = n_00_2 + n_22_0; // these 2 can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
   
   long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0;
   long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1;
