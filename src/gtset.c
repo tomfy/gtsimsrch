@@ -739,6 +739,24 @@ double hgmr(char* gts1, char* gts2){
   return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
 }
 
+two_longs xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2){
+  // numerator is same as hgmr, but denominator is based on expected numbers of
+  // dosage = 0 markers in random accession
+  Vlong* a1d2s = a1->alt_homozygs;
+  double expected_refds = 0;
+  long counted_refds = 0;
+  for(long i=0; i<a1d2s->size; i++){
+    char d2 = a2->genotypes->a[i];
+    if(d2 == '0') counted_refds++;
+    long n0s_this_marker = gtset->marker_dose_counts[i]->a[0];
+    long n012s_this_marker = gtset->accessions->size - gtset->marker_missing_data_counts->a[i];
+    // n0s_this_marker + gtset->marker_dose_counts[i]->a[1] +
+    // gtset->marker_dose_counts[i]->a[2];
+    expected_refds += (double)n0s_this_marker / (double)n012s_this_marker;
+  }
+  two_longs result = {counted_refds, expected_refds};
+}
+
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hgmr numerator and denominator
   char c1, c2;
   long i=0;

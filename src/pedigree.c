@@ -6,7 +6,7 @@
 #include "pedigree.h"
 // #include "various.h"
 
-#define PEDIGREE_FIELDS 7 // number of whitespace separated fields in pedigree file, with ids in last 3 fields.
+#define PEDIGREE_FIELDS 7 // number of whitespace-separated fields in pedigree file, with ids in last 3 fields.
 
 // extern int do_checks_flag; // option -c sets this to 1 to do some checks.
 
