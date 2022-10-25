@@ -231,8 +231,11 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   if(the_genotypes_set->marker_ids  == NULL){
     the_genotypes_set->marker_ids = marker_ids;
   }else{
-    //  assert(the_genotypes_set->marker_ids->size == marker_ids->size);
-    if(compare_vstrs(marker_ids, the_genotypes_set->marker_ids) != 0){
+    if(the_genotypes_set->marker_ids->size != marker_ids->size){
+      fprintf(stderr, "# data sets have different numbers of markers: %5ld  %5ld. Exiting.\n", the_genotypes_set->marker_ids->size, marker_ids->size);
+      exit(EXIT_FAILURE);
+    }
+    else if(compare_vstrs(marker_ids, the_genotypes_set->marker_ids) != 0){
       fprintf(stderr, "# sets of marker ids do not agree. Exiting.\n");
       exit(EXIT_FAILURE);
     }
