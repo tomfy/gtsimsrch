@@ -2,8 +2,6 @@
 use strict;
 
 my $dosageA = shift // 0;
-my $dosageB = shift // 1;
-my $dosageC = shift // 3;
 
 my $mdidx = 7;
 
