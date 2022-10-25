@@ -19,17 +19,18 @@ my $transpose = 1; # default is to transpose; use -notrans to output untranspose
 
 # if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
 # we can just lump together all heterozygous genotypes, map to just 3 genotypes:
-my $map_to_012 = 1; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
+my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
 my $field_to_use = 'AUTO'; # default is DS if present, then GT if present, then AD if present, then give up.
-my $ploidy = -1;
+# recognized choices are DS , GT , AD , and AUTO.
+my $ploidy = -1; # infer from data - user must specify if AD (allele depth) is specified.
 my $hw = 0.33; # if not $map_to_012, round to integer if within +- $hw
 my $delta = 0.1; # if map_to_012 [0, $delta ->0], [1-$hw, $ploidy-1+$hw] -> 1, [$ploidy-$delta, $ploidy] -> 2
 my $min_read_depth = 1;
 
 GetOptions(
-	   'transpose!' => \$transpose, # -notranspose to output untransposed. (simsrch requires transposed)
+	   'transpose!' => \$transpose, # -notranspose to output untransposed. (simsrch requires transposed which is default)
 	   'GQmin=f' => \$minGQ,	# min genotype quality.
-	   'GPmin=f' => \$minGP, # must
+	   'GPmin=f' => \$minGP,	# must
 	   'field=s' => \$field_to_use,
 	   'ploidy=f' => \$ploidy,
 	   'map_to_012!' => \$map_to_012,
@@ -77,22 +78,22 @@ while (<>) {
   #    die;
   #   }
   # }
-  push @row_ids, $row_id; # store row (marker) id
+  push @row_ids, $row_id;	# store row (marker) id
   # print "$row_id  "; # the row id
   
   my @fields = split(':', $format_str);
   my $nfields = scalar @fields;
   my ($DSidx, $GTidx, $ADidx, $GPidx, $GQidx) = (-1, -1, -1, -1, -1);
   while (my($i, $f) = each @fields) {
-    if ($f eq 'DS') { # dosage. e.g. 0 or 1, but can be non-integer.
+    if ($f eq 'DS') {	# dosage. e.g. 0 or 1, but can be non-integer.
       $DSidx = $i;
     } elsif ($f eq 'GT') { # genotype. e.g. 0/1 (unphased) or 0|1 (phased), or 0/0/0/1 (tetraploid)
       $GTidx = $i;
-    } elsif ($f eq 'AD') { # allele depth. e.g. 142,31
+    } elsif ($f eq 'AD') {	# allele depth. e.g. 142,31
       $ADidx = $i;
     } elsif ($f eq 'GP') { # genotype probability. e.g. 0.002,0.998,0.001   
       $GPidx = $i;
-    } elsif ($f eq 'GQ') { # genotype quality. e.g. 
+    } elsif ($f eq 'GQ') {	# genotype quality. e.g. 
       $GQidx = $i;
     }
   }
@@ -123,18 +124,24 @@ while (<>) {
 	# AD; use allele depth 
 	my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
 	my $read_depth = $ref_depth + $alt_depth;
-	if($read_depth >= $min_read_depth){
+	if ($read_depth >= $min_read_depth) {
 	  my $float_dosage = $ploidy*$alt_depth/$read_depth;
 	  $dosage = int($float_dosage + 0.5);
-	  if($map_to_012){
-	    if(
-	       ($float_dosage > $delta  and  $float_dosage < 1-$hw)
-	       or
-	       ($float_dosage > $ploidy-1+$hw  and  $float_dosage < $ploidy-$delta)){
+	  if ($map_to_012) {
+	    if (
+		($float_dosage > $delta  and  $float_dosage < 1-$hw)
+		or
+		($float_dosage > $ploidy-1+$hw  and  $float_dosage < $ploidy-$delta)) {
 	      $dosage = 'NA';
 	    }
-	  }else{
-	    $dosage = 'NA' if(abs($float_dosage - $dosage) > $hw);
+	  } else {
+	    $dosage = 'NA' if(
+			      abs($float_dosage - $dosage) > $hw
+			      or
+			      ($float_dosage > $delta  and  $float_dosage < 1-$hw)
+			      or
+			      ($float_dosage > $ploidy-1+$hw  and  $float_dosage < $ploidy-$delta)
+			     );
 	  }
 	}
       } else {
@@ -153,8 +160,8 @@ while (<>) {
       } elsif ($ADidx >= 0) {	# AD; use allele depth 
 	my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
 	my $read_depth = $ref_depth + $alt_depth;
-#	$dosage = int($ploidy*$alt_depth/$read_depth + 0.5) if($read_depth > 0);
-		if($read_depth >= $min_read_depth){
+	#	$dosage = int($ploidy*$alt_depth/$read_depth + 0.5) if($read_depth > 0);
+	if ($read_depth >= $min_read_depth) {
 	  my $float_dosage = $ploidy*$alt_depth/$read_depth;
 	  $dosage = int($float_dosage + 0.5);
 	  $dosage = 'NA' if(abs($float_dosage - $dosage) > $hw);
@@ -214,16 +221,16 @@ if (! $transpose) {
     # print col i as a row
     print "$col_id  ";
     while (my($j, $r) = each @rows) {
-	my $d = $r->[$i];
-	# at this point $d = 0, 1, 2, ... , ploidy or NA (missing data)
-      if($map_to_012){
-	if($d eq 'NA'){
+      my $d = $r->[$i];
+      # at this point $d = 0, 1, 2, ... , ploidy or NA (missing data)
+      if ($map_to_012) {
+	if ($d eq 'NA') {
 	  # no change
-	}elsif($d eq $ploidy){
+	} elsif ($d eq $ploidy) {
 	  $d = 2;
-	}elsif($d > 0){
+	} elsif ($d > 0) {
 	  $d = 1;
-	}# else $d = 0, no change
+	}			# else $d = 0, no change
       }
       print "$d ";
     }
