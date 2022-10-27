@@ -22,25 +22,28 @@ use Graph::Undirected;
 # agmr_cluster.pl < simsrch.out  >  agmr_clusters
 
 my $max_agmr = shift // 0.04; # default clustering parameter - max edge weight of graph
-my $g = Graph::Undirected->new;
 
+# construct graph with edges between vertices (accessions) for pairs with agmr < $max_agmr
+# graph is constructed by adding edges and their endpoints; graph does not contain single unconnected vertices.
+my $g = Graph::Undirected->new;
 my %edge_weight = ();		# keys: vertex pairs, values: agmrs
 while (my $line = <>) {
   next if($line =~ /^\s*#/);
   my ($id1, $id2, $usable_chunks, $match_chunks, $est_agmr, $agmr) = split(" ", $line);
-  my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1";
+  my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
   $edge_weight{$edge_verts} = $agmr;
   if ($agmr <= $max_agmr) {
     $g->add_weighted_edge($id1, $id2, $agmr);
   }
 }
 
-my @ccs = $g->connected_components;
+
+my @ccs = $g->connected_components; # the connected components of graph are the clusters
 
 my @output_lines = ();
 
-my $count = 0;
-for my $acc (@ccs) {
+my $count = 0; # counts the number of accessions 
+for my $acc (@ccs) { # for each connected component (cluster of near-identical accessions)
   my $cc_size = scalar @$acc;
   $count += $cc_size;
   my $output_line_string = '';
@@ -50,7 +53,10 @@ for my $acc (@ccs) {
     my ($minw, $maxw) = (100000, -1);
     for (my $j=$i+1; $j<scalar @sorted_cc; $j++) {
       my $u = $sorted_cc[$j];
-      next if($u eq $v);
+      if($u eq $v){
+	warn "# $u $v  Why are they the same?\n";
+	next;
+      }
       my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
       my $weight = $edge_weight{$edge_verts} // -1;
       if ($weight == -1) {
