@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 
-# run simsearch, then cluster output, and output a file
+# runs simsearch, then agmr_cluster, and outputs a file
 # with the same format as simsearch input, but with just one
 # line representing each cluster.
 
@@ -45,7 +45,7 @@ while (my $line = <$fh_clusters>) {
   my $min_md_count = $id_mdcount{$min_md_id};
  # if (1) { # uniquified file has accession with the least missing data.
     for my $a_cluster_id (@cols[4..$#cols]) {
-      $clusterids{$a_cluster_id} = 1; # value doesn't matter, key just needs to exist in hash.
+      $clusterids{$a_cluster_id} = 1; # all accessions in clusters get stored in @clusterids
       if (0) {
 	if ($id_mdcount{$a_cluster_id} < $min_md_count) { # find the member of cluster with the least missing data
 	  $min_md_count =  $id_mdcount{$a_cluster_id};
@@ -60,9 +60,11 @@ while (my $line = <$fh_clusters>) {
 }
 
 # print the lines of the singletons (accessions in clusters of size 1)
-while (my($an_id, $a_line) = each %id_line) {
+my @sorted_ids = sort {$a cmp $b} keys %id_line; # sort keys and output in this order for repeatability
+#while (my($an_id, $a_line) = each %id_line) {
+for my $an_id (@sorted_ids){
   if (! exists $clusterids{$an_id}) {
-    print $a_line;
+    print $id_line{$an_id};
   }
 }
 
