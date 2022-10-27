@@ -218,7 +218,6 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   if(the_genotypes_set->marker_missing_data_counts == NULL){    
     the_genotypes_set->marker_missing_data_counts = construct_vlong_zeroes(marker_ids->size);
     the_genotypes_set->marker_alt_allele_counts = construct_vlong_zeroes(marker_ids->size);
-
     
     the_genotypes_set->marker_dose_counts = (Vlong**)malloc((MAX_PLOIDY+1)*sizeof(Vlong*));
     for(long i=0; i<=MAX_PLOIDY; i++){
@@ -323,6 +322,24 @@ char token_to_dosage(char* token, long* ploidy){
       return (char)l + 48;
     }
   }
+}
+
+void populate_marker_dosage_counts(GenotypesSet* the_gtsset){
+  fprintf(stderr, "top of populate...\n");
+  for(long j=0; j<the_gtsset->n_accessions; j++){
+    Accession* the_acc = the_gtsset->accessions->a[j];
+    for(long i=0; i<the_gtsset->n_markers; i++){
+      long dosage = (long)the_acc->genotypes->a[i];
+      if(dosage != MISSING_DATA_CHAR){
+	the_gtsset->marker_dose_counts[dosage-48]->a[i]++;
+      }
+    }
+  }
+  for(long k=0; k<5; k++){
+    fprintf(stderr, "%ld %ld %ld   ", the_gtsset->marker_dose_counts[0]->a[k], the_gtsset->marker_dose_counts[1]->a[k], the_gtsset->marker_dose_counts[2]->a[k]);
+  }
+  fprintf(stderr, "\n");
+  // getchar();
 }
 
 double ragmr(GenotypesSet* the_gtsset){
@@ -598,7 +615,7 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
   }
 }
 
-void store_homozygs(GenotypesSet* the_gtsset){
+void store_homozygs(GenotypesSet* the_gtsset){ // 
   for(long i=0; i<the_gtsset->accessions->size; i++){
     Accession* acc = the_gtsset->accessions->a[i];
    
@@ -739,22 +756,45 @@ double hgmr(char* gts1, char* gts2){
   return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
 }
 
-two_longs xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2){
+ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2){
   // numerator is same as hgmr, but denominator is based on expected numbers of
   // dosage = 0 markers in random accession
   Vlong* a1d2s = a1->alt_homozygs;
+  // fprintf(stderr, "a1 acc id: %s   alt_homozygs: %ld \n", a1->id->a, a1d2s->size); // getchar();
   double expected_refds = 0;
   long counted_refds = 0;
   for(long i=0; i<a1d2s->size; i++){
-    char d2 = a2->genotypes->a[i];
-    if(d2 == '0') counted_refds++;
-    long n0s_this_marker = gtset->marker_dose_counts[i]->a[0];
-    long n012s_this_marker = gtset->accessions->size - gtset->marker_missing_data_counts->a[i];
+    long idx = a1d2s->a[i];
+    char a2_dosage = a2->genotypes->a[idx];
+    if(a2_dosage == '0') counted_refds++;
+    long n0s_this_marker = gtset->marker_dose_counts[0]->a[idx];
+    // fprintf(stderr, "%ld  %ld  a1d: %c  a2d: %c \n", idx, n0s_this_marker, a1->genotypes->a[idx], a2_dosage);
+    long n012s_this_marker = gtset->accessions->size - gtset->marker_missing_data_counts->a[idx];
     // n0s_this_marker + gtset->marker_dose_counts[i]->a[1] +
     // gtset->marker_dose_counts[i]->a[2];
     expected_refds += (double)n0s_this_marker / (double)n012s_this_marker;
   }
-  two_longs result = {counted_refds, expected_refds};
+  // fprintf(stderr, "expected, counted refds: %8.4f %ld \n", expected_refds, counted_refds);
+  Vlong* a2d2s = a2->alt_homozygs;
+  // fprintf(stderr, "a2 acc id: %s   alt_homozygs: %ld \n", a2->id->a, a2d2s->size); // getchar();
+  // double expected_refds = 0;
+  // long counted_refds = 0;
+  for(long i=0; i<a2d2s->size; i++){
+    long idx = a2d2s->a[i];
+    //    fprintf(stderr, "idx: %ld \n", idx);
+    char a1_dosage = a1->genotypes->a[idx];
+    if(a1_dosage == '0') counted_refds++;
+    long n0s_this_marker = gtset->marker_dose_counts[0]->a[idx];
+    //     fprintf(stderr, "%ld  %ld  a2d: %c  $a1d: %c \n", idx, n0s_this_marker, a2->genotypes->a[idx], a1_dosage);
+
+    long n012s_this_marker = gtset->accessions->size - gtset->marker_missing_data_counts->a[idx];
+    // n0s_this_marker + gtset->marker_dose_counts[i]->a[1] +
+    // gtset->marker_dose_counts[i]->a[2];
+    expected_refds += (double)n0s_this_marker / (double)n012s_this_marker;
+  }
+  // fprintf(stderr, "expected, counted refds: %8.4f %ld \n", expected_refds, counted_refds);
+  ND result = {counted_refds, expected_refds};
+  return result;
 }
 
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hgmr numerator and denominator

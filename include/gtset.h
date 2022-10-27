@@ -85,6 +85,7 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
 
 void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set);
 // void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
+void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
 char token_to_dosage(char* token, long* ploidy);
 // void read_genotypes_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 
@@ -101,7 +102,7 @@ four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
 //ND quick_and_dirty_hgmr_a(Accession* acc1, Accession* acc2);
 double hgmr(char* gts1, char* gts2);
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char);
-two_longs xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2);
+ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2);
 ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // get quick 'hgmr', and then if not large get true hgmr.
 two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon);
 ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);

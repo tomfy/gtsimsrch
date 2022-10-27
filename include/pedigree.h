@@ -13,6 +13,8 @@ typedef struct{
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
   ND d;
   ND pseudo_hgmr;
+  ND xhgmr1;
+  ND xhgmr2;
 }Pedigree_stats; // 
 
 typedef struct{
@@ -46,7 +48,7 @@ typedef struct{
 Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mparent);
 //double hgmr(char* gts1, char* gts2);
 Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy); // just initializing to 0's
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy);
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_d);
 void free_pedigree(const Pedigree* the_pedigree);

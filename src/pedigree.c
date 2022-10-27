@@ -1073,20 +1073,29 @@ Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy){
   //  the_ps->d.n = 0;
   //  the_ps->d.d = 0;
   the_ps->pseudo_hgmr.n = 0;
-  the_ps->pseudo_hgmr.d = 0;  
+  the_ps->pseudo_hgmr.d = 0;
+  the_ps->xhgmr1.n = 0;
+  the_ps->xhgmr1.d = 0;
+  the_ps->xhgmr2.n = 0;
+  the_ps->xhgmr2.d = 0;
 }
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
-
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
+  long ploidy = the_gtsset->ploidy;
+  Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
   assert(the_pedigree->F != NULL  ||  the_pedigree->M != NULL); // shouldn't have both parents NULL //
   if(the_pedigree->F != NULL  &&  the_pedigree->M != NULL){
-    return triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
+    //  fprintf(stderr, "pedigree with both parents.\n");
+    the_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
+    the_ps->xhgmr1 = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A);
+    the_ps->xhgmr2 = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A);
+    // fprintf(stderr, "ped w both parents, after both calls to xhgmr.\n");		   
   }else{ // one of the parents is NULL 
-    Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
     the_ps->agmr12.n = 0;
     the_ps->agmr12.d = 0;
     the_ps->z.n = 0;
     the_ps->z.d = 0;
     if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
+      //       fprintf(stderr, "pedigree with female parent only.\n");
       four_longs hgmrR = hgmr_R(the_pedigree->F->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
       the_ps->par1_hgmr.n = hgmrR.l1;
       the_ps->par1_hgmr.d = hgmrR.l2;
@@ -1096,9 +1105,12 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ /
       the_ps->par2_hgmr.d = 0;
       the_ps->par2_R.n = 0;
       the_ps->par2_R.d = 0;
-
+      the_ps->xhgmr1 = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A);
+      the_ps->xhgmr2.n = 0;
+      the_ps->xhgmr2.d = 0;
     }else{ // we have male parent id, no female parent id
       if(DO_ASSERT) assert(the_pedigree->M != NULL);
+      //        fprintf(stderr, "pedigree with male parent only.\n");
       the_ps->par1_hgmr.n = 0;
       the_ps->par1_hgmr.d = 0;
       the_ps->par1_R.n = 0;
@@ -1106,14 +1118,17 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, long ploidy){ /
       four_longs hgmrR = hgmr_R(the_pedigree->M->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
       the_ps->par2_hgmr.n = hgmrR.l1;
       the_ps->par2_hgmr.d = hgmrR.l2;
-        the_ps->par2_R.n = hgmrR.l3;
+      the_ps->par2_R.n = hgmrR.l3;
       the_ps->par2_R.d = hgmrR.l4;
+      the_ps->xhgmr1.n = 0;
+      the_ps->xhgmr1.d = 0;
+      the_ps->xhgmr2 = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A);
     }
     //construct_pedigree_stats(the_pedigree, ploidy); //the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
     // the_ps->agmr12.n = 0;
-    //  fprintf(stderr, "######  %ld %ld \n", the_ps->par1_hgmr.n, the_ps->par2_hgmr.d);
-    return the_ps;
+    //   fprintf(stderr, "######  %ld %ld   %ld %ld\n", the_ps->xhgmr1.n, the_ps->xhgmr1.d, the_ps->xhgmr2.n, the_ps->xhgmr2.d);
   }
+    return the_ps;
 }
 const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessions){
   Vlong* offspring_counts = construct_vlong_zeroes(n_accessions);
@@ -1137,13 +1152,15 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessi
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
   print_d_r(fh, the_pedigree_stats->agmr12);
-   print_d_r(fh, the_pedigree_stats->par1_hgmr);
-    print_d_r(fh, the_pedigree_stats->par1_R);
-     print_d_r(fh, the_pedigree_stats->par2_hgmr);
-      print_d_r(fh, the_pedigree_stats->par2_R);
-       print_d_r(fh, the_pedigree_stats->z);
-        print_d_r(fh, the_pedigree_stats->d);
-  /* 	 print_d_r(fh, the_pedigree_stats->agmr12); */
+  print_d_r(fh, the_pedigree_stats->par1_hgmr);
+  print_d_r(fh, the_pedigree_stats->par1_R);
+  print_d_r(fh, the_pedigree_stats->par2_hgmr);
+  print_d_r(fh, the_pedigree_stats->par2_R);
+  print_d_r(fh, the_pedigree_stats->z);
+  print_d_r(fh, the_pedigree_stats->d);
+  print_d_r(fh, the_pedigree_stats->z);
+  print_d_r(fh, the_pedigree_stats->xhgmr1);
+  print_d_r(fh, the_pedigree_stats->xhgmr2);
   /* double x; */
   /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->agmr12.d, isnan(x = n_over_d(the_pedigree_stats->agmr12))? "-" : x); */
   /* fprintf(fh, "%5ld %6.5lf  ", the_pedigree_stats->par1_hgmr.d, n_over_d(the_pedigree_stats->par1_hgmr)); */

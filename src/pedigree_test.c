@@ -216,6 +216,7 @@ main(int argc, char *argv[])
      fprintf(stdout, "# Time to clean genotype data: %6.3f sec.\n", t_c - t_b);
     rectify_markers(the_genotypes_set);
     store_homozygs(the_genotypes_set);
+    populate_marker_dosage_counts(the_genotypes_set);
     double t_d = hi_res_time();
     fprintf(stdout, "# Time to rectify genotype data: %6.3f sec.\n", t_d - t_c);
   
@@ -257,7 +258,8 @@ main(int argc, char *argv[])
       if(i % 1000  == 0){
 	fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
       }
-      Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set->ploidy); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
+      
+      Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
       // assert(strcmp(pedigrees->a[i]->Accession->id, pedigrees->a[i]->A->id->a) == 0);
       Accession* A = pedigrees->a[i]->A;
       Accession* F = pedigrees->a[i]->F;
