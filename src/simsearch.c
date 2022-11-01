@@ -100,6 +100,7 @@ main(int argc, char *argv[])
   long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
   unsigned rand_seed = (unsigned)time(0);
   double max_marker_missing_data_fraction = 0.2;
+  double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0.0; //
   double max_est_agmr = 0.2;
   long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
@@ -266,13 +267,13 @@ main(int argc, char *argv[])
   Vaccession* the_accessions; 
   if(reference_set_filename != NULL){ // load the reference set, if one was specified.
    
-    add_accessions_to_genotypesset_from_file(reference_set_filename, the_genotypes_set);
+    add_accessions_to_genotypesset_from_file(reference_set_filename, the_genotypes_set, max_accession_missing_data_fraction);
     n_ref_accessions = the_genotypes_set->accessions->size;
     the_genotypes_set->n_ref_accessions = n_ref_accessions;
     fprintf(stdout, "# Done reading reference data set dosages from file %s. %ld accessions and %ld markers.\n",
 	    reference_set_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   }
-  add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set); // load the new set of accessions
+  add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
   fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   fprintf(stdout, "# Time to load dosage data: %6.3lf sec.\n", hi_res_time() - t_start);

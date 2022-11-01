@@ -30,6 +30,7 @@ main(int argc, char *argv[])
   int do_alternative_pedigrees = 0; // 0: none, 1: only when given pedigree is 'bad', 2: all
   // double delta = 0.05; // default; control this with -d command line option.
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
+  double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0; // 
     char* pedigree_test_output_filename = "pedigree_test_info";
     char* genotypes_matrix_output_filename = "genotype_matrix_out";
@@ -207,7 +208,7 @@ main(int argc, char *argv[])
     // ***************  read the genotypes file  *******************************
     double t_a = hi_res_time();
     GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
-    add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set); // load the new set of accessions
+    add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
     double t_b = hi_res_time();
        fprintf(stdout, "# Done reading genotypes file. %ld accessions:\n", the_genotypes_set->n_accessions);
      fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
@@ -222,8 +223,27 @@ main(int argc, char *argv[])
   
     if(0){
       double t0 = hi_res_time();
-      quick_and_dirty_hgmrs(the_genotypes_set);  
-      fprintf(stdout, "# time for hgmrs: %10.3f \n", hi_res_time() - t0);
+      long n_acc = the_genotypes_set->accessions->size;
+      for(long ii=0; ii<n_acc; ii++){
+	Accession* A1 = the_genotypes_set->accessions->a[ii];
+	for(long jj=ii+1; jj<n_acc; jj++){
+	  Accession* A2 = the_genotypes_set->accessions->a[jj];
+	  ND the_xhgmr =
+	    xhgmr(the_genotypes_set, A1, A2);
+	  //	  ghgmr(the_genotypes_set, A1, A2);
+	  if(1 && the_xhgmr.d > 0){
+	    double dbl_xhgmr = (double)the_xhgmr.n/the_xhgmr.d;
+	    if(dbl_xhgmr < 0.5){
+	      fprintf(stderr, "%ld %ld   %ld %ld\n",
+		      // A1->id->a, A2->id->a,
+		      ii, jj, 
+		      the_xhgmr.n, the_xhgmr.d); // , (double)the_xhgmr.n/the_xhgmr.d);
+	    }
+	  } 
+	}
+      }
+      /* quick_and_dirty_hgmrs(the_genotypes_set);   */
+      fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0); 
       exit(0);
     }
     double t_start = hi_res_time();
