@@ -16,8 +16,8 @@ OBJ1 = $(patsubst %,$(ODIR)/%,$(_OBJ1))
 _OBJ2 = vect.o pedigree_test.o gtset.o pedigree.o
 OBJ2 = $(patsubst %,$(ODIR)/%,$(_OBJ2))
 
-# _OBJ3 = vect.o  gtset.o pedigree.o find_parent_candidates.o
-# OBJ3 = $(patsubst %,$(ODIR)/%,$(_OBJ3))
+_OBJ3 = vect.o  gtset.o pedigree.o find_parents.o
+OBJ3 = $(patsubst %,$(ODIR)/%,$(_OBJ3))
 
 
 $(ODIR)/%.o: %.c $(DEPS)
@@ -29,12 +29,12 @@ simsearch: $(OBJ1)
 pedigree_test: $(OBJ2)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
-# find_parent_candidates: $(OBJ3)
-#	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
+find_parents: $(OBJ3)
+	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
 .PHONY: all
 
-all: simsearch pedigree_test find_parent_candidates
+all: simsearch pedigree_test find_parents
 
 .PHONY: clean
 
