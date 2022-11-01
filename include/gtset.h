@@ -38,7 +38,7 @@ typedef struct{
 }Vaccession;
 
 typedef struct{
-  long capacity;
+  long capacity; // needed?
   // double delta;
   double max_marker_missing_data_fraction;
   double min_minor_allele_frequency;
@@ -83,7 +83,7 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
 //GenotypesSet* read_dosages_file_and_store(char* input_filename, double delta);
 //GenotypesSet* read_genotypes_file_and_store(char* input_filename);
 
-void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set);
+void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction);
 // void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
 char token_to_dosage(char* token, long* ploidy);
