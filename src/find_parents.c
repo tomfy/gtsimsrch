@@ -241,7 +241,7 @@ main(int argc, char *argv[])
 	Accession* prog = the_genotypes_set->accessions->a[i];
 	Vlong* cppps = cand_pppairs[i];
 	long ncandpairs = cppps->size;
-	fprintf(stderr, "i: %ld  ncandpars, triples: %ld  %ld\n", i, ncandpairs, ncandpairs*(ncandpairs+1)/2);
+	//	fprintf(stderr, "i: %ld  ncandpars, triples: %ld  %ld\n", i, ncandpairs, ncandpairs*(ncandpairs+1)/2);
 	if(ncandpairs <= 5){	  
 	  for(long ii=0; ii<cppps->size; ii++){
 	    long par1idx = cppps->a[ii];
