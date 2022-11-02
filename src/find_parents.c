@@ -242,18 +242,21 @@ main(int argc, char *argv[])
 	Vlong* cppps = cand_pppairs[i];
 	long ncandpairs = cppps->size;
 	fprintf(stderr, "i: %ld  ncandpars, triples: %ld  %ld\n", i, ncandpairs, ncandpairs*(ncandpairs+1)/2);
-	if(ncandpairs <= 5){
-	  
+	if(ncandpairs <= 5){	  
 	  for(long ii=0; ii<cppps->size; ii++){
-	    Accession* par1 = the_genotypes_set->accessions->a[cppps->a[ii]];
+	    long par1idx = cppps->a[ii];
+	    Accession* par1 = the_genotypes_set->accessions->a[par1idx];
 	    for(long jj=ii; jj<cppps->size; jj++){
-	      Accession* par2 = the_genotypes_set->accessions->a[cppps->a[jj]];
+	      long par2idx = cppps->a[jj];
+	      Accession* par2 = the_genotypes_set->accessions->a[par2idx];
 	      Pedigree_stats* the_ps = triple_counts( par1->genotypes->a,  par2->genotypes->a, prog->genotypes->a, ploidy );
-	      print_pedigree_stats(stdout, the_ps); fprintf(stdout, "\n");
+	      the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog);
+	      the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog);
+	      fprintf(stdout, "%s %s %s  %ld  ", prog->id->a, par1->id->a, par2->id->a, ncandpairs);
+		print_pedigree_stats(stdout, the_ps); fprintf(stdout, "\n");
 
 	    }
 	  }
-
 	}
       }
 

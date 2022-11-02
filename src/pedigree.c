@@ -699,8 +699,8 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   long n_3x_2 = n_30_2 + n_31_2 + n_32_2; // + n_03_2;
 
   long z_numer = n_00_1 + n_22_1;
-  long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0;
-
+  long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0; // = n_00_x + n_22_x
+  fprintf(stderr, "%ld %ld  %ld %ld %ld   %ld %ld\n", z_numer, z_denom, n_0, n_1, n_2, n_1 + n_2, n_0 + n_1 + n_2 );
   long total =
     n_0x_0 + n_0x_1 + n_0x_2
     + n_1x_0 + n_1x_1 + n_1x_2
@@ -1158,7 +1158,7 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
   print_d_r(fh, the_pedigree_stats->par2_R);
   print_d_r(fh, the_pedigree_stats->z);
   print_d_r(fh, the_pedigree_stats->d);
-  print_d_r(fh, the_pedigree_stats->z);
+  // print_d_r(fh, the_pedigree_stats->z);
   print_d_r(fh, the_pedigree_stats->xhgmr1);
   print_d_r(fh, the_pedigree_stats->xhgmr2);
   /* double x; */
