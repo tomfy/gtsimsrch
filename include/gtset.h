@@ -43,6 +43,7 @@ typedef struct{
   double max_marker_missing_data_fraction;
   double min_minor_allele_frequency;
   long n_accessions; // redundant.
+  long n_bad_accessions; // accessions rejected due to excessive missing data
   long n_ref_accessions; 
   long n_markers; // redundant.
   long ploidy; //

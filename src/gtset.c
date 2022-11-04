@@ -159,6 +159,7 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
   the_gtsset->max_marker_missing_data_fraction = max_marker_md_fraction;
   the_gtsset->min_minor_allele_frequency = min_min_allele_freq;
   the_gtsset->n_accessions = -1; // accessions->size;
+  the_gtsset->n_bad_accessions = 0;
   the_gtsset->n_markers = -1; // marker_ids->size;
   the_gtsset->ploidy = ploidy;
   the_gtsset->accessions = construct_vaccession(INIT_VACC_CAPACITY);
@@ -280,6 +281,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     }else{
       fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
 	      the_accession->id->a, accession_missing_data_count, the_genotypes_set->marker_ids->size);
+      the_genotypes_set->n_bad_accessions++;
     }
   
    
