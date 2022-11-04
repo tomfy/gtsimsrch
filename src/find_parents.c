@@ -196,7 +196,9 @@ main(int argc, char *argv[])
     GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
     add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
     double t_b = hi_res_time();
-       fprintf(stdout, "# Done reading genotypes file. %ld accessions:\n", the_genotypes_set->n_accessions);
+       fprintf(stdout, "# Done reading genotypes file. %ld accessions will be analyzed.\n", the_genotypes_set->n_accessions);
+       fprintf(stdout, "# %ld accessions were excluded from analysis due to > %5.2lf percent missing data.\n",
+	       the_genotypes_set->n_bad_accessions, max_accession_missing_data_fraction*100);
      fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
     clean_genotypesset(the_genotypes_set);
     double t_c = hi_res_time();
@@ -242,7 +244,7 @@ main(int argc, char *argv[])
 	Vlong* cppps = cand_pppairs[i];
 	long ncandpairs = cppps->size;
 	//	fprintf(stderr, "i: %ld  ncandpars, triples: %ld  %ld\n", i, ncandpairs, ncandpairs*(ncandpairs+1)/2);
-	if(ncandpairs <= 5){	  
+	if(ncandpairs <= 8){	  
 	  for(long ii=0; ii<cppps->size; ii++){
 	    long par1idx = cppps->a[ii];
 	    Accession* par1 = the_genotypes_set->accessions->a[par1idx];
