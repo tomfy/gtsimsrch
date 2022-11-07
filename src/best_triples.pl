@@ -7,12 +7,13 @@ $the_col--;			# now zero-based
 my %accid_solns = ();
 while (my $line = <>) {
   next if($line =~ /^\s*#/);
-  my @cols = split(" ", $line);
-  my $accid = $cols[0];
-  my $parents = $cols[1] . " " . $cols[2];
-  my $cross_type = ($cols[1] eq $cols[2])? "self" : "bip";
-  my $value = $cols[$the_col];
-  my $vc = "$value  $cross_type  $parents";
+   my @cols = split(" ", $line);
+   my $value = $cols[$the_col];
+  my $accid = shift @cols;
+  my $parents = $cols[0] . " " . $cols[1];
+  my $cross_type = ($cols[0] eq $cols[1])? "self" : "bip";
+  my $x = join(" ", @cols);
+  my $vc = $value . "\t" .  "$cross_type $x ";
   if (exists $accid_solns{$accid}) {
     push @{$accid_solns{$accid}}, $vc; # "$parents  $value"; 
   } else {
@@ -29,6 +30,6 @@ for my $anid (keys %accid_solns) {
 
 sub val{
   my $vc = shift;
-  my ($value, $ct, $ps) = split(" ", $vc);
+  my ($value, $xx) = split("\t", $vc);
   return $value;
 }
