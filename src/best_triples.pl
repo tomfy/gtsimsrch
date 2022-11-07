@@ -23,7 +23,9 @@ while (my $line = <>) {
 for my $anid (keys %accid_solns) {
   my $solutions = $accid_solns{$anid};
   my @sorted_solns = sort {val($a) <=> val($b)} @$solutions;
-  print "$anid  ", join("  ", @sorted_solns), "\n";
+  print "$anid  ", $sorted_solns[0];
+  print "  ", $sorted_solns[1] if(scalar @sorted_solns > 1);
+  print "\n"; # join("  ", @sorted_solns), "\n";
 }
 
 
