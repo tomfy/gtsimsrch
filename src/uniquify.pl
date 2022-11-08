@@ -5,9 +5,39 @@ use strict;
 # with the same format as simsearch input, but with just one
 # line representing each cluster.
 
-my $input_dosages_file = shift;
+my $input_dosages_filename = shift;
+my $max_acc_missing_data_fraction = shift // 0.5;
+open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
+my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
+open my $fhout, ">", "$cleaned_dosages_filename";
+my $n_markers = undef;
+my $n_bad_accessions = 0;
+print STDERR "# Removing accession with too much missing data.\n";
+while(my $line_in = <$fhin>){
+  if($line_in =~ /^\s*#/){
+   # print STDERR "print comment line.\n";
+    print $fhout $line_in;
+  }elsif($line_in =~ /^MARKER/){
+  #  print STDERR "print marker ids line.\n";
+    print $fhout $line_in;
+    my @markers = split(" ", $line_in);
+    $n_markers = scalar @markers  - 1;
+  }else{
+    die "File lacks line with MARKER and marker ids\n" if(! defined $n_markers);
+    my $n_bad = () = $line_in =~ /\sNA/g;
+    if($n_bad/$n_markers <= $max_acc_missing_data_fraction){
+      print $fhout $line_in;
+    }else{
+      $n_bad_accessions++;
+    }
+  }
+}
+close $fhout;
+print STDERR "# $n_bad_accessions accessions eliminated due to excessive missing data.\n";
+print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
+  int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
 
-my $simsearch_command = "simsearch  -i $input_dosages_file";
+my $simsearch_command = "simsearch  -i $cleaned_dosages_filename";
 
 system "$simsearch_command";
 
@@ -15,7 +45,7 @@ system "$simsearch_command";
 system "agmr_cluster < simsearch.out > agmr_cluster.out";
 
 # store individual lines of dosage file in hash
-open my $fh_dosages, "<", "$input_dosages_file";
+open my $fh_dosages, "<", "$cleaned_dosages_filename";
 
 my %id_line = ();
 my %id_mdcount = ();
