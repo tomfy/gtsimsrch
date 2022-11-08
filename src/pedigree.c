@@ -700,7 +700,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
 
   long z_numer = n_00_1 + n_22_1;
   long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0; // = n_00_x + n_22_x
-  fprintf(stderr, "%ld %ld  %ld %ld %ld   %ld %ld\n", z_numer, z_denom, n_0, n_1, n_2, n_1 + n_2, n_0 + n_1 + n_2 );
+  // fprintf(stderr, "%ld %ld  %ld %ld %ld   %ld %ld\n", z_numer, z_denom, n_0, n_1, n_2, n_1 + n_2, n_0 + n_1 + n_2 );
   long total =
     n_0x_0 + n_0x_1 + n_0x_2
     + n_1x_0 + n_1x_1 + n_1x_2
@@ -1238,6 +1238,9 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
   /*     exit(EXIT_FAILURE); */
   /*   } */
   /* } */
+    long prog_id_NA_count = 0;
+    long not_in_genotypes_set_count = 0;
+    long no_parent_ids_count = 0;
   Vpedigree* pedigrees = construct_vpedigree(1000);
   while((nread = getline(&line, &len, p_stream)) != -1){
     Vstr* fields = construct_vstr(3);
@@ -1256,25 +1259,35 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
     // fprintf(stderr, "### %s %s %s \n", acc_id, fempar_id, malpar_id);
   
     long acc_idx, fempar_idx, malpar_idx;
-    if( // progeny id is not "NA" and is present in genotypes data set
-	( strcmp(acc_id, "NA") != 0) &&
-	((acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id)) != ID_NA_INDEX)
-	){ 
-      fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id);
-      malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id);
+  
+    if(strcmp(acc_id, "NA") != 0){  // progeny id is not "NA" and is present in genotypes data set
+      acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id);
+      if(acc_idx == ID_NA_INDEX){
+	not_in_genotypes_set_count++;
+      }else{ 
+	fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id);
+	malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id);
       
-      if( (fempar_idx != ID_NA_INDEX) || (malpar_idx != ID_NA_INDEX) ){ // pedigree file has a valid id for at least 1 parent
-	Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
-       	Accession* Fpar = (fempar_idx != ID_NA_INDEX)? the_gtsset->accessions->a[fempar_idx] : NULL; // id->index;
-	Accession* Mpar = (malpar_idx != ID_NA_INDEX)? the_gtsset->accessions->a[malpar_idx] : NULL; // id->index;
-	//	fprintf(stderr, "# %p %p %p \n", Acc, Fpar, Mpar);
-	Pedigree* a_pedigree = construct_pedigree(Acc, Fpar, Mpar);
-	//	fprintf(stderr, "## added %s %s %s  to pedigree\n", Acc->id->a, Fpar->id->a, Mpar->id->a);
-	add_pedigree_to_vpedigree(pedigrees, a_pedigree);
+	if( (fempar_idx != ID_NA_INDEX) || (malpar_idx != ID_NA_INDEX) ){ // pedigree file has a valid id for at least 1 parent
+	  Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
+	  Accession* Fpar = (fempar_idx != ID_NA_INDEX)? the_gtsset->accessions->a[fempar_idx] : NULL; // id->index;
+	  Accession* Mpar = (malpar_idx != ID_NA_INDEX)? the_gtsset->accessions->a[malpar_idx] : NULL; // id->index;
+	  //	fprintf(stderr, "# %p %p %p \n", Acc, Fpar, Mpar);
+	  Pedigree* a_pedigree = construct_pedigree(Acc, Fpar, Mpar);
+	  //	fprintf(stderr, "## added %s %s %s  to pedigree\n", Acc->id->a, Fpar->id->a, Mpar->id->a);
+	  add_pedigree_to_vpedigree(pedigrees, a_pedigree);
+	}else{
+	  no_parent_ids_count++;
+	}
       }
+    }else{
+      prog_id_NA_count++;
     }
     free_vstr(fields);
   } // done reading all lines
+  fprintf(stderr, "# pedigrees with NA for progeny id: %ld\n", prog_id_NA_count);
+  fprintf(stderr, "# pedigrees with both parent ids NA or not in genotypes set: %ld\n", no_parent_ids_count);
+  fprintf(stderr, "# pedigrees with progeny not in genotypes set: %ld\n", not_in_genotypes_set_count);
   free(line); // only needs to be freed once.
   // fprintf(stderr, "# size of Vpedigree pedigrees: %ld \n", pedigrees->size);
   return pedigrees;
