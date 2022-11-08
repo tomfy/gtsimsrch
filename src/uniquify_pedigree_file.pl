@@ -12,36 +12,39 @@ my $pedigree_file = shift;
 my %clusterids_repid = (); # key: an id in a cluster, value: the representative id for that cluster
 my %repids = (); # keys are ids of the representative ids of the clusters (with size >= 2)
 open my $fhin, "<", "$cluster_file";
-while(my $line = <$fhin>){
-    next if($line =~ /^\s*#/);
-    my @cols = split(" ", $line);
-    my $the_repid = $cols[4];
-    $repids{$the_repid} = 1;
-    for my $id (@cols[4..$#cols]){
-     # print STDERR "$id $the_repid\n";
-	$clusterids_repid{$id} = $the_repid;
-    }
+while (my $line = <$fhin>) {
+  next if($line =~ /^\s*#/);
+  my @cols = split(" ", $line);
+  my $the_repid = $cols[4];
+  $repids{$the_repid} = 1;
+  for my $id (@cols[4..$#cols]) {
+    # print STDERR "$id $the_repid\n";
+    $clusterids_repid{$id} = $the_repid;
+  }
 }
 close $fhin;
 print STDERR "# n clusters: ", scalar keys %repids, "  n ids: ", scalar keys %clusterids_repid, "\n";
 
 open $fhin, "<", "$pedigree_file";
+my $x = <$fhin>;		# first line - throw away.
 # my $line1 = <$fhin>;
 # print "xxx: ", $line1;
-while(my $line = <$fhin>){
+while (my $line = <$fhin>) {
   next if($line =~ /^\s*#/);
-  $line =~ s/\s+$//; # remove newline, any other whitespace at end.
-    my @cols = split(" ", $line);
-    # replace the last 2 elements of @cols with cluster representatives, if belong to cluster
-    #   print STDERR $cols[-1], "  ", $cols[-2], "  ";
-    # my $mparent = $cols[-1];
-    # my $fparent = $cols[-2];
-    # if($mparent =~ /\s/  or  $fparent =~ /\s/){
-    #   print STDERR "[$fparent] [$mparent] \n";
-    # }
-    $cols[-1] = $clusterids_repid{$cols[-1]} // $cols[-1];
-    $cols[-2] = $clusterids_repid{$cols[-2]} // $cols[-2];
- #   print STDERR $cols[-1], "\t", $cols[-2], "\n";
-    print join(" ", @cols), "\n";
+  $line =~ s/\s+$//;	# remove newline, any other whitespace at end.
+  my @cols = split(" ", $line);
+  my $prog_id = $cols[-3];
+
+  if ($prog_id ne 'NA') {
+    if ((exists $clusterids_repid{$prog_id}) and ($clusterids_repid{$prog_id} ne $prog_id)) { # if prog_id belongs to a cluster, only output if it is the representative accession.
+      print STDERR "$prog_id is non-rep member of cluster with rep ", $clusterids_repid{$prog_id}, "\n";
+    } else {
+      my $Mpar_id = $clusterids_repid{$cols[-1]} // $cols[-1];
+      my $Fpar_id = $clusterids_repid{$cols[-2]} // $cols[-2];
+      #   print STDERR $cols[-1], "\t", $cols[-2], "\n";
+      # print join(" ", @cols), "\n";
+      print "$prog_id $Mpar_id $Fpar_id\n";
+    }
+  }
 }
 close $fhin;
