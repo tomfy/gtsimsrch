@@ -275,9 +275,7 @@ main(int argc, char *argv[])
     t_start = hi_res_time();
     char ploidy_char = (char)(the_genotypes_set->ploidy + 48);
     for(long i=0; i<pedigrees->size; i++){
-      if(i % 1000  == 0){
-	fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
-      }
+      if(i % 1000  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
       
       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
       // assert(strcmp(pedigrees->a[i]->Accession->id, pedigrees->a[i]->A->id->a) == 0);
