@@ -39,11 +39,9 @@ while (my $line = <$fhin>) {
     if ((exists $clusterids_repid{$prog_id}) and ($clusterids_repid{$prog_id} ne $prog_id)) { # if prog_id belongs to a cluster, only output if it is the representative accession.
       print STDERR "$prog_id is non-rep member of cluster with rep ", $clusterids_repid{$prog_id}, "\n";
     } else {
-      my $Mpar_id = $clusterids_repid{$cols[-1]} // $cols[-1];
       my $Fpar_id = $clusterids_repid{$cols[-2]} // $cols[-2];
-      #   print STDERR $cols[-1], "\t", $cols[-2], "\n";
-      # print join(" ", @cols), "\n";
-      print "$prog_id $Mpar_id $Fpar_id\n";
+      my $Mpar_id = $clusterids_repid{$cols[-1]} // $cols[-1];
+      print "$prog_id $Fpar_id $Mpar_id\n";
     }
   }
 }
