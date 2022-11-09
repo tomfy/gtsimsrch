@@ -1,8 +1,10 @@
 #!/usr/bin/perl -w
 use strict;
+use List::Util qw(min max sum);
 
 my $the_col = shift // 18;	# unit-based
 $the_col--;			# now zero-based
+my $max_solns_out = shift // 5;
 
 my %accid_solns = ();
 while (my $line = <>) {
@@ -24,9 +26,11 @@ while (my $line = <>) {
 for my $anid (keys %accid_solns) {
   my $solutions = $accid_solns{$anid};
   my @sorted_solns = sort {val($a) <=> val($b)} @$solutions;
-  print "$anid  ", $sorted_solns[0];
-  print "  ", $sorted_solns[1] if(scalar @sorted_solns > 1);
-  print "\n"; # join("  ", @sorted_solns), "\n";
+  my $n_solns_out = min(scalar @sorted_solns, $max_solns_out);
+  print "$anid  ", join("  ", @sorted_solns[0..$n_solns_out-1]), "\n";
+  
+ # print "  ", $sorted_solns[1] if(scalar @sorted_solns > 1);
+ # print "\n"; # join("  ", @sorted_solns), "\n";
 }
 
 
