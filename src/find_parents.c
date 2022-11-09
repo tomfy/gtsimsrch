@@ -12,7 +12,6 @@
 //#define UNKNOWN -1
 //#define DOSAGES 0
 //#define GENOTYPES 1
-
 int do_checks_flag = 0; // option -c sets this to 1 to do some checks.
 
 double hi_res_time(void);
@@ -32,8 +31,7 @@ main(int argc, char *argv[])
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
   double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0; // 
-    char* pedigree_test_output_filename = "pedigree_test_info";
-    char* genotypes_matrix_output_filename = "genotype_matrix_out";
+    char* output_filename = "find_parents.out";
     double max_self_agmr12 = 1; // need to specify if doing alternative pedigrees 
     double max_ok_hgmr = 1; // accept everything as ok
     double max_self_r = 1; // need to specify if doing alternative pedigrees
@@ -96,7 +94,7 @@ main(int argc, char *argv[])
 	//  genotype_file_type = GENOTYPES;
 	break;
       case 'o':
-	pedigree_test_output_filename = optarg;
+	output_filename = optarg;
 	break;
       case 'x':
 	if(optarg == 0){
@@ -177,17 +175,16 @@ main(int argc, char *argv[])
     // exit(EXIT_FAILURE);
   
     FILE *o_stream = NULL;
-    o_stream = fopen(pedigree_test_output_filename, "w");
+    o_stream = fopen(output_filename, "w");
     if(o_stream == NULL){
-      fprintf(stderr, "Failed to open %s for writing.\n", pedigree_test_output_filename);
+      fprintf(stderr, "Failed to open %s for writing.\n", output_filename);
       exit(EXIT_FAILURE);
     }
     // fprintf(stderr, "# genotypes file type: %d\n", genotype_file_type);
     //  char* geno_file_type = (genotype_file_type == DOSAGES)? "dosages" : "genotypes";
     fprintf(stdout, "# Genotypes filename: %s max marker missing data: %5.2lf%c\n", genotypes_filename, max_marker_missing_data_fraction*100, '%');
-    //  fprintf(stdout, "# Pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
     fprintf(o_stream, "# Genotypes filename: %s max marker missing data: %5.2lf%c\n", genotypes_filename, max_marker_missing_data_fraction*100, '%');
-    //   fprintf(o_stream, "# Pedigrees filename: %s, output filename: %s \n", pedigrees_filename, pedigree_test_output_filename);
+   
   
     // *****  done processing command line  *****
 
@@ -199,6 +196,8 @@ main(int argc, char *argv[])
        fprintf(stdout, "# Done reading genotypes file. %ld accessions will be analyzed.\n", the_genotypes_set->n_accessions);
        fprintf(stdout, "# %ld accessions were excluded from analysis due to > %5.2lf percent missing data.\n",
 	       the_genotypes_set->n_bad_accessions, max_accession_missing_data_fraction*100);
+       fprintf(o_stream, "# %ld accessions were excluded from analysis due to > %5.2lf percent missing data.\n",
+	       the_genotypes_set->n_bad_accessions, max_accession_missing_data_fraction*100);
      fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
     clean_genotypesset(the_genotypes_set);
     double t_c = hi_res_time();
@@ -208,7 +207,7 @@ main(int argc, char *argv[])
     populate_marker_dosage_counts(the_genotypes_set);
     double t_d = hi_res_time();
     fprintf(stdout, "# Time to rectify genotype data: %6.3f sec.\n", t_d - t_c);
-  
+    fflush(stdout);
     // get xhgmr for all pairs:
    
       double t0 = hi_res_time();
@@ -218,6 +217,7 @@ main(int argc, char *argv[])
 	 cand_pppairs[ii] = construct_vlong(20);
        }
       for(long ii=0; ii<n_acc; ii++){
+	if(ii % 100  == 0) fprintf(stderr, "# ii: %ld\n", ii);
 	Accession* A1 = the_genotypes_set->accessions->a[ii];
 	for(long jj=ii+1; jj<n_acc; jj++){
 	  Accession* A2 = the_genotypes_set->accessions->a[jj];
@@ -254,8 +254,8 @@ main(int argc, char *argv[])
 	      Pedigree_stats* the_ps = triple_counts( par1->genotypes->a,  par2->genotypes->a, prog->genotypes->a, ploidy );
 	      the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog);
 	      the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog);
-	      fprintf(stdout, "%s %s %s  %ld  ", prog->id->a, par1->id->a, par2->id->a, ncandpairs);
-		print_pedigree_stats(stdout, the_ps); fprintf(stdout, "\n");
+	      fprintf(o_stream, "%s %s %s  %ld  ", prog->id->a, par1->id->a, par2->id->a, ncandpairs);
+		print_pedigree_stats(o_stream, the_ps); fprintf(o_stream, "\n");
 
 	    }
 	  }

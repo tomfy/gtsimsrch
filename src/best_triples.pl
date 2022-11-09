@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 
-my $the_col = shift // 16;	# unit-based
+my $the_col = shift // 18;	# unit-based
 $the_col--;			# now zero-based
 
 my %accid_solns = ();
