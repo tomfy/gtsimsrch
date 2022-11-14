@@ -16,10 +16,14 @@ my $cFr = 0.05;
 my $cHgmr = 0.04;
 my $cD = 0.03;
 
+my %ptaccid = ();
+my %fpaccid = ();
+
 while(<$fhpt>){
   next if(/^\s*#/);
   my @cols = split(" ", $_);
   my ($accid, $Fid, $Mid, $Fhgmr, $Fr, $Mhgmr, $Mr, $d) = @cols[0, 2,3, 7,9,11,13, 17];
+  $ptaccid{$accid} = 1;
   my $the_cat; # 1,2,3,4,5
   if($Fid eq 'NA'  or  $Mid eq 'NA'){
 
@@ -59,6 +63,7 @@ while(<$fhbt>){
   next if(/^\s*#/);
   my @cols = split(" ", $_);
   my ($accid, $Fid, $Mid, $Fhgmr, $Fr, $Mhgmr, $Mr, $d1) = @cols[0, 3,4, 9,11,13,15, 19];
+  $fpaccid{$accid} = 1;
  my $the_cat; # 1,2,3,4,5
   if(scalar @cols > 43){
     my $d2 = $cols[42];
@@ -131,6 +136,21 @@ if($table_sum_a == $table_sum_b){
 }
 print "\n";
 
+my $pt_only_count = 0;
+my $both_count = 0;
+for my $ptaid (keys %ptaccid){
+  if(exists $fpaccid{$ptaid}){
+    $both_count++;
+  }else{
+    $pt_only_count++;
+  }
+}
+my $pt_count = scalar keys %ptaccid;
+my $fp_count = scalar keys %fpaccid;
+my $fp_only_count = $fp_count - $both_count;
+print "pedigree_test count:              $pt_count\n";
+print "find_parents/best_triple count:   $fp_count\n";
+print "counts, ptonly, both, fponly: $pt_only_count  $both_count  $fp_only_count \n"; 
   
 
 
