@@ -38,6 +38,7 @@ main(int argc, char *argv[])
     double max_ok_z = 1;
     double max_ok_d = 1; // accept everything as ok
     double max_xhgmr = 0.12;
+    long max_candidate_parents = 400;
     
     double ploidy = 2;
     double epsilon = 0.01;
@@ -239,12 +240,16 @@ main(int argc, char *argv[])
       /* quick_and_dirty_hgmrs(the_genotypes_set);   */
       fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0); 
 
+      long count_accs_w_no_cand_parents = 0;
+      long count_accs_w_too_many_cand_parents = 0;
       for(long i=0; i<n_acc; i++){
 	Accession* prog = the_genotypes_set->accessions->a[i];
 	Vlong* cppps = cand_pppairs[i];
 	long ncandpairs = cppps->size;
 	//	fprintf(stderr, "i: %ld  ncandpars, triples: %ld  %ld\n", i, ncandpairs, ncandpairs*(ncandpairs+1)/2);
-	if(ncandpairs <= 100){	  
+	if(ncandpairs == 0){
+	  count_accs_w_no_cand_parents++;
+	}else if(ncandpairs <= max_candidate_parents){	  
 	  for(long ii=0; ii<cppps->size; ii++){
 	    long par1idx = cppps->a[ii];
 	    Accession* par1 = the_genotypes_set->accessions->a[par1idx];
@@ -259,9 +264,14 @@ main(int argc, char *argv[])
 
 	    }
 	  }
+	}else{
+	  count_accs_w_too_many_cand_parents++;
 	}
       }
-
+      fprintf(o_stream, "# number of accessions with no candidate parents found: %ld\n", count_accs_w_no_cand_parents);
+      fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n",
+	      max_candidate_parents, count_accs_w_no_cand_parents);
+      
     // ********************  cleanup  **************************
     fclose(o_stream);
     free_genotypesset(the_genotypes_set);
