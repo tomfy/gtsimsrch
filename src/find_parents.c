@@ -37,8 +37,8 @@ main(int argc, char *argv[])
     double max_self_r = 1; // need to specify if doing alternative pedigrees
     double max_ok_z = 1;
     double max_ok_d = 1; // accept everything as ok
-    double max_xhgmr = 0.12;
-    long max_candidate_parents = 400;
+    double max_xhgmr = 0.15;
+    long max_candidate_parents = 100;
     
     double ploidy = 2;
     double epsilon = 0.01;
@@ -246,7 +246,7 @@ main(int argc, char *argv[])
 	Accession* prog = the_genotypes_set->accessions->a[i];
 	Vlong* cppps = cand_pppairs[i];
 	long ncandpairs = cppps->size;
-	//	fprintf(stderr, "i: %ld  ncandpars, triples: %ld  %ld\n", i, ncandpairs, ncandpairs*(ncandpairs+1)/2);
+	fprintf(stdout, "%ld  %20s  %ld \n", i, prog->id->a, ncandpairs);
 	if(ncandpairs == 0){
 	  count_accs_w_no_cand_parents++;
 	}else if(ncandpairs <= max_candidate_parents){	  
@@ -270,7 +270,7 @@ main(int argc, char *argv[])
       }
       fprintf(o_stream, "# number of accessions with no candidate parents found: %ld\n", count_accs_w_no_cand_parents);
       fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n",
-	      max_candidate_parents, count_accs_w_no_cand_parents);
+	      max_candidate_parents, count_accs_w_too_many_cand_parents);
       
     // ********************  cleanup  **************************
     fclose(o_stream);
