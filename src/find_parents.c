@@ -268,6 +268,7 @@ main(int argc, char *argv[])
 	  count_accs_w_too_many_cand_parents++;
 	}
       }
+      fprintf(o_stream, "# candidate parents have xghmr <= %8.5f\n", max_xhgmr);
       fprintf(o_stream, "# number of accessions with no candidate parents found: %ld\n", count_accs_w_no_cand_parents);
       fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n",
 	      max_candidate_parents, count_accs_w_too_many_cand_parents);
