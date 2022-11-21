@@ -15,7 +15,7 @@ while (my $line = <>) {
   next if($line =~ /^\s*#/);
   my @cols = split(" ", $line);
   my ($id0, $id1, $id2, $d) = @cols[0,2,3,17];
-  if ($d <= $max_good_d) {
+  if ($d <= $max_good_d) {	# pedigree looks good, add to graph
     $acc_line{$id0} = $line;
     $accids{$id0} = 1; $accids{$id1} = 1; $accids{$id2} = 1;
     $g->add_edge($id1, $id0);	# edge from F parent to progeny
@@ -40,14 +40,31 @@ while (my $line = <>) {
 #   }
 # }
 
-while(my($an_id, $line) = each %acc_line){
-  if(exists $accids{$an_id}){
-    my $n_in = $g->in_degree($an_id);
-    my $n_out = $g->out_degree($an_id);
-    if($n_out > 0){
-      print $line;
+open my $fhprogonly, ">", "progeny_only";
+open my $fhboth, ">", "both";
+open my $fhparentsonly, ">", "parents_only";
+
+for my $an_id (keys %accids) {
+  my $n_in = $g->in_degree($an_id);
+  my $n_out = $g->out_degree($an_id);
+  if (exists $acc_line{$an_id}) {
+    my $line = $acc_line{$an_id};
+    chomp $line;
+    if ($n_out > 0) {		# has progeny
+      if ($n_in > 0) {		# has parent
+	print $fhboth $line . "  $n_in $n_out\n";
+      } else {
+	print $fhprogonly $line . "  $n_in $n_out\n";
+      }
+    } else {			# no progeny
+      if ($n_in > 0) {
+	print $fhparentsonly $line . "  $n_in $n_out\n";
+      } else {
+	die "acc: $an_id has neither parents nor progeny?\n";
+      }
     }
+  } else {
+    print $fhprogonly "$an_id $n_in $n_out\n";
   }
 }
-
 
