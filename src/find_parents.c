@@ -37,7 +37,7 @@ main(int argc, char *argv[])
     double max_self_r = 1; // need to specify if doing alternative pedigrees
     double max_ok_z = 1;
     double max_ok_d = 1; // accept everything as ok
-    double max_xhgmr = 0.15;
+    double max_xhgmr = 0.125;
     long max_candidate_parents = 100;
     
     double ploidy = 2;
