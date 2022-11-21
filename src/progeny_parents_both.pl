@@ -23,27 +23,28 @@ while (my $line = <>) {
   }
 }
 
-print scalar keys %acc_line, "\n";
+#qprint scalar keys %acc_line, "\n";
 
-for my $an_id (keys %acc_line) {
-  my $n_in = $g->in_degree($an_id);
-  my $n_out = $g->out_degree($an_id);
-  if ($n_in eq 0) {
-    if (exists $acc_line{$an_id}) {
-      print $acc_line{$an_id};
-    } else {
-      #  print STDERR "$an_id  \n";
-      # }
-      print "$an_id  $n_in  $n_out \n";
-    }
-  }
-}
+# for my $an_id (keys %accids) {
+#   my $n_in = $g->in_degree($an_id);
+#   my $n_out = $g->out_degree($an_id);
+#  # print STDERR "n in: $n_in \n";
+#   if ($n_out eq 0) {
+#     if (exists $acc_line{$an_id}) {
+#       print $acc_line{$an_id} // "XXXX\n";
+#     } else {
+#       #  print STDERR "$an_id  \n";
+#       # }
+#       print "$an_id  $n_in  $n_out \n";
+#     }
+#   }
+# }
 
 while(my($an_id, $line) = each %acc_line){
   if(exists $accids{$an_id}){
     my $n_in = $g->in_degree($an_id);
     my $n_out = $g->out_degree($an_id);
-    if($n_in eq 0){
+    if($n_out > 0){
       print $line;
     }
   }
