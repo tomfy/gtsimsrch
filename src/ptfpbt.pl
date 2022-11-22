@@ -9,23 +9,32 @@ open my $fhpt, "<", "$ptfile";
 open my $fhbt, "<", "$btfile";
 
 my %accid_ptline = ();
+my %accid_ptppd = ();
 while(my $line = <$fhpt>){
   my @cols = split(" ", $line);
   my $acc = $cols[0];
   my $D = $cols[17];
   if($D <= $maxD){
     $accid_ptline{$acc} = $line;
+    my ($p1, $p2) = @cols[2,3];
+    my $ppd = order_pair($p1, $p2) . " $D";
+    $accid_ptppd{$acc} = $ppd;
   }
 
 }
 
 while(my $line = <$fhbt>){
   my @cols = split(" ", $line);
-  my $offset = 2;
-  for(my $offset=2; $offset ;$offset += 23){
+  my $accid = $cols[0];
+  my $ptppd = $accid_ptppd{$accid} // undef;
+  if(defined $ptppd){
+  for(my ($offset, $i) = (2, 0); $offset+17 < scalar @cols; $offset += 23, $i++){
     my $ppd = get_p1p2D(\@cols, $offset);
+    my $best_ppd = $ppd if($offset == 2);
   }
+}else{
 
+}
 
 }
 
