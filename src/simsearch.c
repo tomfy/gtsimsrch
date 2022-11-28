@@ -97,7 +97,8 @@ main(int argc, char *argv[])
   
   long ploidy = 2; //
   long chunk_size = -1; // default: choose automatically based on ploidy, etc.
-  long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
+  long n_passes = 1; // n_chunks = n_passes*(int)(n_markers/chunk_size)
+  // long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
   unsigned rand_seed = (unsigned)time(0);
   double max_marker_missing_data_fraction = 0.2;
   double max_accession_missing_data_fraction = 0.5;
@@ -166,9 +167,9 @@ main(int argc, char *argv[])
     /*   } */
     /*   break; */
     case 'n': 
-      n_chunks = (long)atoi(optarg);
-      if(n_chunks <= 0){
-	fprintf(stderr, "option n (n_chunks) requires an integer argument > 0\n");
+      n_passes = (long)atoi(optarg);
+      if(n_passes <= 0){
+	fprintf(stderr, "option n (n_passes) requires an integer argument > 0\n");
 	exit(EXIT_FAILURE);
       }
       break;
@@ -293,9 +294,11 @@ main(int argc, char *argv[])
   if(chunk_size <= 0){
     chunk_size = (long)(log(MAX_PATTERNS)/log((double)ploidy+1.0));
   }
-  if(n_chunks*chunk_size > n_markers){
-    n_chunks = n_markers/chunk_size;
-  }
+  //  if(n_chunks*chunk_size > n_markers){
+  //    n_chunks = n_markers/chunk_size;
+  //  }
+  long n_chunks_per_pass = n_markers/chunk_size;
+  long n_chunks = n_passes*n_chunks_per_pass;
   fprintf(out_stream, "# Cleaned data has %ld markers.\n", the_genotypes_set->n_markers);
   fprintf(stdout, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
     fprintf(out_stream, "# chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
@@ -306,6 +309,16 @@ main(int argc, char *argv[])
   //  fprintf(stderr, "# n_markers: %ld\n", n_markers);
   Vlong* marker_indices = construct_vlong_whole_numbers(n_markers);
   shuffle_vlong(marker_indices);
+  marker_indices->size = n_chunks_per_pass*chunk_size; //
+  fprintf(stderr, "i: 0  marker_indices->size: %ld \n", marker_indices->size);
+  for(long i=1; i<n_passes; i++){
+    Vlong* more_marker_indices = construct_vlong_whole_numbers(n_markers);
+    shuffle_vlong(more_marker_indices);
+    more_marker_indices->size = n_chunks_per_pass*chunk_size;
+    append_vlong_to_vlong(marker_indices, more_marker_indices);
+    // fprintf(stderr, "i: %ld  marker_indices->size: %ld \n", i, marker_indices->size);
+  }
+  //  exit(0);
    t_start = hi_res_time();
   set_vaccession_chunk_patterns(the_accessions, marker_indices, n_chunks, chunk_size, ploidy);
   double t_1 = hi_res_time();

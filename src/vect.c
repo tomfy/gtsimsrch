@@ -66,6 +66,12 @@ void shuffle_vlong(Vlong* the_vlong){
   }
 }
 
+void append_vlong_to_vlong(Vlong* the_vlong, Vlong* a_vlong){
+  for(long i=0; i<a_vlong->size; i++){
+    add_long_to_vlong(the_vlong, a_vlong->a[i]);
+  }
+}
+
 void free_vlong(const Vlong* the_vlong){
   if(the_vlong == NULL) return;
   free(the_vlong->a);

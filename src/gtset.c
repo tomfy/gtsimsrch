@@ -39,7 +39,7 @@ long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_c
   long n_patterns = int_power(ploidy+1, k); // 3^k, the number of valid patterns, also there is a 'pattern' for missing data, making 3^k + 1 in all
   //  the_gts->chunk_homozyg_counts = construct_vlong_zeroes(n_chunks);
   Vlong* chunk_pats = construct_vlong(n_chunks); // (Vlong*)malloc(n_chunks*sizeof(Vlong));
-
+  //  fprintf(stderr, "m_indices->size %ld  n_chunks: %ld \n", m_indices->size, n_chunks);
   long n_h_usable_chunks = 0;
   long n_usable_homozygs = 0; // the number of homozygous gts in usable chunks.
   for(long i_chunk=0; i_chunk < n_chunks; i_chunk++){
@@ -121,7 +121,9 @@ void add_accession_to_vaccession(Vaccession* the_vacc, Accession* the_acc){
 void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy){
   long total_mdchunk_count = 0;
   for(long i=0; i < the_accessions->size; i++){
+    //  fprintf(stderr, "before set_accessions_ ... %ld  i: %ld \n", the_accessions->size, i);
     long mdchcount = set_accession_chunk_patterns(the_accessions->a[i], m_indices, n_chunks, k, ploidy);
+    //  fprintf(stderr, "after  set_accessions_ ... %ld  i: %ld \n", the_accessions->size, i);
     total_mdchunk_count += mdchcount;
   }
 }

@@ -45,6 +45,7 @@ Vlong* construct_vlong_from_array(long size, long* array); // initialize with ar
 Vlong* construct_vlong_whole_numbers(long size); // initialize to 0,1,2,3,...size-1
 void add_long_to_vlong(Vlong* the_vlong, long x); // push, realloc if necessary
 void shuffle_vlong(Vlong* the_vlong); // randomize order of array elements
+void append_vlong_to_vlong(Vlong* the_vlong, Vlong* a_vlong);
 void free_vlong(const Vlong* the_vlong); // free memory
 
 // *****  Vstr  *****************************************************************************
