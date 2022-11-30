@@ -5,9 +5,15 @@ use strict;
 # with the same format as simsearch input, but with just one
 # line representing each cluster.
 
+
 my $input_dosages_filename = shift;
+my $do_remove_bad_accessions = shift // 0;
 my $max_acc_missing_data_fraction = shift // 0.5;
+my $simsearch_command;
 open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
+
+# remove accessions with excessive missing data
+if($do_remove_bad_accessions){
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 open my $fhout, ">", "$cleaned_dosages_filename";
 my $n_markers = undef;
@@ -37,7 +43,11 @@ print STDERR "# $n_bad_accessions accessions eliminated due to excessive missing
 print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
   int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
 
-my $simsearch_command = "simsearch  -i $cleaned_dosages_filename";
+$simsearch_command = "simsearch  -i $cleaned_dosages_filename";
+
+}else{
+  $simsearch_command = "simsearch -i $input_dosages_filename";
+}
 
 system "$simsearch_command";
 
