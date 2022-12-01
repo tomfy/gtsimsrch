@@ -7,45 +7,45 @@ use strict;
 
 
 my $input_dosages_filename = shift;
-my $do_remove_bad_accessions = shift // 0;
+my $do_remove_bad_accessions = shift // 1;
 my $max_acc_missing_data_fraction = shift // 0.5;
 my $simsearch_command;
 open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
+my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
 # remove accessions with excessive missing data
-if($do_remove_bad_accessions){
-my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
-open my $fhout, ">", "$cleaned_dosages_filename";
-my $n_markers = undef;
-my $n_bad_accessions = 0;
-print STDERR "# Removing accessions with too much missing data.\n";
-while (my $line_in = <$fhin>) {
-  if ($line_in =~ /^\s*#/) {
-    # print STDERR "print comment line.\n";
-    print $fhout $line_in;
-  } elsif ($line_in =~ /^MARKER/) {
-    #  print STDERR "print marker ids line.\n";
-    print $fhout $line_in;
-    my @markers = split(" ", $line_in);
-    $n_markers = scalar @markers  - 1;
-  } else {
-    die "File lacks line with MARKER and marker ids\n" if(! defined $n_markers);
-    my $n_bad = () = $line_in =~ /\sNA/g;
-    if ($n_bad/$n_markers <= $max_acc_missing_data_fraction) {
+if ($do_remove_bad_accessions) {
+  open my $fhout, ">", "$cleaned_dosages_filename";
+  my $n_markers = undef;
+  my $n_bad_accessions = 0;
+  print STDERR "# Removing accessions with too much missing data.\n";
+  while (my $line_in = <$fhin>) {
+    if ($line_in =~ /^\s*#/) {
+      # print STDERR "print comment line.\n";
       print $fhout $line_in;
+    } elsif ($line_in =~ /^MARKER/) {
+      #  print STDERR "print marker ids line.\n";
+      print $fhout $line_in;
+      my @markers = split(" ", $line_in);
+      $n_markers = scalar @markers  - 1;
     } else {
-      $n_bad_accessions++;
+      die "File lacks line with MARKER and marker ids\n" if(! defined $n_markers);
+      my $n_bad = () = $line_in =~ /\sNA/g;
+      if ($n_bad/$n_markers <= $max_acc_missing_data_fraction) {
+	print $fhout $line_in;
+      } else {
+	$n_bad_accessions++;
+      }
     }
   }
-}
-close $fhout;
-print STDERR "# $n_bad_accessions accessions eliminated due to excessive missing data.\n";
-print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
-  int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
+  close $fhout;
+  print STDERR "# $n_bad_accessions accessions eliminated due to excessive missing data.\n";
+  print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
+    int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
 
-$simsearch_command = "simsearch  -i $cleaned_dosages_filename";
+  $simsearch_command = "simsearch  -i $cleaned_dosages_filename";
 
-}else{
+} else {
   $simsearch_command = "simsearch -i $input_dosages_filename";
 }
 
@@ -78,11 +78,11 @@ close $fh_clusters;
 
 
 print STDERR "before storing dosages\n";
-my $x = getc();
 
 # store individual lines of dosage file in hash
 open my $fh_dosages, "<", "$cleaned_dosages_filename";
 
+# store ids and genotypes of clusters (size >= 2), and output singletons.
 my %id_gts  = ();  # key: ids; value: array ref of dosages (0,1,2,NA) 
 my $first_line = <$fh_dosages>;
 print $first_line;
@@ -99,7 +99,7 @@ while (my $line = <$fh_dosages>) {
 close($fh_dosages);
 
 print STDERR "after storing dosages\n";
-$x = getc();
+# $x = getc();
 
 open  $fh_clusters, "<", "agmr_cluster.out";
 while (my $line = <$fh_clusters>) { # each line is one cluster
@@ -114,6 +114,7 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   #  print STDERR "done storing cluster of size $cluster_size \n";
   print STDERR "before vote\n";
   my $elected_gts = vote(\@cols, \%id_gts);
+  print STDERR "size of elected_gts: ", scalar @$elected_gts, "\n";
   #  print STDERR "done with cluster vote \n";
   print "$rep_id  ", join(" ", @$elected_gts), "\n";
 
@@ -152,25 +153,35 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
 # ************************************************
 
 sub vote{
-  my $cluster_ids = shift;	# array ref
-  my $id_dosages = shift;	# hash ref
-
+  my $cluster_ids = shift;	# array ref holding the ids of the accessions in the cluster.
+  my $id_dosages = shift;	# hash ref. key: id, value: array ref of dosages for this id.
+print STDERR "in vote. new cluster:  \n";
   my $first_id = $cluster_ids->[0];
   my $first_dosages = $id_dosages->{$first_id};
   my $n_markers = scalar @$first_dosages;
   my $cluster_size = scalar @$cluster_ids;
-  my @marker_votes = ([0, 0, 0, 0]) x $n_markers; 
+  my @marker_votes = ();;
+  for(1..$n_markers){
+push @marker_votes, [0, 0, 0, 0];
+  }
   for my $an_id (@$cluster_ids) {
-    my $dosages = $id_dosages->{$an_id};
+    my $dosages = $id_dosages->{$an_id}; # array ref of dosages for $an_id
     while (my($i, $d) = each @$dosages) {
       $d = 3 if($d eq 'NA');
       $marker_votes[$i]->[$d]++;
     }
+ #   print STDERR "  $an_id   ";
+    # for my $jjj (0..9){
+    #   my $vs = $marker_votes[$jjj];
+    #   print STDERR join(" ", @$vs), ";  ";
+    # }print STDERR "\n";
   }
+#  my $x = getc();
   print STDERR "in vote. after storing votes of all markers, all accessions in cluster. \n";
   my @elected_dosages = (0) x $n_markers;
   while (my($i, $mv) = each @marker_votes) {
     my $e = 'NA';
+ #   print STDERR "    $i  ", join(" ", @$mv), "\n";
     for my $j (0..2) {
       my $vote = $mv->[$j]; # the number of votes for dosage = $j for marker $i
       if (2*$vote > $cluster_size) { # must have > 50% for one dosage, or 'NA'
