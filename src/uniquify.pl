@@ -68,7 +68,7 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   for my $a_cluster_id (@cols) {
     $clusterids{$a_cluster_id} = 1; # all accessions in clusters get stored in @clusterids
   }
-  print STDERR "done storing cluster of size $cluster_size \n";
+  # print STDERR "done storing cluster of size $cluster_size \n";
   #  my $elected_gts = vote(\@cols, \%id_gts);
   #  print STDERR "done with cluster vote \n";
   #  print "$rep_id  ", join(" ", @$elected_gts), "\n";
@@ -112,9 +112,9 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   my $rep_id = $cols[0];     # id of the representative of the cluster
 
   #  print STDERR "done storing cluster of size $cluster_size \n";
-  print STDERR "before vote\n";
+  # print STDERR "before vote\n";
   my $elected_gts = vote(\@cols, \%id_gts);
-  print STDERR "size of elected_gts: ", scalar @$elected_gts, "\n";
+  # print STDERR "size of elected_gts: ", scalar @$elected_gts, "\n";
   #  print STDERR "done with cluster vote \n";
   print "$rep_id  ", join(" ", @$elected_gts), "\n";
 
@@ -155,7 +155,7 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
 sub vote{
   my $cluster_ids = shift;	# array ref holding the ids of the accessions in the cluster.
   my $id_dosages = shift;	# hash ref. key: id, value: array ref of dosages for this id.
-print STDERR "in vote. new cluster:  \n";
+# print STDERR "in vote. new cluster:  \n";
   my $first_id = $cluster_ids->[0];
   my $first_dosages = $id_dosages->{$first_id};
   my $n_markers = scalar @$first_dosages;
@@ -177,7 +177,7 @@ push @marker_votes, [0, 0, 0, 0];
     # }print STDERR "\n";
   }
 #  my $x = getc();
-  print STDERR "in vote. after storing votes of all markers, all accessions in cluster. \n";
+  # print STDERR "in vote. after storing votes of all markers, all accessions in cluster. \n";
   my @elected_dosages = (0) x $n_markers;
   while (my($i, $mv) = each @marker_votes) {
     my $e = 'NA';
