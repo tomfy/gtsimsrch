@@ -100,12 +100,12 @@ main(int argc, char *argv[])
   long n_passes = 1; // n_chunks = n_passes*(int)(n_markers/chunk_size)
   // long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
   unsigned rand_seed = (unsigned)time(0);
-  double max_marker_missing_data_fraction = 0.2;
+  double max_marker_missing_data_fraction = -1; // default: set to 2.0/chunk_size after chunk_size is set.
   double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0.0; //
   double max_est_agmr = 0.2;
   long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
-  char default_output_filename[] = "simsearch.out";
+  char default_output_filename[] = "duplicatesearch.out";
 
   char* rparam_buf;
   size_t rparam_len;
@@ -130,11 +130,13 @@ main(int argc, char *argv[])
     // r: reference set file name (optional).
     // o: output file name. Default:
     // s: random number seed. Default: get seed from clock.
-    // x: marker max missing data fraction
-    // a: min minor allele frequency
+    // x: marker max missing data fraction. Default: 2.0/chunk_size
+    // f: accession max missing data fraction. Default: 0.5
+    // a: min minor allele frequency. Default: 0
     // k: chunk size (number of markers per chunk). Defaults: diploid: 8, tetraploid: 5, hexaploid: 4.
     // e: max agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value; output match only if agmr < this value.)
-    // n: number of chunks to use. Default: use each marker ~once.
+    // n: use n*n_markers/chunk_size chunks. (i.e. each marker gets used in ~n chunks). Default: 1
+    // v: verbosity. Default: 1, 2 gives slightly more output.
     // h: help. print usage info
      
     switch(c){
@@ -194,8 +196,19 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       break;
-    case 'x': 
+    case 'x':
       max_marker_missing_data_fraction = (double)atof(optarg);
+      if(max_marker_missing_data_fraction <= 0){
+	fprintf(stderr, "option x (max_marker_missing_data_fraction) requires an real argument > 0\n");
+	exit(EXIT_FAILURE);
+      }
+      break;
+         case 'f':
+      max_accession_missing_data_fraction = (double)atof(optarg);
+      if(max_accession_missing_data_fraction <= 0){
+	fprintf(stderr, "option f (max_accessions_missing_data_fraction) requires an real argument > 0\n");
+	exit(EXIT_FAILURE);
+      }
       break;
     case 'a': 
       min_minor_allele_frequency = (double)atof(optarg);
@@ -204,10 +217,10 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       break;
-    case 'f': 
+    case 'v': 
       output_format = (long)atoi(optarg);
       if(output_format < 1){
-	fprintf(stderr, "option f (output_format) requires an integer argument >= 1\n");
+	fprintf(stderr, "option v (output_format) requires an integer argument >= 1\n");
 	exit(EXIT_FAILURE);
       }
       break;
@@ -250,7 +263,11 @@ main(int argc, char *argv[])
   print_command_line(stdout, argc, argv);	 
   fprintf(rparam_stream, "# Rng seed: %ld\n", (long)rand_seed);
   fprintf(rparam_stream, "# Min. marker minor allele frequency: %5.3lf\n", min_minor_allele_frequency);
-  fprintf(rparam_stream, "# Max. marker missing data fraction: %5.3lf\n", max_marker_missing_data_fraction);
+  if(max_marker_missing_data_fraction > 0) {
+    fprintf(rparam_stream, "# Max. marker missing data fraction: %5.3lf\n", max_marker_missing_data_fraction);
+  }else{
+    fprintf(rparam_stream, "# Max. marker missing data fraction will be set to 2.0/chunk_size.\n");
+  }
   fprintf(rparam_stream, "# Max. agmr: %5.3lf\n", max_est_agmr);
     fclose(rparam_stream);
   fprintf(stdout, "%s", rparam_buf);
@@ -278,7 +295,16 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   fprintf(stdout, "# Time to load dosage data: %6.3lf sec.\n", hi_res_time() - t_start);
- 
+
+    ploidy = the_genotypes_set->ploidy;
+  //  find  chunk_size  if not specified on command line
+  if(chunk_size <= 0){
+    chunk_size = (long)(log(MAX_PATTERNS)/log((double)ploidy+1.0));
+  }
+  the_genotypes_set->max_marker_missing_data_fraction = (max_marker_missing_data_fraction <= 0)? 2.0/chunk_size : max_marker_missing_data_fraction;
+  fprintf(out_stream, "# Max. marker missing data fraction: %5.3lf\n", the_genotypes_set->max_marker_missing_data_fraction);
+  fprintf(stdout, "# Max. marker missing data fraction: %5.3lf\n", the_genotypes_set->max_marker_missing_data_fraction);
+
   // fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
 
   rectify_markers(the_genotypes_set);
@@ -289,11 +315,7 @@ main(int argc, char *argv[])
   the_accessions = the_genotypes_set->accessions;
    
   n_markers = the_genotypes_set->n_markers;
-  ploidy = the_genotypes_set->ploidy;
-  //  find  chunk_size  if not specified on command line
-  if(chunk_size <= 0){
-    chunk_size = (long)(log(MAX_PATTERNS)/log((double)ploidy+1.0));
-  }
+
   //  if(n_chunks*chunk_size > n_markers){
   //    n_chunks = n_markers/chunk_size;
   //  }
@@ -348,7 +370,7 @@ main(int argc, char *argv[])
   free_genotypesset(the_genotypes_set); 
   free_vlong(marker_indices);
   free_chunk_pattern_ids(the_cpi);
-  fprintf(stdout, "# total simsearch run time: %9.3f\n", hi_res_time() - start0);
+  fprintf(stdout, "# total duplicatesearch run time: %9.3f\n", hi_res_time() - start0);
   exit(EXIT_SUCCESS);
 }
 
@@ -750,7 +772,7 @@ long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostre
 void print_usage_info(FILE* ostream){
   // i: input file name (required).
   // r: reference set file name.
-  // o: output file name. Default: simsearch.out
+  // o: output file name. Default: duplicatesearch.out
   // e: max estimated agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value.) 
   // x: marker max missing data fraction
   // a: min minor allele frequency
@@ -762,14 +784,15 @@ void print_usage_info(FILE* ostream){
   fprintf(ostream, "Options: \n");
   fprintf(ostream, "  -i \t input file name (required).\n");
   fprintf(ostream, "  -r \t file name of reference data set (optional).\n");
-  fprintf(ostream, "  -o \t output file name. Default: simsearch.out\n");
+  fprintf(ostream, "  -o \t output file name. Default: duplicatesearch.out\n");
   fprintf(ostream, "  -e \t maximum agmr; calculate agmr only if est. agmr is < this value. Default: 0.2\n");
-  fprintf(ostream, "  -x \t maximum marker missing data fraction. Default: 0.2 \n");
+  fprintf(ostream, "  -x \t maximum marker missing data fraction. Default: 2.0/chunk_size \n");
   fprintf(ostream, "  -a \t minimum minor allele frequency. Default: 0 \n");
-  fprintf(ostream, "  -k \t number of markers per chunk. Default: set automatically depending on ploidy:\n");
+  fprintf(ostream, "  -k \t chunk_size (number of markers per chunk). Default: set automatically depending on ploidy:\n");
   fprintf(ostream, "     \t\t ploidy=2 k=8; ploidy=4 k=5; ploidy=6 k=4.\n");
   fprintf(ostream, "  -s \t random number generator seed. Default: get seed from clock. \n");
-  fprintf(ostream, "  -f \t control output format. Default 1; 2 for more info.\n");
+   fprintf(ostream, "  -f \t maximum accession missing data fraction. Default: 0.5\n");
+  fprintf(ostream, "  -v \t control output format. Default 1; 2 for more info.\n");
   // fprintf(ostream, "  -p \t ploidy. (default: 2)\n"); this now is automatically detected from the data.
   fprintf(ostream, "  -n \t number of chunks to use. Default: (int)n_markers/chunk_size \n");
   fprintf(ostream, "  -h \t print this usage information. \n");

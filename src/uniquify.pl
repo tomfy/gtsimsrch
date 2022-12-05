@@ -1,15 +1,15 @@
 #!/usr/bin/perl -w
 use strict;
 
-# runs simsearch, then agmr_cluster, and outputs a file
-# with the same format as simsearch input, but with just one
+# runs duplicatesearch, then agmr_cluster, and outputs a file
+# with the same format as duplicatesearch input, but with just one
 # line representing each cluster.
 
 
 my $input_dosages_filename = shift;
 my $do_remove_bad_accessions = shift // 1;
 my $max_acc_missing_data_fraction = shift // 0.5;
-my $simsearch_command;
+my $duplicatesearch_command;
 open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
@@ -43,16 +43,16 @@ if ($do_remove_bad_accessions) {
   print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
     int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
 
-  $simsearch_command = "simsearch  -i $cleaned_dosages_filename";
+  $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename";
 
 } else {
-  $simsearch_command = "simsearch -i $input_dosages_filename";
+  $duplicatesearch_command = "duplicatesearch -i $input_dosages_filename";
 }
 
-system "$simsearch_command";
+system "$duplicatesearch_command";
 
 # run agmr_cluster to get clusters of near-identical genotypes
-system "agmr_cluster < simsearch.out > agmr_cluster.out";
+system "agmr_cluster < duplicatesearch.out > agmr_cluster.out";
 
 open my $fh_clusters, "<", "agmr_cluster.out";
 my %clusterids = ();
