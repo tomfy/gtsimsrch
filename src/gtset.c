@@ -768,14 +768,16 @@ ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2){
   // fprintf(stderr, "a1 acc id: %s   alt_homozygs: %ld \n", a1->id->a, a1d2s->size); // getchar();
   double expected_refds = 0;
   long counted_refds = 0;
+  long n0s = 0;
   
   for(long i=0; i<a1d2s->size; i++){
     long idx = a1d2s->a[i];
     char a2_dosage = a2->genotypes->a[idx];
     if(a2_dosage == '0') counted_refds++;
     long n0s_this_marker = gtset->marker_dose_counts[0]->a[idx];
-    long n012s_this_marker = gtset->accessions->size - gtset->marker_missing_data_counts->a[idx];
-    expected_refds += (double)n0s_this_marker / (double)n012s_this_marker;
+    //  long n012NAs_this_marker = gtset->accessions->size; // - gtset->marker_missing_data_counts->a[idx];
+    //  expected_refds += (double)n0s_this_marker / (double)n012NAs_this_marker;
+    n0s += n0s_this_marker;
   }
   
   Vlong* a2d2s = a2->alt_homozygs;
@@ -784,9 +786,11 @@ ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2){
     char a1_dosage = a1->genotypes->a[idx];
     if(a1_dosage == '0') counted_refds++;
     long n0s_this_marker = gtset->marker_dose_counts[0]->a[idx];
-    long n012s_this_marker = gtset->accessions->size - gtset->marker_missing_data_counts->a[idx];
-    expected_refds += (double)n0s_this_marker / (double)n012s_this_marker;
+    // long n012NAs_this_marker = gtset->accessions->size; // - gtset->marker_missing_data_counts->a[idx];
+    //  expected_refds += (double)n0s_this_marker / (double)n012NAs_this_marker;
+    n0s += n0s_this_marker;
   }
+  expected_refds = (double)n0s/(double)gtset->accessions->size;
   
   // fprintf(stderr, "%ld %ld  %ld %8.4lf  %ld %ld\n", a1->index, a2->index, counted_refds, expected_refds, a1d2s->size, a2d2s->size);
   ND result = {counted_refds, expected_refds};
