@@ -1086,8 +1086,8 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
   if(the_pedigree->F != NULL  &&  the_pedigree->M != NULL){
     //  fprintf(stderr, "pedigree with both parents.\n");
     the_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
-    the_ps->xhgmr1 = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A);
-    the_ps->xhgmr2 = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A);
+    the_ps->xhgmr1 = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, 0);
+    the_ps->xhgmr2 = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, 0);
     // fprintf(stderr, "ped w both parents, after both calls to xhgmr.\n");		   
   }else{ // one of the parents is NULL 
     the_ps->agmr12.n = 0;
@@ -1105,7 +1105,7 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
       the_ps->par2_hgmr.d = 0;
       the_ps->par2_R.n = 0;
       the_ps->par2_R.d = 0;
-      the_ps->xhgmr1 = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A);
+      the_ps->xhgmr1 = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, 0);
       the_ps->xhgmr2.n = 0;
       the_ps->xhgmr2.d = 0;
     }else{ // we have male parent id, no female parent id
@@ -1122,7 +1122,7 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
       the_ps->par2_R.d = hgmrR.l4;
       the_ps->xhgmr1.n = 0;
       the_ps->xhgmr1.d = 0;
-      the_ps->xhgmr2 = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A);
+      the_ps->xhgmr2 = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, 0);
     }
     //construct_pedigree_stats(the_pedigree, ploidy); //the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
     // the_ps->agmr12.n = 0;

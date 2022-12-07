@@ -755,46 +755,35 @@ double hgmr(char* gts1, char* gts2){
     }
     i++;
   }
-  //  ND result = {n_numer, n_denom};
-  //return result;
-  //  fprintf(stderr, "hgmr   n,d: %ld %ld  ", n_numer, n_denom); 
   return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
 }
 
-ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2){
+ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick){
   // numerator is same as hgmr, but denominator is based on expected numbers of
   // dosage = 0 markers in random accession
   Vlong* a1d2s = a1->alt_homozygs;
-  // fprintf(stderr, "a1 acc id: %s   alt_homozygs: %ld \n", a1->id->a, a1d2s->size); // getchar();
   double expected_refds = 0;
   long counted_refds = 0;
   long n0s = 0;
   
-  for(long i=0; i<a1d2s->size; i++){
+  for(long i=0; i<a1d2s->size; i++){ // consider markers with dosage==2 in accession 1
     long idx = a1d2s->a[i];
     char a2_dosage = a2->genotypes->a[idx];
     if(a2_dosage == '0') counted_refds++;
-    long n0s_this_marker = gtset->marker_dose_counts[0]->a[idx];
-    //  long n012NAs_this_marker = gtset->accessions->size; // - gtset->marker_missing_data_counts->a[idx];
-    //  expected_refds += (double)n0s_this_marker / (double)n012NAs_this_marker;
-    n0s += n0s_this_marker;
+    n0s += gtset->marker_dose_counts[0]->a[idx]; // n0s_this_marker;
   }
+  expected_refds = (double)n0s/(double)gtset->accessions->size;
+  if(quick && counted_refds/expected_refds > 0.5  && counted_refds > 100) return (ND){counted_refds, expected_refds};
   
   Vlong* a2d2s = a2->alt_homozygs;
-  for(long i=0; i<a2d2s->size; i++){
+  for(long i=0; i<a2d2s->size; i++){ // consider markers with dosage==2 in accession 2
     long idx = a2d2s->a[i];
     char a1_dosage = a1->genotypes->a[idx];
     if(a1_dosage == '0') counted_refds++;
-    long n0s_this_marker = gtset->marker_dose_counts[0]->a[idx];
-    // long n012NAs_this_marker = gtset->accessions->size; // - gtset->marker_missing_data_counts->a[idx];
-    //  expected_refds += (double)n0s_this_marker / (double)n012NAs_this_marker;
-    n0s += n0s_this_marker;
+    n0s += gtset->marker_dose_counts[0]->a[idx]; // n0s_this_marker;
   }
   expected_refds = (double)n0s/(double)gtset->accessions->size;
-  
-  // fprintf(stderr, "%ld %ld  %ld %8.4lf  %ld %ld\n", a1->index, a2->index, counted_refds, expected_refds, a1d2s->size, a2d2s->size);
-  ND result = {counted_refds, expected_refds};
-  return result;
+    return (ND){counted_refds, expected_refds};
 }
 
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hgmr numerator and denominator
