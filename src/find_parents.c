@@ -27,7 +27,6 @@ main(int argc, char *argv[])
   double t_begin_main = hi_res_time();
   
   int do_alternative_pedigrees = 0; // 0: none, 1: only when given pedigree is 'bad', 2: all
-  // double delta = 0.05; // default; control this with -d command line option.
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
   double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0; // 
