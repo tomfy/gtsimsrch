@@ -13,10 +13,10 @@ use Graph::Undirected;
 # one line of output for each cluster, with fields
 # cluster size, min agmr, max agmr, 'nbad (should be 0)', the ids of accessions in cluster.
 # e.g.:    3  0.0104 0.0142 0  TMEB778:250254008  TMEB778:250304613  TMEB778:250597946
-# the simsearch output should have all the agmrs for all the pairs in each cluster,
+# the duplicatesearch output should have all the agmrs for all the pairs in each cluster,
 # and in that case the 4th field ('nbad') will be 0. If nbad > 0,
 # consider rerunning this script with a smaller $max_agmr,
-# or rerun simsearch with a larger value of 'max estimated agmr'
+# or rerun duplicatesearch with a larger value of 'max_estimated_agmr' (-e option)
 
 # usage:
 # agmr_cluster.pl < simsrch.out  >  agmr_clusters
