@@ -2,7 +2,7 @@
 use strict;
 
 # read in a cluster file (output of agmr_cluster ) and a
-# pedigree file (tab separated, accession, Fparent, Mparent ids in last 3 cols of each line)
+# pedigree file (whitespace separated, accession, Fparent, Mparent ids in last 3 cols of each line)
 # output to stdout a pedigree file with the parental ids replaced with the representative of the cluster
 
 my $cluster_file = shift;
@@ -35,14 +35,20 @@ while (my $line = <$fhin>) {
   my @cols = split(" ", $line);
   my $prog_id = $cols[-3];
 
-  if ($prog_id ne 'NA') {
-    if ((exists $clusterids_repid{$prog_id}) and ($clusterids_repid{$prog_id} ne $prog_id)) { # if prog_id belongs to a cluster, only output if it is the representative accession.
-      print STDERR "$prog_id is non-rep member of cluster with rep ", $clusterids_repid{$prog_id}, "\n";
-    } else {
-      my $Fpar_id = $clusterids_repid{$cols[-2]} // $cols[-2];
-      my $Mpar_id = $clusterids_repid{$cols[-1]} // $cols[-1];
-      print "$prog_id $Fpar_id $Mpar_id\n";
-    }
+  # if ($prog_id ne 'NA') {
+  #   if ((exists $clusterids_repid{$prog_id}) and ($clusterids_repid{$prog_id} ne $prog_id)) { # if prog_id belongs to a cluster, only output if it is the representative accession.
+  #     print STDERR "$prog_id is non-rep member of cluster with rep ", $clusterids_repid{$prog_id}, "\n";
+  #   } else {
+  #     my $Fpar_id = $clusterids_repid{$cols[-2]} // $cols[-2];
+  #     my $Mpar_id = $clusterids_repid{$cols[-1]} // $cols[-1];
+  #     print "$prog_id $Fpar_id $Mpar_id\n";
+  #   }
+  # }
+  if($prog_id ne 'NA'){
+    $prog_id = $clusterids_repid{$prog_id} // $prog_id;
+     my $Fpar_id = $clusterids_repid{$cols[-2]} // $cols[-2];
+    my $Mpar_id = $clusterids_repid{$cols[-1]} // $cols[-1];
+    print "$prog_id  $Fpar_id  $Mpar_id\n";
   }
 }
 close $fhin;
