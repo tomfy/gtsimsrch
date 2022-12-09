@@ -13,7 +13,7 @@ my $duplicatesearch_command;
 open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
-# remove accessions with excessive missing data
+####   remove accessions with excessive missing data   #########################
 if ($do_remove_bad_accessions) {
   open my $fhout, ">", "$cleaned_dosages_filename";
   my $n_markers = undef;
@@ -48,17 +48,20 @@ if ($do_remove_bad_accessions) {
 } else {
   $duplicatesearch_command = "duplicatesearch -i $input_dosages_filename";
 }
+###############################################################################
 
 
-##   Run duplicatesearch :   ##
+####   Run duplicatesearch :   ################################################
 system "$duplicatesearch_command";
+###############################################################################
 
 
-##   Run agmr_cluster to get clusters of near-identical genotypes
+####   Run agmr_cluster to get clusters of near-identical genotypes   #########
 system "agmr_cluster < duplicatesearch.out > agmr_cluster.out";
+###############################################################################
 
 
-##  Store ids of accessions in clusters 
+####  Store ids of cluster accessions in    ###################################
 open my $fh_clusters, "<", "agmr_cluster.out";
 my %clusterids = ();
 
@@ -75,8 +78,10 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   }
 }
 close $fh_clusters;
+###############################################################################
 
 
+####   Store dosages  #########################################################
 print STDERR "before storing dosages\n";
 
 # store individual lines of dosage file in hash
@@ -97,10 +102,11 @@ while (my $line = <$fh_dosages>) {
   }
 }
 close($fh_dosages);
-
 print STDERR "after storing dosages\n";
-# $x = getc();
+###############################################################################
 
+
+####   Cluster members vote on correct genotypes   ############################
 open  $fh_clusters, "<", "agmr_cluster.out";
 while (my $line = <$fh_clusters>) { # each line is one cluster
   next if($line =~ /^\s*#/);
@@ -117,8 +123,8 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   # print STDERR "size of elected_gts: ", scalar @$elected_gts, "\n";
   #  print STDERR "done with cluster vote \n";
   print "$rep_id  ", join(" ", @$elected_gts), "\n";
-
 }
+###############################################################################
 
 # while (my $line = <$fh_clusters>) { # each line is one cluster
 #   next if($line =~ /^\s*#/);
