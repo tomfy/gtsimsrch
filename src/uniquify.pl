@@ -49,11 +49,16 @@ if ($do_remove_bad_accessions) {
   $duplicatesearch_command = "duplicatesearch -i $input_dosages_filename";
 }
 
+
+##   Run duplicatesearch :   ##
 system "$duplicatesearch_command";
 
-# run agmr_cluster to get clusters of near-identical genotypes
+
+##   Run agmr_cluster to get clusters of near-identical genotypes
 system "agmr_cluster < duplicatesearch.out > agmr_cluster.out";
 
+
+##  Store ids of accessions in clusters 
 open my $fh_clusters, "<", "agmr_cluster.out";
 my %clusterids = ();
 
@@ -68,11 +73,6 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   for my $a_cluster_id (@cols) {
     $clusterids{$a_cluster_id} = 1; # all accessions in clusters get stored in @clusterids
   }
-  # print STDERR "done storing cluster of size $cluster_size \n";
-  #  my $elected_gts = vote(\@cols, \%id_gts);
-  #  print STDERR "done with cluster vote \n";
-  #  print "$rep_id  ", join(" ", @$elected_gts), "\n";
-
 }
 close $fh_clusters;
 
