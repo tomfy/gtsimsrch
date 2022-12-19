@@ -1,20 +1,37 @@
 #!/usr/bin/perl -w
 use strict;
+use Getopt::Long;
+use List::Util qw(min max sum);
 
 # runs duplicatesearch, then agmr_cluster, and outputs a file
-# with the same format as duplicatesearch input, but with just one
+# with the same format as duplicatesearch input, but now with just one
 # line representing each cluster.
 
+my $input_dosages_filename = undef;
+#my $do_remove_bad_accessions = shift // 1;
+my $max_acc_missing_data_fraction = 0.5;
+my $output_dosages_filename = "uniquify.out";
+my $max_agmr = 0.2;
 
-my $input_dosages_filename = shift;
-my $do_remove_bad_accessions = shift // 1;
-my $max_acc_missing_data_fraction = shift // 0.5;
-my $duplicatesearch_command;
+GetOptions(
+	   'input_file=s' => \$input_dosages_filename,
+	   'output_file=s' => \$output_dosages_filename,
+	   'max_md_fraction=f' => \$max_acc_missing_data_fraction,
+	   'max_agmr=f' => \$max_agmr,
+       
+	  );
+
+if (!defined $input_dosages_filename) {
+  print "Must supply input file name.\n";
+  usage_message();
+  exit;
+}
 open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
 ####   remove accessions with excessive missing data   #########################
-if ($do_remove_bad_accessions) {
+
+if (0) {
   open my $fhout, ">", "$cleaned_dosages_filename";
   my $n_markers = undef;
   my $n_bad_accessions = 0;
@@ -42,12 +59,15 @@ if ($do_remove_bad_accessions) {
   print STDERR "# $n_bad_accessions accessions eliminated due to excessive missing data.\n";
   print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
     int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
-
-  $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename";
-
 } else {
-  $duplicatesearch_command = "duplicatesearch -i $input_dosages_filename";
+  system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
 }
+
+print STDERR "$cleaned_dosages_filename \n";
+#exit;
+
+my $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename -e $max_agmr";
+
 ###############################################################################
 
 
@@ -86,11 +106,12 @@ print STDERR "before storing dosages\n";
 
 # store individual lines of dosage file in hash
 open my $fh_dosages, "<", "$cleaned_dosages_filename";
+open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
 
 # store ids and genotypes of clusters (size >= 2), and output singletons.
 my %id_gts  = ();  # key: ids; value: array ref of dosages (0,1,2,NA) 
 my $first_line = <$fh_dosages>;
-print $first_line;
+print $fhout $first_line;
 while (my $line = <$fh_dosages>) {
   next if($line =~ /^\s*#/);	# skip comments
   my @cols = split(" ", $line);
@@ -98,13 +119,15 @@ while (my $line = <$fh_dosages>) {
   if (exists $clusterids{$id}) {
     $id_gts{$id} = \@cols;
   } else {
-    print $line;
+    print $fhout $line;
   }
 }
 close($fh_dosages);
 print STDERR "after storing dosages\n";
-###############################################################################
 
+###############################################################################
+my $file_delete_success = unlink($cleaned_dosages_filename);
+warn "Deleting of $cleaned_dosages_filename failed.\n" if($file_delete_success != 1);
 
 ####   Cluster members vote on correct genotypes   ############################
 open  $fh_clusters, "<", "agmr_cluster.out";
@@ -120,9 +143,9 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   #  print STDERR "done storing cluster of size $cluster_size \n";
   # print STDERR "before vote\n";
   my $elected_gts = vote(\@cols, \%id_gts);
-  # print STDERR "size of elected_gts: ", scalar @$elected_gts, "\n";
+  #print STDERR "Done with cluster vote. size of elected_gts: ", scalar @$elected_gts, "\n";
   #  print STDERR "done with cluster vote \n";
-  print "$rep_id  ", join(" ", @$elected_gts), "\n";
+  print $fhout "$rep_id  ", join(" ", @$elected_gts), "\n";
 }
 ###############################################################################
 
@@ -159,43 +182,56 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
 # ************************************************
 
 sub vote{
-  my $cluster_ids = shift;	# array ref holding the ids of the accessions in the cluster.
-  my $id_dosages = shift;	# hash ref. key: id, value: array ref of dosages for this id.
-# print STDERR "in vote. new cluster:  \n";
+  my $cluster_ids = shift; # array ref holding the ids of the accessions in the cluster.
+  my $id_dosages = shift; # hash ref. key: id, value: array ref of dosages for this id.
+  # print STDERR "in vote. new cluster:  \n";
   my $first_id = $cluster_ids->[0];
   my $first_dosages = $id_dosages->{$first_id};
   my $n_markers = scalar @$first_dosages;
-  my $cluster_size = scalar @$cluster_ids;
-  my @marker_votes = ();;
-  for(1..$n_markers){
-push @marker_votes, [0, 0, 0, 0];
-  }
-  for my $an_id (@$cluster_ids) {
-    my $dosages = $id_dosages->{$an_id}; # array ref of dosages for $an_id
-    while (my($i, $d) = each @$dosages) {
-      $d = 3 if($d eq 'NA');
-      $marker_votes[$i]->[$d]++;
-    }
- #   print STDERR "  $an_id   ";
-    # for my $jjj (0..9){
-    #   my $vs = $marker_votes[$jjj];
-    #   print STDERR join(" ", @$vs), ";  ";
-    # }print STDERR "\n";
-  }
-#  my $x = getc();
-  # print STDERR "in vote. after storing votes of all markers, all accessions in cluster. \n";
   my @elected_dosages = (0) x $n_markers;
-  while (my($i, $mv) = each @marker_votes) {
-    my $e = 'NA';
- #   print STDERR "    $i  ", join(" ", @$mv), "\n";
-    for my $j (0..2) {
-      my $vote = $mv->[$j]; # the number of votes for dosage = $j for marker $i
-      if (2*$vote > $cluster_size) { # must have > 50% for one dosage, or 'NA'
-	$e = $j;
-	last;
+  my $cluster_size = scalar @$cluster_ids;
+  if ($cluster_size > 2) {
+    my @marker_votes = ();;
+    for (1..$n_markers) {
+      push @marker_votes, [0, 0, 0, 0];
+    }
+    for my $an_id (@$cluster_ids) {
+      my $dosages = $id_dosages->{$an_id}; # array ref of dosages for $an_id
+      while (my($i, $d) = each @$dosages) {
+	$d = 3 if($d eq 'NA');
+	$marker_votes[$i]->[$d]++;
+      }
+      while (my($i, $mv) = each @marker_votes) {
+	my $e = 'NA';
+	#   print STDERR "    $i  ", join(" ", @$mv), "\n";
+	for my $j (0..2) {
+	  my $vote = $mv->[$j]; # the number of votes for dosage = $j for marker $i
+	  if (2*$vote > $cluster_size) { # must have > 50% for one dosage, or 'NA'
+	    $e = $j;
+	    last;
+	  }
+	}
+	$elected_dosages[$i] = $e;
       }
     }
-    $elected_dosages[$i] = $e;
-  }
+  } else {			# cluster size == 2
+    while (my($i, $d1) = each @$first_dosages) {
+      my $second_id = $cluster_ids->[1];
+      my $d2 = $id_dosages->{$second_id}->[$i];
+      if ($d1 eq $d2) {
+	$elected_dosages[$i] = $d1;
+      } elsif ($d1 eq 'NA') { # d1 is NA, use d2 (which might also be NA)
+	$elected_dosages[$i] = $d2;
+      } elsif ($d2 eq 'NA') {	# d2 is NA, use d1 (which is not NA)
+	$elected_dosages[$i] = $d1;
+      } else {		    # neither is NA, and they disagree; use NA
+	$elected_dosages[$i] = 'NA';
+      }
+    }
+  } 
   return \@elected_dosages;
+}
+
+sub usage_message{
+  print "Usage: uniquify -i <input filename> [-o <output filename>] [-m <max allowed fraction missing data>].\n";
 }
