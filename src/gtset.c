@@ -218,7 +218,6 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     }
   }
   // *****  done reading first line (with marker ids)  *****
-  
   if(the_genotypes_set->marker_missing_data_counts == NULL){    
     the_genotypes_set->marker_missing_data_counts = construct_vlong_zeroes(marker_ids->size);
     the_genotypes_set->marker_alt_allele_counts = construct_vlong_zeroes(marker_ids->size);
@@ -256,6 +255,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     char* genotypes = (char*)calloc((markerid_count+1), sizeof(char));    
     genotypes[markerid_count] = '\0'; // terminate with null.
     while(1){ // read dosages from one line.
+      
       token = strtok_r(NULL, "\t \n\r", &saveptr);
       if(token == NULL)	break;
      
@@ -268,10 +268,9 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       }else{
 	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48);
       }
-
+      
       marker_count++;
     } // done reading dosages for all markers of this accession
-   
     if(marker_count != markerid_count) exit(EXIT_FAILURE);
     Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
     free(acc_id); // or cut out the middleman (acc_id)?
@@ -284,16 +283,13 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
 	      the_accession->id->a, accession_missing_data_count, the_genotypes_set->marker_ids->size);
       the_genotypes_set->n_bad_accessions++;
-    }
-  
-   
+    } 
   } // done reading all lines
   fclose(g_stream);
   free(line); // only needs to be freed once.
-
   the_genotypes_set->n_accessions = the_genotypes_set->accessions->size;
   the_genotypes_set->n_markers = the_genotypes_set->marker_ids->size;
-  if(DBUG && do_checks_flag) check_genotypesset(the_genotypes_set); 
+  if(DBUG && do_checks_flag) check_genotypesset(the_genotypes_set);
 }
 
 long str_to_long(char* str){ // using strtol and checking for various problems.

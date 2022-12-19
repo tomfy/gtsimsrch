@@ -291,7 +291,7 @@ main(int argc, char *argv[])
     fprintf(stdout, "# Done reading reference data set dosages from file %s. %ld accessions and %ld markers.\n",
 	    reference_set_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   }
-  add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
+  add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new leset of accessions
   fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   fprintf(stdout, "# Time to load dosage data: %6.3lf sec.\n", hi_res_time() - t_start);

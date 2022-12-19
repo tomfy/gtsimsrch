@@ -26,7 +26,6 @@ main(int argc, char *argv[])
 {
   double t_begin_main = hi_res_time();
   
-  int do_alternative_pedigrees = 0; // 0: none, 1: only when given pedigree is 'bad', 2: all
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
   double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0; // 
@@ -43,35 +42,23 @@ main(int argc, char *argv[])
   double epsilon = 0.01;
   // ***** process command line *****
   if (argc < 2) {
-    fprintf(stderr, "Usage:  %s -g <genotypes_file>  -p <pedigree_file> \n", argv[0]);
+    fprintf(stderr, "Usage:  %s -g <genotypes_file> \n", argv[0]);
     exit(EXIT_FAILURE);
   }
-  //  char* dosages_filename = NULL;
+
   char* genotypes_filename = NULL;
   FILE *g_stream = NULL;
 
-  // A: pedigree alternatives 0, 1, or 2
   // c: do checks,
   // g: genotypes filename 
   // x: max fraction of missing data for markers,
   // o: output filename.
   // m: min minor allele frequency
   // h: max xhgmr for candidate parents
-  // D: max ok d;
+
   int c;
-  //  int genotype_file_type = UNKNOWN;
-  while((c = getopt(argc, argv, "A:cg:x:o:m:h:r:D:")) != -1){
+  while((c = getopt(argc, argv, "cg:x:o:m:h:r:D:")) != -1){
     switch(c){
-    case 'A':
-      if(optarg == 0){
-	perror("option A requires an integer argument; 0, 1, or >=2\n");
-	exit(EXIT_FAILURE);
-      }else{
-	do_alternative_pedigrees = atoi(optarg);
-	if(do_alternative_pedigrees < 0) exit(EXIT_FAILURE);
-	if(do_alternative_pedigrees > 2) do_alternative_pedigrees = 2;
-      }
-      break;
     case 'c':
       do_checks_flag = 1;
       break;
@@ -115,15 +102,15 @@ main(int argc, char *argv[])
 	fprintf(stderr, "# max xhgmr: %7.4f\n", max_xhgmr);
       }
       break;
-    case 'r': // r > this -> probably biparental
-      if(optarg == 0){
-	perror("option x requires a numerical argument > 0\n");
-	exit(EXIT_FAILURE);
-      }else{
-	max_self_r = atof(optarg);
-	if (max_self_r < 0) exit(EXIT_FAILURE);
-      }
-      break;
+    /* case 'r': // r > this -> probably biparental */
+    /*   if(optarg == 0){ */
+    /* 	perror("option x requires a numerical argument > 0\n"); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   }else{ */
+    /* 	max_self_r = atof(optarg); */
+    /* 	if (max_self_r < 0) exit(EXIT_FAILURE); */
+    /*   } */
+    /*   break; */
       /* case 'D': // d > this argument means this a is poor candidate triple of parents and offspring */
       /* 	if(optarg == 0){ */
       /* 	  perror("option x requires a numerical argument > 0\n"); */
@@ -208,7 +195,6 @@ main(int argc, char *argv[])
     for(long jj=ii+1; jj<n_acc; jj++){
       Accession* A2 = the_genotypes_set->accessions->a[jj];
       ND the_xhgmr = xhgmr(the_genotypes_set, A1, A2, 1); // quick version
-      //	  ghgmr(the_genotypes_set, A1, A2);
       if(the_xhgmr.d > 0){
 	double dbl_xhgmr = (double)the_xhgmr.n/the_xhgmr.d;
 	if(dbl_xhgmr <= max_xhgmr){
@@ -219,7 +205,7 @@ main(int argc, char *argv[])
       } 
     }
   }
-  /* quick_and_dirty_hgmrs(the_genotypes_set);   */
+
   fprintf(stdout, "# n xhgmrs <= %8.5f :  %ld\n", max_xhgmr, n_xhgmrs_le_max);
   fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0); 
   
