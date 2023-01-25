@@ -6,6 +6,7 @@ use strict;
 # line representing each cluster.
 
 
+
 my $input_dosages_filename = shift;
 my $do_remove_bad_accessions = shift // 1;
 my $max_acc_missing_data_fraction = shift // 0.5;
@@ -29,13 +30,17 @@ if ($do_remove_bad_accessions) {
       my @markers = split(" ", $line_in);
       $n_markers = scalar @markers  - 1;
     } else {
+      if($line_in =~ /^\s*(\S+)/){
+	my $accession_id = $1;
       die "File lacks line with MARKER and marker ids\n" if(! defined $n_markers);
       my $n_bad = () = $line_in =~ /\sNA/g;
       if ($n_bad/$n_markers <= $max_acc_missing_data_fraction) {
 	print $fhout $line_in;
       } else {
 	$n_bad_accessions++;
+	print STDERR "Removing accession $accession_id, which has missing data for $n_bad markers.\n";
       }
+}
     }
   }
   close $fhout;
