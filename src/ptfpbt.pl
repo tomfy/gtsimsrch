@@ -53,10 +53,7 @@ while (my $line = <$fhbt>) {
   } else {
     print STDERR "No pedigree for accession: $accid \n";
   }
-
 }
-
-
 
 
 sub get_p1p2Dstd{

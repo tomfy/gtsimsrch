@@ -13,6 +13,7 @@ my $max_acc_missing_data_fraction = 0.5;
 my $output_dosages_filename = "uniquify.out";
 my $max_agmr = 0.2;
 
+# <<<<<<< HEAD
 GetOptions(
 	   'input_file=s' => \$input_dosages_filename,
 	   'output_file=s' => \$output_dosages_filename,
@@ -26,6 +27,7 @@ if (!defined $input_dosages_filename) {
   usage_message();
   exit;
 }
+
 open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
@@ -46,13 +48,17 @@ if (0) {
       my @markers = split(" ", $line_in);
       $n_markers = scalar @markers  - 1;
     } else {
+      if($line_in =~ /^\s*(\S+)/){
+	my $accession_id = $1;
       die "File lacks line with MARKER and marker ids\n" if(! defined $n_markers);
       my $n_bad = () = $line_in =~ /\sNA/g;
       if ($n_bad/$n_markers <= $max_acc_missing_data_fraction) {
 	print $fhout $line_in;
       } else {
 	$n_bad_accessions++;
+	print STDERR "Removing accession $accession_id, which has missing data for $n_bad markers.\n";
       }
+}
     }
   }
   close $fhout;
