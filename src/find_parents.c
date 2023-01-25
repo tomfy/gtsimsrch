@@ -9,9 +9,7 @@
 #include <assert.h>
 #include "gtset.h"
 #include "pedigree.h"
-//#define UNKNOWN -1
-//#define DOSAGES 0
-//#define GENOTYPES 1
+
 int do_checks_flag = 0; // option -c sets this to 1 to do some checks.
 
 double hi_res_time(void);
@@ -26,52 +24,51 @@ main(int argc, char *argv[])
 {
   double t_begin_main = hi_res_time();
   
-  int do_alternative_pedigrees = 0; // 0: none, 1: only when given pedigree is 'bad', 2: all
+  // int do_alternative_pedigrees = 0; // 0: none, 1: only when given pedigree is 'bad', 2: all
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
   double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0; // 
   char* output_filename = "find_parents.out";
-  double max_self_agmr12 = 1; // need to specify if doing alternative pedigrees 
-  //double max_ok_hgmr = 1; // accept everything as ok
-  double max_self_r = 1; // need to specify if doing alternative pedigrees
-  double max_ok_z = 1;
-  //  double max_ok_d = 1; // accept everything as ok
+  // double max_self_agmr12 = 1; // need to specify if doing alternative pedigrees 
+  // double max_ok_hgmr = 1; // accept everything as ok
+  // double max_self_r = 1; // need to specify if doing alternative pedigrees
+  // double max_ok_z = 1;
+  // double max_ok_d = 1; // accept everything as ok
   double max_xhgmr = 0.15;
   long max_candidate_parents = 100;
     
   double ploidy = 2;
-  double epsilon = 0.01;
+  //double epsilon = 0.01;
   // ***** process command line *****
   if (argc < 2) {
-    fprintf(stderr, "Usage:  %s -g <genotypes_file>  -p <pedigree_file> \n", argv[0]);
+    fprintf(stderr, "Usage:  %s -g <genotypes_file> \n", argv[0]);
     exit(EXIT_FAILURE);
   }
   //  char* dosages_filename = NULL;
   char* genotypes_filename = NULL;
   FILE *g_stream = NULL;
 
-  // A: pedigree alternatives 0, 1, or 2
   // c: do checks,
   // g: genotypes filename 
   // x: max fraction of missing data for markers,
   // o: output filename.
   // m: min minor allele frequency
   // h: max xhgmr for candidate parents
-  // D: max ok d;
+ 
   int c;
   //  int genotype_file_type = UNKNOWN;
-  while((c = getopt(argc, argv, "A:cg:x:o:m:h:r:D:")) != -1){
+  while((c = getopt(argc, argv, "cg:x:o:m:h:r:")) != -1){
     switch(c){
-    case 'A':
-      if(optarg == 0){
-	perror("option A requires an integer argument; 0, 1, or >=2\n");
-	exit(EXIT_FAILURE);
-      }else{
-	do_alternative_pedigrees = atoi(optarg);
-	if(do_alternative_pedigrees < 0) exit(EXIT_FAILURE);
-	if(do_alternative_pedigrees > 2) do_alternative_pedigrees = 2;
-      }
-      break;
+    /* case 'A': */
+    /*   if(optarg == 0){ */
+    /* 	perror("option A requires an integer argument; 0, 1, or >=2\n"); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   }else{ */
+    /* 	do_alternative_pedigrees = atoi(optarg); */
+    /* 	if(do_alternative_pedigrees < 0) exit(EXIT_FAILURE); */
+    /* 	if(do_alternative_pedigrees > 2) do_alternative_pedigrees = 2; */
+    /*   } */
+    /*   break; */
     case 'c':
       do_checks_flag = 1;
       break;
@@ -119,10 +116,11 @@ main(int argc, char *argv[])
       if(optarg == 0){
 	perror("option x requires a numerical argument > 0\n");
 	exit(EXIT_FAILURE);
-      }else{
-	max_self_r = atof(optarg);
-	if (max_self_r < 0) exit(EXIT_FAILURE);
       }
+      /* else{ */
+      /* 	max_self_r = atof(optarg); */
+      /* 	if (max_self_r < 0) exit(EXIT_FAILURE); */
+      /* } */
       break;
       /* case 'D': // d > this argument means this a is poor candidate triple of parents and offspring */
       /* 	if(optarg == 0){ */
@@ -193,11 +191,12 @@ main(int argc, char *argv[])
   double t_d = hi_res_time();
   fprintf(stdout, "# Time to rectify genotype data: %6.3f sec.\n", t_d - t_c);
   fflush(stdout);
-  // get xhgmr for all pairs:
-   
+  
+  // ***********  get xhgmr for all pairs:  ******************
   double t0 = hi_res_time();
   long n_xhgmrs_le_max = 0;
   long n_acc = the_genotypes_set->accessions->size;
+
   Vlong** cand_pppairs = (Vlong**)malloc(n_acc*sizeof(Vlong*));
   for(long ii=0; ii<n_acc; ii++){
     cand_pppairs[ii] = construct_vlong(20);
@@ -219,9 +218,9 @@ main(int argc, char *argv[])
       } 
     }
   }
-  /* quick_and_dirty_hgmrs(the_genotypes_set);   */
   fprintf(stdout, "# n xhgmrs <= %8.5f :  %ld\n", max_xhgmr, n_xhgmrs_le_max);
   fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0); 
+  //  ********************************************************
   
   long count_accs_w_no_cand_parents = 0;
   long count_accs_w_too_many_cand_parents = 0;
@@ -229,7 +228,7 @@ main(int argc, char *argv[])
     Accession* prog = the_genotypes_set->accessions->a[i];
     Vlong* cppps = cand_pppairs[i];
     long ncandpairs = cppps->size;
-    // fprintf(stdout, "%ld  %20s  %ld \n", i, prog->id->a, ncandpairs);
+    fprintf(stdout, "%ld  %20s  %ld \n", i, prog->id->a, ncandpairs);
     if(ncandpairs == 0){
       count_accs_w_no_cand_parents++;
     }else if(ncandpairs <= max_candidate_parents){	  
