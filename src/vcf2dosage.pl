@@ -15,13 +15,14 @@ use List::Util qw(min max sum);
 my $minGQ = 96;                 #
 my $minGP = 0.9; # there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $transpose = 1; # default is to transpose; use -notrans to output untransposed.
+# (duplicatesearch, fine_parents require transposed)
 # vcf: columns correspond to accessions, rows to markers
 
 # if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
 # we can just lump together all heterozygous genotypes, map to just 3 genotypes:
 my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
 my $field_to_use = 'AUTO'; # default is DS if present, then GT if present, then AD if present, then give up.
-# recognized choices are DS , GT , AD , and AUTO.
+# recognized choices are DS (alt dosage e.g. 2), GT (genotype e.g. '/1/0' ) , AD (allele depths, e.g.'136:25' ), and AUTO.
 my $ploidy = -1; # infer from data - user must specify if AD (allele depth) is specified.
 my $hw = 0.33; # if not $map_to_012, round to integer if within +- $hw
 my $delta = 0.1; # if map_to_012 [0, $delta ->0], [1-$hw, $ploidy-1+$hw] -> 1, [$ploidy-$delta, $ploidy] -> 2
