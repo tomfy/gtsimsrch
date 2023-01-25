@@ -54,28 +54,11 @@ main(int argc, char *argv[])
   // o: output filename.
   // m: min minor allele frequency
   // h: max xhgmr for candidate parents
-<<<<<<< HEAD
 
   int c;
   while((c = getopt(argc, argv, "cg:x:o:m:h:r:D:")) != -1){
     switch(c){
-=======
- 
-  int c;
-  //  int genotype_file_type = UNKNOWN;
-  while((c = getopt(argc, argv, "cg:x:o:m:h:r:")) != -1){
-    switch(c){
-    /* case 'A': */
-    /*   if(optarg == 0){ */
-    /* 	perror("option A requires an integer argument; 0, 1, or >=2\n"); */
-    /* 	exit(EXIT_FAILURE); */
-    /*   }else{ */
-    /* 	do_alternative_pedigrees = atoi(optarg); */
-    /* 	if(do_alternative_pedigrees < 0) exit(EXIT_FAILURE); */
-    /* 	if(do_alternative_pedigrees > 2) do_alternative_pedigrees = 2; */
-    /*   } */
-    /*   break; */
->>>>>>> ed580ac266f8c9ddd21216f8357adbed80d9be68
+
     case 'c':
       do_checks_flag = 1;
       break;
@@ -119,28 +102,7 @@ main(int argc, char *argv[])
 	fprintf(stderr, "# max xhgmr: %7.4f\n", max_xhgmr);
       }
       break;
-<<<<<<< HEAD
-    /* case 'r': // r > this -> probably biparental */
-    /*   if(optarg == 0){ */
-    /* 	perror("option x requires a numerical argument > 0\n"); */
-    /* 	exit(EXIT_FAILURE); */
-    /*   }else{ */
-    /* 	max_self_r = atof(optarg); */
-    /* 	if (max_self_r < 0) exit(EXIT_FAILURE); */
-    /*   } */
-    /*   break; */
-=======
-    case 'r': // r > this -> probably biparental
-      if(optarg == 0){
-	perror("option x requires a numerical argument > 0\n");
-	exit(EXIT_FAILURE);
-      }
-      /* else{ */
-      /* 	max_self_r = atof(optarg); */
-      /* 	if (max_self_r < 0) exit(EXIT_FAILURE); */
-      /* } */
-      break;
->>>>>>> ed580ac266f8c9ddd21216f8357adbed80d9be68
+
       /* case 'D': // d > this argument means this a is poor candidate triple of parents and offspring */
       /* 	if(optarg == 0){ */
       /* 	  perror("option x requires a numerical argument > 0\n"); */
@@ -236,10 +198,7 @@ main(int argc, char *argv[])
       } 
     }
   }
-<<<<<<< HEAD
 
-=======
->>>>>>> ed580ac266f8c9ddd21216f8357adbed80d9be68
   fprintf(stdout, "# n xhgmrs <= %8.5f :  %ld\n", max_xhgmr, n_xhgmrs_le_max);
   fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0); 
   //  ********************************************************
