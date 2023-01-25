@@ -2,9 +2,9 @@
 use strict;
 use List::Util qw(min max sum);
 
-my $the_col = shift // 18;	# unit-based
+my $the_col = 18;	# unit-based
 $the_col--;			# now zero-based
-my $max_solns_out = shift // 10;
+my $max_solns_out = 6;
 
 my %accid_solns = ();
 while (my $line = <>) {
