@@ -23,6 +23,7 @@ int
 main(int argc, char *argv[])
 {
   double t_begin_main = hi_res_time();
+
   
   double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
   double max_accession_missing_data_fraction = 0.5;
@@ -101,15 +102,7 @@ main(int argc, char *argv[])
 	fprintf(stderr, "# max xhgmr: %7.4f\n", max_xhgmr);
       }
       break;
-    /* case 'r': // r > this -> probably biparental */
-    /*   if(optarg == 0){ */
-    /* 	perror("option x requires a numerical argument > 0\n"); */
-    /* 	exit(EXIT_FAILURE); */
-    /*   }else{ */
-    /* 	max_self_r = atof(optarg); */
-    /* 	if (max_self_r < 0) exit(EXIT_FAILURE); */
-    /*   } */
-    /*   break; */
+
 
       /* case 'D': // d > this argument means this a is poor candidate triple of parents and offspring */
       /* 	if(optarg == 0){ */
