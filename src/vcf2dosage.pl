@@ -29,7 +29,7 @@ my $delta = 0.1; # if map_to_012 [0, $delta ->0], [1-$hw, $ploidy-1+$hw] -> 1, [
 my $min_read_depth = 1;
 
 GetOptions(
-	   'transpose!' => \$transpose, # -notranspose to output untransposed. (simsrch requires transposed which is default)
+	   'transpose!' => \$transpose, # -notranspose to output untransposed. (duplicatesearch requires transposed which is default)
 	   'GQmin=f' => \$minGQ,	# min genotype quality.
 	   'GPmin=f' => \$minGP,	# must
 	   'field=s' => \$field_to_use,
