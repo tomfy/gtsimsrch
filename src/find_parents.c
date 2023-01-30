@@ -210,7 +210,7 @@ main(int argc, char *argv[])
     Accession* prog = the_genotypes_set->accessions->a[i];
     Vlong* cppps = cand_pppairs[i];
     long ncandpairs = cppps->size;
-    fprintf(stdout, "%ld  %20s  %ld \n", i, prog->id->a, ncandpairs);
+    //   fprintf(stdout, "%ld  %20s  %ld \n", i, prog->id->a, ncandpairs);
     if(ncandpairs == 0){
       count_accs_w_no_cand_parents++;
     }else if(ncandpairs <= max_candidate_parents){	  
