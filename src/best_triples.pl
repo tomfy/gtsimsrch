@@ -3,8 +3,9 @@ use strict;
 use List::Util qw(min max sum);
 
 my $the_col = 18;	# unit-based
+my $verbose = shift // 0;
 $the_col--;			# now zero-based
-my $max_solns_out = 6;
+my $max_solns_out = 3;
 
 my %accid_solns = ();
 while (my $line = <>) {
