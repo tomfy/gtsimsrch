@@ -32,43 +32,43 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
 ####   remove accessions with excessive missing data   #########################
 
-if (0) {
-  open my $fhout, ">", "$cleaned_dosages_filename";
-  my $n_markers = undef;
-  my $n_bad_accessions = 0;
-  print STDERR "# Removing accessions with too much missing data.\n";
-  while (my $line_in = <$fhin>) {
-    if ($line_in =~ /^\s*#/) {
-      # print STDERR "print comment line.\n";
-      print $fhout $line_in;
-    } elsif ($line_in =~ /^MARKER/) {
-      #  print STDERR "print marker ids line.\n";
-      print $fhout $line_in;
-      my @markers = split(" ", $line_in);
-      $n_markers = scalar @markers  - 1;
-    } else {
-      if($line_in =~ /^\s*(\S+)/){
-	my $accession_id = $1;
-      die "File lacks line with MARKER and marker ids\n" if(! defined $n_markers);
-      my $n_bad = () = $line_in =~ /\sNA/g;
-      if ($n_bad/$n_markers <= $max_acc_missing_data_fraction) {
-	print $fhout $line_in;
-      } else {
-	$n_bad_accessions++;
-	print STDERR "Removing accession $accession_id, which has missing data for $n_bad markers.\n";
-      }
-}
-    }
-  }
-  close $fhout;
-  print STDERR "# $n_bad_accessions accessions eliminated due to excessive missing data.\n";
-  print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
-    int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
-} else {
+# if (0) {
+#   open my $fhout, ">", "$cleaned_dosages_filename";
+#   my $n_markers = undef;
+#   my $n_bad_accessions = 0;
+#   print STDERR "# Removing accessions with too much missing data.\n";
+#   while (my $line_in = <$fhin>) {
+#     if ($line_in =~ /^\s*#/) {
+#       # print STDERR "print comment line.\n";
+#       print $fhout $line_in;
+#     } elsif ($line_in =~ /^MARKER/) {
+#       #  print STDERR "print marker ids line.\n";
+#       print $fhout $line_in;
+#       my @markers = split(" ", $line_in);
+#       $n_markers = scalar @markers  - 1;
+#     } else {
+#       if($line_in =~ /^\s*(\S+)/){
+# 	my $accession_id = $1;
+#       die "File lacks line with MARKER and marker ids\n" if(! defined $n_markers);
+#       my $n_bad = () = $line_in =~ /\sNA/g;
+#       if ($n_bad/$n_markers <= $max_acc_missing_data_fraction) {
+# 	print $fhout $line_in;
+#       } else {
+# 	$n_bad_accessions++;
+# 	print STDERR "Removing accession $accession_id, which has missing data for $n_bad markers.\n";
+#       }
+# }
+#     }
+#   }
+#   close $fhout;
+#   print STDERR "# $n_bad_accessions accessions eliminated due to excessive missing data.\n";
+#   print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
+#     int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
+# } else {
   system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
-}
+# }
 
-print STDERR "$cleaned_dosages_filename \n";
+print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
 my $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename -e $max_agmr";
@@ -131,8 +131,8 @@ close($fh_dosages);
 print STDERR "after storing dosages\n";
 
 ###############################################################################
-my $file_delete_success = unlink($cleaned_dosages_filename);
-warn "Deleting of $cleaned_dosages_filename failed.\n" if($file_delete_success != 1);
+# my $file_delete_success = unlink($cleaned_dosages_filename);
+# warn "Deleting of $cleaned_dosages_filename failed.\n" if($file_delete_success != 1);
 
 ####   Cluster members vote on correct genotypes   ############################
 open  $fh_clusters, "<", "agmr_cluster.out";
