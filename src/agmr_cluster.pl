@@ -1,12 +1,23 @@
 #!/usr/bin/perl -w
 use strict;
 use Graph::Undirected;
+use Getopt::Long;
+use File::Basename 'dirname';
+use Cwd 'abs_path';
+my ( $bindir, $libdir );
+BEGIN {     # this has to go in Begin block so happens at compile time
+  $bindir =
+    dirname( abs_path(__FILE__) ) ; # the directory containing this script
+  $libdir = $bindir . '/../moose/lib';
+  $libdir = abs_path($libdir);	# collapses the bin/../lib to just lib
+}
+use lib $libdir;
+use Cluster1d;
 
-
-# read simsearch output and find clusters of accessions
+# read suplicatesearch output and find clusters of accessions
 # with near-identical genotypes
-# specifically, create a graph, and for any pairs in simsearch output with
-# agmr <= $max_agmr, make an edge in the graph between the accessions of the pair.
+# specifically, create a graph, and for any pairs in duplicatesearch output with
+# agmr <= $cluster_max_agmr, make an edge in the graph between the accessions of the pair.
 # the clusters are then the connected components of the graph.
 # i.e. two accession belong to the same cluster iff you can get from
 # one to the other by traversing edges of the graph.
@@ -18,25 +29,66 @@ use Graph::Undirected;
 # consider rerunning this script with a smaller $max_agmr,
 # or rerun duplicatesearch with a larger value of 'max_estimated_agmr' (-e option)
 
-# usage:
-# agmr_cluster.pl < simsrch.out  >  agmr_clusters
+# usage example:
+# agmr_cluster.pl -in duplicatesearch.out  -out  agmr_clusters  [-cluster_max 0.08]
 
-my $max_agmr = shift // 0.04; # default clustering parameter - max edge weight of graph
+# runs duplicatesearch, then agmr_cluster, and outputs a file
+# with the same format as duplicatesearch input, but now with just one
+# line representing each cluster.
 
-# construct graph with edges between vertices (accessions) for pairs with agmr < $max_agmr
-# graph is constructed by adding edges and their endpoints; graph does not contain single unconnected vertices.
-my $g = Graph::Undirected->new;
-my %edge_weight = ();		# keys: vertex pairs, values: agmrs
-while (my $line = <>) {
-  next if($line =~ /^\s*#/);
-  my ($id1, $id2, $usable_chunks, $match_chunks, $est_agmr, $agmr) = split(" ", $line);
-  my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
-  $edge_weight{$edge_verts} = $agmr;
-  if ($agmr <= $max_agmr) {
-    $g->add_weighted_edge($id1, $id2, $agmr);
-  }
+my $input_agmr_filename = undef;
+my $cluster_max_agmr = 'auto'; # construct graph with edges between pairs of accessions iff their agmr is <= this.
+my $output_cluster_filename = "agmr_cluster.out";
+my $pow = 'log';
+my $minx = 0.001;
+
+GetOptions(
+	   'input_file=s' => \$input_agmr_filename, # file with id1 id2 x xx agmr_est agmr
+	   'output_file=s' => \$output_cluster_filename,
+	   'cluster_max_agmr=f' => \$cluster_max_agmr, # cluster using graph with edges for pairs with agmr < this.
+	   'pow=s' => \$pow,
+	  );
+
+if(!defined $input_agmr_filename){
+  print STDERR "Basic usage example: \n", "agmr_cluster -in duplicatesearch.out  -out acluster.out \n";
+  print STDERR "by default agmr_cluster will attempt to automatically decide the max agmr between duplicates.\n",
+    " but you can specify it with the cluster option, e.g.  -cluster 0.06 \n";
+  exit;
 }
 
+my %edge_weight = ();
+open my $fhin, "<", "$input_agmr_filename" or die "Couldn't open $input_agmr_filename for reading.\n";
+while(my $line = <$fhin>){
+   next if($line =~ /^\s*#/);
+  my ($id1, $id2, $usable_chunks, $match_chunks, $est_agmr, $agmr) = split(" ", $line);
+ my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
+$edge_weight{$edge_verts} = $agmr;
+}
+close $fhin;
+
+my @agmrs = values %edge_weight;
+if($cluster_max_agmr eq 'auto'){
+  my $cluster1d_obj = Cluster1d->new({label => '', xs => \@agmrs, pow => $pow, minx => $minx});
+  my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt, $kde_q) = $cluster1d_obj->one_d_2cluster();
+  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f.\n",
+       $n_pts, $km_n_L, $km_h_opt, $km_n_R, $q,
+	  $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q);
+  $cluster_max_agmr = $kde_h_opt;
+}
+
+# construct graph with edges between vertices (accessions) for pairs with agmr < $cluster_max_agmr
+# graph is constructed by adding edges and their endpoints; graph does not contain single unconnected vertices.
+my $g = Graph::Undirected->new;
+		# keys: vertex pairs, values: agmrs
+
+
+while (my ($e, $w) = each %edge_weight){
+ 
+  if ($w <= $cluster_max_agmr) {
+    my ($id1, $id2) = split(" ", $e);
+    $g->add_weighted_edge($id1, $id2, $w);
+  }
+}
 
 my @ccs = $g->connected_components; # the connected components of graph are the clusters
 
@@ -48,8 +100,8 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
   $count += $cc_size;
   my $output_line_string = '';
   my @sorted_cc = sort {$a cmp $b} @$acc; # sort the accession ids in the cluster
-  my ($ccminw, $ccmaxw, $nbad) = (100000, -1, 0);
-  while (my($i, $v) = each @sorted_cc) {
+  my ($ccminw, $ccmaxw, $nbad, $nbaddish) = (100000, -1, 0, 0);
+  while (my($i, $v) = each @sorted_cc) { # loop over every pair of ids in the cluster.
     my ($minw, $maxw) = (100000, -1);
     for (my $j=$i+1; $j<scalar @sorted_cc; $j++) {
       my $u = $sorted_cc[$j];
@@ -60,23 +112,26 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
       my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
       my $weight = $edge_weight{$edge_verts} // -1;
       if ($weight == -1) {
-	$nbad++;
+	$nbad++; # just counts pairs in cluster with agmr not found
       } else {
 	$minw = $weight if($weight < $minw);
 	$maxw = $weight if($weight > $maxw);
+	$nbaddish++ if($weight > $cluster_max_agmr)
       }
     }
     $ccminw = $minw if($minw < $ccminw);
     $ccmaxw = $maxw if($maxw > $ccmaxw);
     $output_line_string .= "$v  ";
   }
-  $output_line_string = "$cc_size  $ccminw $ccmaxw $nbad  " . $output_line_string . "\n";
+  $output_line_string = "$cc_size  $ccminw $ccmaxw   $nbad  " . $output_line_string . "\n";
   push @output_lines, $output_line_string;
 }
 
+open my $fhout, ">", "$output_cluster_filename" or die "Couldn't open $output_cluster_filename for writing.\n";
 my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
-print "# graph max edge length: $max_agmr. Found ", scalar @ccs, " groups, with total of $count accessions.\n";
-print join('', @sorted_output_lines);
+print $fhout "# graph max edge length: $cluster_max_agmr. Found ", scalar @ccs, " groups, with total of $count accessions.\n";
+print $fhout join('', @sorted_output_lines);
+close $fhout;
 
 sub compare_str{ # sort by size of cluster, tiebreaker is id of first accession in cluster. 
   my $str1 = shift;
