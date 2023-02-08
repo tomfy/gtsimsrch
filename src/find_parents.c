@@ -10,7 +10,7 @@
 #include "gtset.h"
 #include "pedigree.h"
 
-int do_checks_flag = 0; // option -c sets this to 1 to do some checks.
+int do_checks = 0; // option -c sets this to 1 to do some checks.
 
 double hi_res_time(void);
 
@@ -29,11 +29,6 @@ main(int argc, char *argv[])
   double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0; // 
   char* output_filename = "find_parents.out";
-  // double max_self_agmr12 = 1; // need to specify if doing alternative pedigrees 
-  // double max_ok_hgmr = 1; // accept everything as ok
-  // double max_self_r = 1; // need to specify if doing alternative pedigrees
-  // double max_ok_z = 1;
-  // double max_ok_d = 1; // accept everything as ok
   double max_xhgmr = 0.15;
   long max_candidate_parents = 100;
     
@@ -41,7 +36,7 @@ main(int argc, char *argv[])
   //double epsilon = 0.01;
   // ***** process command line *****
   if (argc < 2) {
-    fprintf(stderr, "Usage:  %s -g <genotypes_file> \n", argv[0]);
+    fprintf(stderr, "Usage:  %s -i <dosages_file> [-o <output_filename> -h <max_xhgmr>] \n", argv[0]);
     exit(EXIT_FAILURE);
   }
 
@@ -49,20 +44,20 @@ main(int argc, char *argv[])
   FILE *g_stream = NULL;
 
   // c: do checks,
-  // g: genotypes filename 
+  // i: dosages input filename 
   // x: max fraction of missing data for markers,
   // o: output filename.
   // m: min minor allele frequency
   // h: max xhgmr for candidate parents
 
   int c;
-  while((c = getopt(argc, argv, "cg:x:o:m:h:r:D:")) != -1){
+  while((c = getopt(argc, argv, "ci:x:o:m:h:r:D:")) != -1){
     switch(c){
 
     case 'c':
-      do_checks_flag = 1;
+      do_checks = 1;
       break;
-    case 'g':
+    case 'i':
       genotypes_filename = optarg;
       g_stream = fopen(genotypes_filename, "r");
       if(g_stream == NULL){
@@ -70,7 +65,6 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       fclose(g_stream);
-      //  genotype_file_type = GENOTYPES;
       break;
     case 'o':
       output_filename = optarg;

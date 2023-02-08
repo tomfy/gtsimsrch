@@ -45,7 +45,7 @@ typedef struct{
   Mci** a;
 } Vmci;
 
-int  do_checks_flag = 0;
+int  do_checks = 0;
 
 
 // *********************** function declarations ************************************************
