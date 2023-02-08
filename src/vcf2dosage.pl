@@ -15,7 +15,7 @@ use List::Util qw(min max sum);
 my $minGQ = 96;                 #
 my $minGP = 0.9; # there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $transpose = 1; # default is to transpose; use -notrans to output untransposed.
-# (duplicatesearch, fine_parents require transposed)
+# (duplicatesearch, find_parents require transposed)
 # vcf: columns correspond to accessions, rows to markers
 
 # if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
