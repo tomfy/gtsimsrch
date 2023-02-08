@@ -6,7 +6,7 @@
 //#include "pedigree.h"
 
 
-extern int do_checks_flag; // option -c sets this to 1 to do some checks.
+extern int do_checks; // option -c sets this to 1 to do some checks.
 
 long int_power(long base, long power){ // calculate base^power using integer math.
   long result = 1;
@@ -289,7 +289,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   free(line); // only needs to be freed once.
   the_genotypes_set->n_accessions = the_genotypes_set->accessions->size;
   the_genotypes_set->n_markers = the_genotypes_set->marker_ids->size;
-  if(DBUG && do_checks_flag) check_genotypesset(the_genotypes_set);
+  if(DBUG && do_checks) check_genotypesset(the_genotypes_set);
 }
 
 long str_to_long(char* str){ // using strtol and checking for various problems.
@@ -577,7 +577,7 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
       }
     }
     cleaned_gts[k] = '\0'; // terminate with null.
-    if(DBUG && do_checks_flag) assert(k == n_markers_to_keep);
+    if(DBUG && do_checks) assert(k == n_markers_to_keep);
     // fprintf(stderr, "cleaned genotypes: %s \n", cleaned_gts);
     Accession* the_accession = construct_accession( the_gtsset->accessions->a[i]->id->a, i, cleaned_gts, acc_md_count ); //(Accession*)malloc(sizeof(Accession));
     free(cleaned_gts);

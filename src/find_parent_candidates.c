@@ -11,7 +11,7 @@
 #include "pedigree.h"
 
 
-int do_checks_flag = 0; // option -c sets this to 1 to do some checks.
+int do_checks = 0; // option -c sets this to 1 to do some checks.
 
 double hi_res_time(void);
 void print_command_line(FILE* ostream, int argc, char** argv);
@@ -76,7 +76,7 @@ main(int argc, char *argv[])
       }
       break;
     case 'c':
-      do_checks_flag = 1;
+      do_checks = 1;
       break;
     case 'n':
       if(optarg == 0){

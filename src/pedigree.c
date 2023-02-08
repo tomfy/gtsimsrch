@@ -8,7 +8,7 @@
 
 #define PEDIGREE_FIELDS 7 // number of whitespace-separated fields in pedigree file, with ids in last 3 fields.
 
-// extern int do_checks_flag; // option -c sets this to 1 to do some checks.
+// extern int do_checks; // option -c sets this to 1 to do some checks.
 
 // *****  Pedigree  *****
 Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mparent){ //IndexId* acc_idxid, IndexId* fempar_idxid, IndexId* malpar_idxid){
