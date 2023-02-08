@@ -9,12 +9,12 @@ use File::Spec;
 # line representing each cluster.
 
 my $input_dosages_filename = undef;
-#my $do_remove_bad_accessions = shift // 1;
+#my $do_remove_bad_accessions = shift // m
 my $max_acc_missing_data_fraction = 0.5;
 my $max_marker_missing_data_fraction = undef;
 my $output_dosages_filename = undef;
 my $max_agmr = 0.2;
-my $cluster_max_agmr = 0.04;
+my $cluster_max_agmr = 'auto';
 
 GetOptions(
 	   'input_file=s' => \$input_dosages_filename,
@@ -37,7 +37,7 @@ if(!defined $output_dosages_filename){
 }
 
 
-open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
+# open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
 ####   remove accessions with excessive missing data   #########################
