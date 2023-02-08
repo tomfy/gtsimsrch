@@ -44,6 +44,11 @@ has txs => (			# transformed xs
 	    required => 0,
 	   );
 
+has minx => (
+	     isa => 'Maybe[Num]',
+	     is => 'rw',
+	     default => undef,
+	     );
 
 
 has n_pts_in_kernel_width => (
@@ -82,7 +87,7 @@ sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - 
   # }
   my $pow = $self->pow();
   if ($pow eq 'log') {
-      my $minx = 1.0/($self->median_denom());
+      my $minx = $self->minx // 1.0/($self->median_denom());
       print STDERR "minx $minx \n";
     #  exit;
     @txs = map(max($minx, $_), @xs);
@@ -118,10 +123,10 @@ sub one_d_2cluster{ # cluster 1dim data into 2 clusters
   my $pow = $self->pow();	# cluster x**$pow ( or cluster log(x) if $pow eq 'log' )
 
   my $n_pts = scalar @{$self->txs()};
-  print STDERR "label: ", $self->label(), "  npts: $n_pts   pow: $pow  ";
+  # print STDERR "label: ", $self->label(), "  npts: $n_pts   pow: $pow  ";
   my ($km_n_L, $km_h_opt, $km_mom, $q) = $self->kmeans_2cluster();
-  print STDERR "$km_n_L  $km_h_opt $km_mom  $q  \n";
-  my ($kde_n_L, $kde_h_opt, $min_kde_est) = $self->kde_2cluster($km_n_L-1);
+  # print STDERR "$km_n_L  $km_h_opt $km_mom  $q  \n";
+  my ($kde_n_L, $kde_h_opt, $min_kde_est, $kde_q) = $self->kde_2cluster($km_n_L-1);
 #  $km_h_opt = $km_mom; # maybe mean of means is better?
   if ($pow eq 'log') {
     $km_h_opt = exp($km_h_opt);
@@ -133,7 +138,7 @@ sub one_d_2cluster{ # cluster 1dim data into 2 clusters
   # print STDERR " $km_h_opt \n";
   }
   return ($n_pts, $km_n_L, $n_pts-$km_n_L, $km_h_opt, $q, 
-	  $kde_n_L, $n_pts-$kde_n_L, $kde_h_opt);
+	  $kde_n_L, $n_pts-$kde_n_L, $kde_h_opt, $kde_q);
 }
 
 
@@ -142,13 +147,13 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
   # for N pts, just consider all N-1 possible ways of partitioning
   # into non-empty L and R sets with every value in L set < every value in R set.
   my $self = shift;
-  my $xs = $self->txs(); # array ref of transformed values.
-  my @xsqrs = map($_*$_, @$xs);
-  # while (my ($i, $xx) = each @$xs){
+  my $txs = $self->txs(); # array ref of transformed values.
+  my @xsqrs = map($_*$_, @$txs);
+  # while (my ($i, $xx) = each @$txs){
   #     print STDERR "$i $xx  ", $xsqrs[$i], "\n";
   # 	 }
   my $h_opt = -1;
-  my ($n, $sumx, $sumxsqr) = (scalar @$xs, sum(@$xs), sum(@xsqrs)); # sum(map($_*$_, @xs)));
+  my ($n, $sumx, $sumxsqr) = (scalar @$txs, sum(@$txs), sum(@xsqrs)); # sum(map($_*$_, @xs)));
   my ($n_left, $sumx_left, $sumxsqr_left) = (0, 0, 0);
   my ($n_right, $sumx_right, $sumxsqr_right) = ($n, $sumx, $sumxsqr);
 # print STDERR "ABC: $n_left  $sumx_left    $n_right  $sumx_right  $sumxsqr_right  \n";
@@ -156,7 +161,7 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
   my $v_opt = $sumxsqr_right - $sumx_right*$sumx_right/$n_right;
   my $n_left_opt = -1;
  # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
-  for my $x (@$xs[0 .. $#$xs-1]) {
+  for my $x (@$txs[0 .. $#$txs-1]) {
     $n_left++; $n_right--;
     $sumx_left += $x; $sumx_right -= $x;
  
@@ -169,14 +174,14 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
       $v_opt = $v;
       $n_left_opt = $n_left;
       $mean_of_means_opt =  0.5*($sumx_left/$n_left + $sumx_right/$n_right);
-      $h_opt = 0.5*($x + $xs->[$n_left]);
+      $h_opt = 0.5*($x + $txs->[$n_left]);
      # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
     }
     # my ($Lmean, $Rmean) = ($sumx_left/$n_left, $sumx_right/$n_right);
     # $mean_of_means = 0.5*($Lmean + $Rmean);
-    #  print STDERR "$x  ",  $xs->[$n_left-1], "  ", $xs->[$n_left], "  $n_left  $sumx_left  $Lmean   $n_right  $sumx_right  $Rmean    $mean_of_means;\n";
-    # if ($mean_of_means < $xs->[$n_left]  and  $mean_of_means >= $x) { # this is the place
-    #   $h_opt = 0.5*($x + $xs->[$n_left]);
+    #  print STDERR "$x  ",  $txs->[$n_left-1], "  ", $txs->[$n_left], "  $n_left  $sumx_left  $Lmean   $n_right  $sumx_right  $Rmean    $mean_of_means;\n";
+    # if ($mean_of_means < $txs->[$n_left]  and  $mean_of_means >= $x) { # this is the place
+    #   $h_opt = 0.5*($x + $txs->[$n_left]);
     # print STDERR " Left: $sumx_left  $n_left $Lmean  Right: $sumx_right  $n_right  $Rmean  \n";
     #   last;q
     # }
@@ -189,32 +194,35 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
   # my $var = ($sumxsqr/$n - $mean**2);
   # my $q = sqrt($var_left + $var_right)/($mean_right - $mean_left);
   # # my $q1 = (($L90 - $Lmedian) + ($Rmedian - $R90))/($Rmedian - $Lmedian);
-  #my $q = qqq($xs, $n_left);
+  #my $q = qqq($txs, $n_left);
 #  print STDERR "# $var_left $var_right $var   $q  $q1\n";
   #  getchar();
   #  }
-print STDERR "XXX:  $n_left_opt $h_opt $mean_of_means_opt \n";
-  return ($n_left_opt, $h_opt, $mean_of_means_opt, qqq($xs, $n_left_opt, 0.1));
+# print STDERR "XXX:  $n_left_opt $h_opt $mean_of_means_opt \n";
+  return ($n_left_opt, $h_opt, $mean_of_means_opt, qqq($self->xs(), $n_left_opt, 0.05));
 }
 
 sub qqq{ # intended to be a measure of how well-separated the 2 clusters are.
+  # essentially the ratio of the density in the L cluster peak to
+  # the density in the region between the clusters
   # small value indicates good separation.
-  # 
-  my $xs = shift;
-  my $nL = shift;
-   my $qile = shift // 0.1;
+  
+  my $xs = shift; # all data pts.
+  my $nL = shift; # number in L cluster
+  my $qile = shift // 0.05;
   my $n = scalar @$xs;
- 
-  my $nR = $n - $nL;
-    my $Lmedian = $xs->[int(0.5*$nL)];
-  my $Rmedian = $xs->[$n-1 - int(0.5*$nR)];
-  my $L90 = $xs->[int((1-$qile)*$nL)]; # 90% of L cluster is to left of this.
-#  my $R90 = $xs->[$n-1 - int(0.9*$nR)]; # 90% of R cluster is to right of this.
-  my $R10 = $xs->[$nL + int($qile*$nR)]; #
-  print STDERR "$Lmedian  $L90   $Rmedian  $R10 \n";
-#  print STDERR exp($Lmedian), " ",  exp($L90), "  ", exp($Rmedian), "  ", exp($R90), "  ", exp($R10), " \n";
-  # return (($L90 - $Lmedian) + ($Rmedian - $R90))/($Rmedian - $Lmedian);
-  return 1 - ($R10 - $L90)/($Rmedian - $Lmedian);
+
+  my $nR = $n - $nL; # number in R cluster
+  my $L25 = $xs->[int(0.25*$nL)]; # 25%ile of L cluster.
+  my $L75 = $xs->[int(0.75*$nL)]; # 75%ile of L cluster.
+  my $nLq = int($qile*$nL);
+  my $L1mq = $xs->[$nL - $nLq]; # 1-$qile of L cluster is to left of this. i.e. $nLq pts of L cluster are to R of this.
+  my $Rx = $xs->[$nL + $nLq]; # $nLq pts. of R cluster are to L of this
+  # L peak density (of middle 50% of L cluster): 0.5*$nL / ($L75 - $L25)
+  # valley density (region containing number of pts equal to 2*$qile fraction of L cluster
+  # 2*$qile*$nL / ($Rx - $L1mq)
+  my $density_ratio_valley_to_peak = 4*$qile * ($L75-$L25)/($Rx-$L1mq);
+  return $density_ratio_valley_to_peak; # 1 - ($R10 - $L90)/($Rmedian - $Lmedian);
 }
 
 sub kde_2cluster{
@@ -222,35 +230,36 @@ sub kde_2cluster{
   my $self = shift;
   my $i_opt = shift; # look for min of kde in neighborhood of $xar->[$i_opt]
   my $kernel_width = shift // $self->kernel_width();
- my $xs = $self->txs(); # shift;
+  my $txs = $self->txs(); # shift;
   # my $kernel_width = $self->kernel_width();
-  my $n = scalar @$xs;
+  my $n = scalar @$txs;
   my $n_left = $i_opt+1;
   my $n_right = $n - $n_left;
   if (!defined $kernel_width) { # consider 30% of pts near initial guess $i_opt
-    $kernel_width = $self->n_pts_width($xs, $i_opt) * $self->width_factor(); # sqrt(2.0);
+    $kernel_width = $self->n_pts_width($txs, $i_opt) * $self->width_factor(); # sqrt(2.0);
     $self->kernel_width($kernel_width);
   }
+  
   # print STDERR "# in kde_2cluster. kernel width: $kernel_width \n";
 
   my $kde_i_opt = $i_opt;
-  my $kde_x_est = $xs->[$i_opt];
-  my $min_kde_est = kde($xs, $kde_x_est, $kernel_width, $i_opt);
+  my $kde_x_est = $txs->[$i_opt];
+  my $min_kde_est = kde($txs, $kde_x_est, $kernel_width, $i_opt);
 
   for (my $j = $i_opt; $j >= max(0, $i_opt-int($n_left/4)); $j--) { # starting at kmeans opt, search toward left for best kde.
     ($kde_i_opt, $kde_x_est, $min_kde_est, my $done) = $self->few_kdes($j, 3, $kde_i_opt, $kde_x_est, $min_kde_est);
     last if($done);
   }
 
-  for (my $j = $i_opt+1; $j <= min($i_opt+int($n_right/4), scalar @$xs - 1); $j++) { # starting at kmeans opt, search toward right for best kde.
+  for (my $j = $i_opt+1; $j <= min($i_opt+int($n_right/4), scalar @$txs - 1); $j++) { # starting at kmeans opt, search toward right for best kde.
     ($kde_i_opt, $kde_x_est, $min_kde_est, my $done) = $self->few_kdes($j, 3, $kde_i_opt, $kde_x_est, $min_kde_est);
     last if($done);
   }
 
   my $kde_n_left = $kde_i_opt + 1;
-  # my $q = qqq($xs, $kde_n_left);
+  # my $q = qqq($txs, $kde_n_left);
   # print STDERR "kde $q \n";
-  return ($kde_n_left, $kde_x_est, $min_kde_est);
+  return ($kde_n_left, $kde_x_est, $min_kde_est, qqq($self->xs(), $kde_n_left, 0.05));
 }
 
 
@@ -264,14 +273,14 @@ sub few_kdes{
   my $kde_x_est = shift;
   my $min_kde_est = shift;
 
-  my $xs = $self->txs();
+  my $txs = $self->txs();
   my $kernel_width = $self->kernel_width();
 
   my $done = 0;
   for my $k (0 .. $n_between-1) {
     my $eps = (0.5 + $k)/$n_between;
-    my $x = (1.0 - $eps)*$xs->[$i] + $eps*$xs->[$i+1];
-    my $kde_est = kde($xs, $x, $kernel_width, $i);
+    my $x = (1.0 - $eps)*$txs->[$i] + $eps*$txs->[$i+1];
+    my $kde_est = kde($txs, $x, $kernel_width, $i);
     if ($kde_est < $min_kde_est) {
       $min_kde_est = $kde_est;
       $kde_x_est = $x;
@@ -303,6 +312,7 @@ sub n_pts_width{ # in vicinity of $xs[$iguess], find interval width needed to gu
       $sufficient_width = $width;
     }
   }
+  # print STDERR "sufficient width: $sufficient_width \n";
   return $sufficient_width;
 }
 
@@ -331,9 +341,11 @@ sub kde{
 }
 
 sub kernel{			# 2 at x=0, 0 at |x| >= w
-  my $w = shift;
+  my $w = shift; # really the half-width, i.e. goes to zero at |x| = +- $width
   my $x = shift;
-  return (abs($x) >= $w)? 0 : (cos(PI*$x/$w) + 1)
+  # return (abs($x) >= $w)? 0 : (cos(PI*$x/$w) + 1);
+  my $xx = PI*$x/(2.0*$w);
+  return (abs($xx) < 3.0)? (1.0/(1.0 + $xx*$xx) - 0.1)/0.9 : 0.0;
 }
 
 
