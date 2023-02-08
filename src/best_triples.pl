@@ -1,14 +1,27 @@
 #!/usr/bin/perl -w
 use strict;
 use List::Util qw(min max sum);
+use Getopt::Long;
 
+
+my $input_filename = undef;
+my $output_filename = 'bt.out';
 my $the_col = 18;	# unit-based
-my $verbose = shift // 0;
-$the_col--;			# now zero-based
+my $verbose = 0;
 my $max_solns_out = 3;
 
+GetOptions(
+	   'input_file=s' => \$input_filename, # file with id1 id2 x xx agmr_est agmr
+	   'output_file=s' => \$output_filename,
+	   'column=i' => \$the_col, # cluster using graph with edges for pairs with agmr < this.
+	   'verbose!' => \$verbose,
+	   'solutions=i' => \$max_solns_out,
+	  );
+$the_col--; # now zero-based
+
+open my $fhin, "<", "$input_filename" or die "Couldn't open $input_filename for reading.\n";
 my %accid_solns = ();
-while (my $line = <>) {
+while (my $line = <$fhin>) {
   next if($line =~ /^\s*#/);
    my @cols = split(" ", $line);
    my $value = $cols[$the_col];
@@ -23,13 +36,14 @@ while (my $line = <>) {
     $accid_solns{$accid} = [$vc];
   }
 }
+close $fhin;
 
+open my $fhout, ">", "$output_filename" or die "Couldn't open $output_filename for writing.\n";
 for my $anid (keys %accid_solns) {
   my $solutions = $accid_solns{$anid};
   my @sorted_solns = sort {val($a) <=> val($b)} @$solutions;
   my $n_solns_out = min(scalar @sorted_solns, $max_solns_out);
-  print "$anid  ", join("  ", @sorted_solns[0..$n_solns_out-1]), "\n";
-  
+  print $fhout "$anid  ", join("  ", @sorted_solns[0..$n_solns_out-1]), "\n";
  # print "  ", $sorted_solns[1] if(scalar @sorted_solns > 1);
  # print "\n"; # join("  ", @sorted_solns), "\n";
 }
