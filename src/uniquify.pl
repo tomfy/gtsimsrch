@@ -2,6 +2,7 @@
 use strict;
 use Getopt::Long;
 use List::Util qw(min max sum);
+use File::Spec;
 
 # runs duplicatesearch, then agmr_cluster, and outputs a file
 # with the same format as duplicatesearch input, but now with just one
@@ -10,15 +11,18 @@ use List::Util qw(min max sum);
 my $input_dosages_filename = undef;
 #my $do_remove_bad_accessions = shift // 1;
 my $max_acc_missing_data_fraction = 0.5;
-my $output_dosages_filename = "uniquify.out";
+my $max_marker_missing_data_fraction = undef;
+my $output_dosages_filename = undef;
 my $max_agmr = 0.2;
+my $cluster_max_agmr = 0.04;
 
 GetOptions(
 	   'input_file=s' => \$input_dosages_filename,
 	   'output_file=s' => \$output_dosages_filename,
 	   'max_md_fraction=f' => \$max_acc_missing_data_fraction,
+	   'marker_max_md_fraction=f' => \$max_marker_missing_data_fraction,
 	   'max_agmr=f' => \$max_agmr,
-       
+	   'cluster_max_agmr=f' => \$cluster_max_agmr,
 	  );
 
 if (!defined $input_dosages_filename) {
@@ -26,6 +30,12 @@ if (!defined $input_dosages_filename) {
   usage_message();
   exit;
 }
+if(!defined $output_dosages_filename){
+  (my $v, my $d, $output_dosages_filename) = File::Spec->splitpath( $input_dosages_filename );
+  $output_dosages_filename .= "_duplicates_removed";
+   print STDERR "$d    $output_dosages_filename \n";
+}
+
 
 open my $fhin, "<", "$input_dosages_filename" or die "couldn't open $input_dosages_filename for reading.\n";
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
@@ -71,7 +81,8 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
-my $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename -e $max_agmr";
+my $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename -e $max_agmr ";
+$duplicatesearch_command .= "-marker_max_md_fraction $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
 
 ###############################################################################
 
@@ -82,7 +93,7 @@ system "$duplicatesearch_command";
 
 
 ####   Run agmr_cluster to get clusters of near-identical genotypes   #########
-system "agmr_cluster < duplicatesearch.out > agmr_cluster.out";
+system "agmr_cluster -in duplicatesearch.out -out agmr_cluster.out -cluster $cluster_max_agmr ";
 ###############################################################################
 
 
