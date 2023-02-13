@@ -377,5 +377,102 @@ sub jenks_2cluster{ # divide into 2 clusters using jenks natural breaks
   return ($n_left_opt, $h_opt, $LR_max);
 }
 
+# cluster by defining a (inverse) quality of separation quantity and minimize
+sub two_cluster{
+  my $self = shift;
+  my @txs = @{$self->txs()}; # array ref of transformed values.
+
+  my $n = scalar @txs;
+
+  my $maxQ = -1;
+  my $opt_nL = -1;
+  my $optH = -1;
+  for my $i (8..int($n/4 -1)){
+    my $nL = 4*$i; # size of L cluster
+    last if($nL >= 0.8*$n);
+    my $Lq1 = 0.5*($txs[$i - 1] + $txs[$i]); # 1st quartile of L cluster
+    my $Lq3 = 0.5*($txs[3*$i - 1] + $txs[3*$i]); # 3rd quartile of L cluster
+
+    my $nV = $i;
+    my ($L78ths, $Rx);
+      if($i % 2 == 0){ # $i even
+	$L78ths = 0.5*($txs[7*$i/2 - 1] + $txs[7*$i/2]);
+	$Rx =  0.5*($txs[9*$i/2 - 1] + $txs[9*$i/2]);
+      }else{  # $i odd
+	$L78ths = $txs[(7*$i-1)/2];
+	$Rx = $txs[(9*$i-1)/2];
+      }
+    #my $Rx = 0.5*($txs[17*$i -1 ] + $txs[17*$i]); # other size of valley
+    my $dL = 2*$i/($Lq3 - $Lq1);
+    my $dV = $i/($Rx - $L78ths);
+    my $Q =  $dL/$dV; #  2*($Rx - $L78ths)/($Lq3 - $Lq1);    #    4*($Rx - $Lq94)/($Lq3 - $Lq1);
+    if($Q > $maxQ){
+      $maxQ = $Q;
+      $opt_nL = $nL;
+      $optH = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+    }
+    my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+   print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
+  }
+  return ($optH, $maxQ);
+}
+
+# cluster by defining a (inverse) quality of separation quantity and minimize
+sub two_cluster_x{
+  my $self = shift;
+  my @txs = @{$self->txs()}; # array ref of transformed values.
+  my $a = 0.125; # 
+  my $n = scalar @txs;
+
+  my $maxQ = -1;
+  my $opt_nL = -1;
+  my $optH = -1;
+  #for my $nL (24..5000){ #$n-10){ # $nL is the L cluster size being tested in one pass through loop
+    for (my $nL = 24; $nL <= 5000; $nL += 3){
+    my @Lxs = @txs[0..$nL-1]; # pts in the L cluster
+    my @Rxs = @txs[$nL..$#txs]; # pts in the R cluster
+    my $nR = scalar @Rxs;
+    my $Lq1 = quantile(\@Lxs, 0.25); # 1st quartile of L cluster
+    my $Lq3 = quantile(\@Lxs, 0.75); # 3rd quartile of L cluster
+    my $Lq95 = quantile(\@Lxs, 1-$a);
+  #  $Lq95 = min($Lq95, $Lxs[$#Lxs]);
+    my $aR = $a*$nL/$nR; # fraction of R cluster in the valley
+  
+    last if($a*$nL >= ($nR-1));
+    my $vRx = quantile(\@Rxs, $aR); # other side of valley
+    my $dL = 0.5*$nL/($Lq3 - $Lq1); # L cluster interquartile density
+   # print STDERR "### $aR  $vRx  $Lq95 \n";
+    next if($a*$nL == 0  or  ($vRx - $Lq95) == 0);
+    my $dV = 2*$a*$nL/($vRx - $Lq95); # valley density
+    my $Q = $dL/$dV;
+    my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+    if($Q > $maxQ){
+      $maxQ = $Q;
+      $opt_nL = $nL;
+      $optH = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+    }
+  #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+  #print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $vRx $Lq95  $Q\n";
+  }
+  return ($optH, $maxQ);
+}
+
+
+
+sub quantile{ # e.g. for $q = 0.5, returns the median
+  my $ar = shift;
+  my $q = shift; # 0<$q<1
+  my @xs = @$ar;
+  my $f = $q * scalar @xs;
+  my $i = int($f) + 1;
+  # print STDERR "##  $q  $f  $i  ", scalar @xs, "\n";
+  my $xq;
+  if($i >= scalar @xs ){
+    $xq = $xs[$#xs];
+  }else{  
+    $xq = ($xs[$i] - $xs[$i-1])*($f - $i) + 0.5*($xs[$i-1] + $xs[$i]);
+  }
+  return $xq;
+}
 
 1;

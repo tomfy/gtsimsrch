@@ -39,13 +39,13 @@ use Cluster1d;
 my $input_agmr_filename = undef;
 my $cluster_max_agmr = 'auto'; # construct graph with edges between pairs of accessions iff their agmr is <= this.
 my $output_cluster_filename = "agmr_cluster.out";
-my $pow = 'log';
+my $pow = 1; # 'log';
 my $minx = 0.001;
 
 GetOptions(
 	   'input_file=s' => \$input_agmr_filename, # file with id1 id2 x xx agmr_est agmr
 	   'output_file=s' => \$output_cluster_filename,
-	   'cluster_max_agmr=f' => \$cluster_max_agmr, # cluster using graph with edges for pairs with agmr < this.
+	   'cluster_max_agmr=s' => \$cluster_max_agmr, # cluster using graph with edges for pairs with agmr < this.
 	   'pow=s' => \$pow,
 	  );
 
@@ -69,10 +69,14 @@ close $fhin;
 my @agmrs = values %edge_weight;
 if($cluster_max_agmr eq 'auto'){
   my $cluster1d_obj = Cluster1d->new({label => '', xs => \@agmrs, pow => $pow, minx => $minx});
+  print  "#  pow: $pow  min: $minx \n";
+  my ($Hopt, $maxQ) = $cluster1d_obj->two_cluster();
+  my ($Hoptx, $maxQx) = (0, 0); # $cluster1d_obj->two_cluster_x();
+  
   my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt, $kde_q) = $cluster1d_obj->one_d_2cluster();
-  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f.\n",
+  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f   Hopt: %6.4f  maxQ: %6.4f.  Hoptx: %6.4f  maxQx: %6.4f \n",
        $n_pts, $km_n_L, $km_h_opt, $km_n_R, $q,
-	  $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q);
+	  $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q, $Hopt, $maxQ, $Hoptx, $maxQx);
   $cluster_max_agmr = $kde_h_opt;
 }
 
