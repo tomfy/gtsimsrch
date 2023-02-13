@@ -27,8 +27,12 @@ my $ploidy = -1; # infer from data - user must specify if AD (allele depth) is s
 my $hw = 0.33; # if not $map_to_012, round to integer if within +- $hw
 my $delta = 0.1; # if map_to_012 [0, $delta ->0], [1-$hw, $ploidy-1+$hw] -> 1, [$ploidy-$delta, $ploidy] -> 2
 my $min_read_depth = 1;
+my $input_vcf_filename = undef;
+my $output_dosages_filename = undef; # default: construct from input filename
 
 GetOptions(
+	   'input_file|vcf=s' => \$input_vcf_filename,
+	   'output_file|dosage_file=s' => \$output_dosages_filename,
 	   'transpose!' => \$transpose, # -notranspose to output untransposed. (duplicatesearch requires transposed which is default)
 	   'GQmin=f' => \$minGQ,	# min genotype quality.
 	   'GPmin=f' => \$minGP,	# must
@@ -43,6 +47,13 @@ GetOptions(
 die "if specifying use of AD (allele depth), ploidy must also be specified\n" if($field_to_use eq 'AD'  and  $ploidy == -1);
 #print STDERR "$transpose  $minGQ  $minGP  $field_to_use \n";
 
+die "Must specify input vcf filename. \n" if(!defined $input_vcf_filename);
+
+if(!defined $output_dosages_filename){
+  $output_dosages_filename = $input_vcf_filename;
+  $output_dosages_filename =~ s/vcf/dosages/;
+}
+
 # read lines up to and including first starting with a single #
 # that line has accession identifiers for columns 9, 10, ...
 #
@@ -50,7 +61,8 @@ my @col_ids = ();
 my @row_ids = ();
 my @rows = ();
 my @dosage_distribution = ();
-while (<>) {
+open my $fhin, "<", "$input_vcf_filename" or die "Couldn't open $input_vcf_filename for reading.\n";
+while (<$fhin>) {
   my @cols = split(" ", $_);
   next if(/^\s*##/);
   if (/^\s*#/) {
@@ -67,7 +79,7 @@ while (<>) {
 # my $in_ploidy;
 my $format_string = 'xxx';
 my $missing_data_count = 0;
-while (<>) {
+while (<$fhin>) {
   my @dosages_this_row = ();
   my @cols = split(" ", $_);
   my $row_id = $cols[2];
@@ -195,8 +207,10 @@ while (<>) {
   push @rows, \@dosages_this_row;
 
 }				# end loop over rows
+close $fhin;
 
 # #####  output  #####
+open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
 my ($transtr, $n_rows_out, $n_cols_out) = ($transpose)?
   ("# transpose", scalar @col_ids, scalar @row_ids) : ("# no transpose", scalar @row_ids, scalar @col_ids);
 my $n_elements = $n_rows_out * $n_cols_out;
@@ -209,18 +223,18 @@ for my $i (0..$ploidy) {
 }
 $info_string .= sprintf("# missing data %8d   %8.6f\n", $missing_data_count, $missing_data_count/$n_elements);
 print STDERR $info_string;
-print STDOUT $info_string;
+print $fhout $info_string;
 if (! $transpose) {
-  print "MARKER ", join(" ", @col_ids), "\n";
+  print $fhout "MARKER ", join(" ", @col_ids), "\n";
   die if(scalar @row_ids  !=  scalar @rows);
   while (my ($i, $row_dosages) = each(@rows)) {
-    print $row_ids[$i], "  ", join(" ", @$row_dosages), "\n";
+    print $fhout $row_ids[$i], "  ", join(" ", @$row_dosages), "\n";
   }
 } else {			# transpose
-  print "MARKER ", join(" ", @row_ids), "\n";
+  print $fhout "MARKER ", join(" ", @row_ids), "\n";
   while (my ($i, $col_id) = each @col_ids) {
     # print col i as a row
-    print "$col_id  ";
+    print $fhout "$col_id  ";
     while (my($j, $r) = each @rows) {
       my $d = $r->[$i];
       # at this point $d = 0, 1, 2, ... , ploidy or NA (missing data)
@@ -233,8 +247,9 @@ if (! $transpose) {
 	  $d = 1;
 	}			# else $d = 0, no change
       }
-      print "$d ";
+      print $fhout "$d ";
     }
-    print "\n";
+    print $fhout "\n";
   }
 }
+close $fhout;

@@ -43,7 +43,7 @@ my $pow = 1; # 'log';
 my $minx = 0.001;
 
 GetOptions(
-	   'input_file=s' => \$input_agmr_filename, # file with id1 id2 x xx agmr_est agmr
+	   'input_file=s' => \$input_agmr_filename, # file with id1 id2 x xx agmr_est agmr (duplicatesearch output)
 	   'output_file=s' => \$output_cluster_filename,
 	   'cluster_max_agmr=s' => \$cluster_max_agmr, # cluster using graph with edges for pairs with agmr < this.
 	   'pow=s' => \$pow,
