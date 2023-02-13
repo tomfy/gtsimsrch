@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use Getopt::Long;
-use List::Util qw(min max sum);
+use List::Util qw(min max sum shuffle);
 use File::Spec;
 
 # runs duplicatesearch, then agmr_cluster, and outputs a file
@@ -13,16 +13,20 @@ my $input_dosages_filename = undef;
 my $max_acc_missing_data_fraction = 0.5;
 my $max_marker_missing_data_fraction = undef;
 my $output_dosages_filename = undef;
-my $max_agmr = 0.2;
+my $max_agmr = 0.145;
 my $cluster_max_agmr = 'auto';
+my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
+my $vote = 0;
 
 GetOptions(
 	   'input_file=s' => \$input_dosages_filename,
 	   'output_file=s' => \$output_dosages_filename,
-	   'max_md_fraction=f' => \$max_acc_missing_data_fraction,
+	   'acc_max_md_fraction=f' => \$max_acc_missing_data_fraction,
 	   'marker_max_md_fraction=f' => \$max_marker_missing_data_fraction,
-	   'max_agmr=f' => \$max_agmr,
-	   'cluster_max_agmr=f' => \$cluster_max_agmr,
+	   'agmr_max=f' => \$max_agmr,
+	   'cluster_max_agmr=s' => \$cluster_max_agmr,
+	   'fraction=f' => \$cluster_fraction,
+	   'vote!' => \$vote,
 	  );
 
 if (!defined $input_dosages_filename) {
@@ -30,10 +34,10 @@ if (!defined $input_dosages_filename) {
   usage_message();
   exit;
 }
-if(!defined $output_dosages_filename){
+if (!defined $output_dosages_filename) {
   (my $v, my $d, $output_dosages_filename) = File::Spec->splitpath( $input_dosages_filename );
   $output_dosages_filename .= "_duplicates_removed";
-   print STDERR "$d    $output_dosages_filename \n";
+  print STDERR "$d    $output_dosages_filename \n";
 }
 
 
@@ -75,7 +79,7 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 #   print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
 #     int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
 # } else {
-  system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
+system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
 # }
 
 print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
@@ -145,25 +149,62 @@ print STDERR "after storing dosages\n";
 # my $file_delete_success = unlink($cleaned_dosages_filename);
 # warn "Deleting of $cleaned_dosages_filename failed.\n" if($file_delete_success != 1);
 
+my @duplicate_lines = ();
 ####   Cluster members vote on correct genotypes   ############################
 open  $fh_clusters, "<", "agmr_cluster.out";
-while (my $line = <$fh_clusters>) { # each line is one cluster
-  next if($line =~ /^\s*#/);
-  my @cols = split(" ", $line);
-  my $cluster_size = shift @cols;
-  my $min_d = shift @cols;
-  my $max_d = shift @cols;
-  my $n_bad = shift @cols;
-  my $rep_id = $cols[0];     # id of the representative of the cluster
+if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then output just representative id with 'elected' dosages. 
+  while (my $line = <$fh_clusters>) { # each line is one cluster
+    next if($line =~ /^\s*#/);
+    my @cols = split(" ", $line);
+    my $cluster_size = shift @cols;
+    my $min_d = shift @cols;
+    my $max_d = shift @cols;
+    my $n_bad = shift @cols;
+    my $rep_id = $cols[0];   # id of the representative of the cluster
 
-  #  print STDERR "done storing cluster of size $cluster_size \n";
-  # print STDERR "before vote\n";
-  my $elected_gts = vote(\@cols, \%id_gts);
-  #print STDERR "Done with cluster vote. size of elected_gts: ", scalar @$elected_gts, "\n";
-  #  print STDERR "done with cluster vote \n";
-  print $fhout "$rep_id  ", join(" ", @$elected_gts), "\n";
+    #  print STDERR "done storing cluster of size $cluster_size \n";
+    # print STDERR "before vote\n";
+    my $elected_gts = vote(\@cols, \%id_gts);
+    #print STDERR "Done with cluster vote. size of elected_gts: ", scalar @$elected_gts, "\n";
+    #  print STDERR "done with cluster vote \n";
+    print $fhout "$rep_id  ", join(" ", @$elected_gts), "\n";
+  }
+
+} else { # output representative, and fraction $cluster_fraction of other cluster members
+  while (my $line = <$fh_clusters>) { # each line is one cluster
+    next if($line =~ /^\s*#/);
+    my @cols = split(" ", $line);
+    my $cluster_size = shift @cols;
+    my $min_d = shift @cols;
+    my $max_d = shift @cols;
+    my $n_bad = shift @cols;
+    my $rep_id = shift @cols; # id of the representative of the cluster
+
+    #  print STDERR "done storing cluster of size $cluster_size \n";
+    # print STDERR "before vote\n";
+    #my $elected_gts = vote(\@cols, \%id_gts);
+    #print STDERR "Done with cluster vote. size of elected_gts: ", scalar @$elected_gts, "\n";
+    #  print STDERR "done with cluster vote \n";
+    print $fhout "$rep_id  ", join(" ", @{$id_gts{$rep_id}}) , "\n"; # output representative and its dosages.
+    for my $an_id (@cols) {
+     # if (rand() < $cluster_fraction) {
+     # print $fhout
+	my $dupe_acc_line = 'DDDD' . "$an_id  " . join(" ", @{$id_gts{$an_id}}) . "\n"; # other cluster members and dosages.
+      push @duplicate_lines, $dupe_acc_line;
+    
+    }
+  }
 }
+close $fh_clusters;
 ###############################################################################
+# output some fraction of duplicates:
+@duplicate_lines = shuffle @duplicate_lines;
+my $n_duplicates_to_output = int($cluster_fraction * scalar @duplicate_lines + 0.5);
+for my $i (1..$n_duplicates_to_output){
+  print $fhout $duplicate_lines[$i];
+}
+close $fhout;
+
 
 # while (my $line = <$fh_clusters>) { # each line is one cluster
 #   next if($line =~ /^\s*#/);
@@ -251,3 +292,4 @@ sub vote{
 sub usage_message{
   print "Usage: uniquify -i <input filename> [-o <output filename>] [-m <max allowed fraction missing data>].\n";
 }
+
