@@ -167,6 +167,7 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
   the_gtsset->ploidy = ploidy;
   the_gtsset->accessions = construct_vaccession(INIT_VACC_CAPACITY);
   the_gtsset->marker_ids = NULL; //marker_ids;
+  // the_gtsset->markers = NULL;
   the_gtsset->marker_missing_data_counts = NULL; // md_counts;
   the_gtsset->marker_alt_allele_counts = NULL; // md_counts;
   the_gtsset->marker_dose_counts = NULL;
@@ -267,7 +268,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	the_genotypes_set->marker_missing_data_counts->a[marker_count]++;
 	accession_missing_data_count++;
       }else{
-	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48);
+	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48); // 48->0, 49->1, 50->2
       }
       
       marker_count++;
@@ -547,25 +548,25 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
 	(alt_allele_counts->a[i] > 0) &&  // at last one accession has the alt allele
 	(md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions)  // not too much missing data
 	){ 
-        bool alt_allele_freq_not_extreme = ( // 
-					  (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
-					  (alt_allele_counts->a[i] <= max_min_allele_count) // and not too large
-					  );
-	bool output_extreme_alt_allele_freq = false;  // false is normal here, true just for comparing effect of lo vs hi maf.
-    bool alt_allele_freq_ok = (alt_allele_freq_not_extreme || output_extreme_alt_allele_freq) && !(alt_allele_freq_not_extreme && output_extreme_alt_allele_freq);
+      bool alt_allele_freq_not_extreme = ( // 
+					   (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
+					   (alt_allele_counts->a[i] <= max_min_allele_count) // and not too large
+					   );
+      bool output_extreme_alt_allele_freq = false;  // false is normal here, true just for comparing effect of lo vs hi maf.
+      bool alt_allele_freq_ok = (alt_allele_freq_not_extreme || output_extreme_alt_allele_freq) && !(alt_allele_freq_not_extreme && output_extreme_alt_allele_freq);
       if ( alt_allele_freq_ok ){ // the alt_allele_frequency is in the right range
-      md_ok->a[i] = 1;
-      n_markers_to_keep++;
-      mdsum_kept += md_counts->a[i];
-      altallelesum_kept += alt_allele_counts->a[i];
-      long marker_id_length = strlen(the_gtsset->marker_ids->a[i]);
-      char* marker_id_to_keep = strcpy((char*)malloc((marker_id_length+1)*sizeof(char)), the_gtsset->marker_ids->a[i]);
-      add_string_to_vstr(cleaned_marker_ids, marker_id_to_keep); // store the kept marker ids.
-      add_long_to_vlong(cleaned_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
-      add_long_to_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
+	md_ok->a[i] = 1;
+	n_markers_to_keep++;
+	mdsum_kept += md_counts->a[i];
+	altallelesum_kept += alt_allele_counts->a[i];
+	long marker_id_length = strlen(the_gtsset->marker_ids->a[i]);
+	char* marker_id_to_keep = strcpy((char*)malloc((marker_id_length+1)*sizeof(char)), the_gtsset->marker_ids->a[i]);
+	add_string_to_vstr(cleaned_marker_ids, marker_id_to_keep); // store the kept marker ids.
+	add_long_to_vlong(cleaned_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
+	add_long_to_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
+      }
     }
-  }
-  } // end of loops over markers
+  } // end of loop over markers
   double raw_md_fraction = (double)mdsum_all/(double)(md_counts->size*n_accs);
   double cleaned_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
   double raw_minor_allele_freq = (double)altallelesum_all/(md_counts->size*n_accs*the_gtsset->ploidy);
@@ -631,7 +632,8 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
   }
 }
 
-void store_homozygs(GenotypesSet* the_gtsset){ // 
+void store_homozygs(GenotypesSet* the_gtsset){ // for each accession,
+  // store indices of alt homozygous genotypes, and (separately) ref homozyg gts.
   for(long i=0; i<the_gtsset->accessions->size; i++){
     Accession* acc = the_gtsset->accessions->a[i];
    
@@ -794,7 +796,7 @@ ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick){
     n0s += gtset->marker_dose_counts[0]->a[idx]; // n0s_this_marker;
   }
   expected_refds = (double)n0s/(double)gtset->accessions->size;
-    return (ND){counted_refds, expected_refds};
+  return (ND){counted_refds, expected_refds};
 }
 
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hgmr numerator and denominator

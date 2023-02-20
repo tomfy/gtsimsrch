@@ -78,6 +78,7 @@ void free_vlong(const Vlong* the_vlong){
   free((Vlong*)the_vlong);
 }
 
+
 // *****  Vstr  ***************************************************x
 
 Vstr* construct_vstr(long cap){
@@ -203,6 +204,42 @@ void free_vchar(const Vchar* the_vchar){
   if(the_vchar == NULL) return;
   free(the_vchar->a);
   free((Vchar*)the_vchar);
+}
+
+// *****  Vdouble  *****
+Vdouble* construct_vdouble(long cap){ // construct empty Vdouble with capacity cap.
+  Vdouble* the_vdouble = (Vdouble*)malloc(1*sizeof(Vdouble));
+  the_vdouble->capacity = cap;
+  the_vdouble->size = 0;
+  the_vdouble->a = (double*)malloc(cap*sizeof(double));
+}
+
+Vdouble* construct_vdouble_from_array(long size, double* array){ // intialize with array of known size
+  Vdouble* the_vdouble = (Vdouble*)malloc(1*sizeof(Vdouble));
+  the_vdouble->capacity = size;
+  the_vdouble->size = size;
+  the_vdouble->a = (double*)malloc(size*sizeof(double));
+  for(long i=0; i<size; i++){
+    the_vdouble->a[i] = array[i];
+  }
+  return the_vdouble;
+}
+Vdouble* add_double_to_vdouble(Vdouble* the_vdouble, double x){
+   long cap = the_vdouble->capacity;
+  long n = the_vdouble->size;
+  if(n == cap){   // if necessary, resize w realloc
+    cap *= 2;
+    the_vdouble->a = (double*)realloc(the_vdouble->a, cap*sizeof(double));
+    the_vdouble->capacity = cap;
+  }
+  the_vdouble->a[n] = x;
+  the_vdouble->size++;
+}
+
+void free_vdouble(const Vdouble* the_vdouble){ // free memory
+  if(the_vdouble == NULL) return;
+  free(the_vdouble->a);
+  free((Vdouble*)the_vdouble);
 }
 
 // *****  IndexId *****
