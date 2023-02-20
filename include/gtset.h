@@ -37,9 +37,19 @@ typedef struct{
   Accession** a;
 }Vaccession;
 
+/* typedef struct{ */
+/*   Vchar* id;  */
+/*   double alt_allele_freq; */
+/* }Marker; */
+
+/* typedef struct{ */
+/*   long capacity; */
+/*   long size; */
+/*   Marker** a; */
+/* }Vmarker;  */
+
 typedef struct{
   long capacity; // needed?
-  // double delta;
   double max_marker_missing_data_fraction;
   double min_minor_allele_frequency;
   long n_accessions; // redundant.
@@ -50,7 +60,8 @@ typedef struct{
 
   Vaccession* accessions;
   
-  Vstr* marker_ids; // array of marker_ids
+  Vstr* marker_ids; // vector of marker_ids
+  //  Vmarker* markers; // vector of markers
   Vlong* marker_missing_data_counts; //
   Vlong* marker_alt_allele_counts;
   Vlong** marker_dose_counts; // counts of dosages.
@@ -78,6 +89,14 @@ void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices,
 void print_vaccession(Vaccession* the_accessions, FILE* ostream);
 void check_accession_indices(Vaccession* the_accessions);
 void free_vaccession(Vaccession* the_vacc);
+
+/* // *****  Marker  ***** */
+/* Marker* construct_marker(char* id, double alt_allele_freq); */
+
+/* // *****  Vmarker  ***** */
+/* Vmarker* construct_vmarker(long cap); // construct empty Vmarker with capacity cap */
+/* add_marker_to_vmarker(Vmarker* the_vmarker, Marker* the_marker); */
+/* free_vmarker(Vmarker* the_vmarker); */
 
 // *****  GenotypesSet  *****
 GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double min_min_allele_freq, long ploidy);

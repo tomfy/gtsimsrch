@@ -22,7 +22,13 @@ typedef struct{
   long capacity;
   long length; // length of the string not including term. null
   char* a; // a regular null-terminated string
-}Vchar; 
+}Vchar;
+
+typedef struct{
+  long capacity;
+  long size;
+  double* a;
+}Vdouble;
 
 typedef struct{
   long index;
@@ -65,6 +71,12 @@ Vchar* copy_vchar(Vchar* avchar);
 Vchar* append_str_to_vchar(Vchar* the_vchar, char* str);
 void print_vchar(FILE* fh, Vchar* the_vchar);
 void free_vchar(const Vchar* the_vchar);
+
+// ***** Vdouble *****
+Vdouble* construct_vdouble(long cap); // construct empty Vdouble with capacity cap.
+Vdouble* construct_vdouble_from_array(long size, double* array); // intialize with array of known size
+Vdouble* add_double_to_vdouble(Vdouble* the_vdouble, double x);
+void free_vdouble(const Vdouble* the_vdouble); // free memory
 
 // *****  IndexId  *****
 IndexId* construct_indexid(long idx, char* id);
