@@ -737,8 +737,7 @@ Vmci** find_matches(GenotypesSet* the_genotypes_set,
 	  //	  fprintf(stderr, "number of agmrs: %ld \n", agmrs->size);
 	  true_agmr_count++;
 	  add_mci_to_vmci(query_vmcis[i_query],
-			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, agmrs)); //, dists.d2, dists.d3)); //true_hgmr));
-	  //  fprintf(stderr, "# i_query i_match: %ld %ld \n", i_query, i_match);
+			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, agmrs)); //, dists.d2, dists.d3)); //true_hgmr))	  //  fprintf(stderr, "# i_query i_match: %ld %ld \n", i_query, i_match);
 	  if(i_match >= n_ref_accessions){ add_mci_to_vmci(query_vmcis[i_match],
 							   construct_mci(i_match, i_query, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, agmrs)); //, dists.d2, dists.d3)); // true_hgmr));
 	    //	    xcount++;
