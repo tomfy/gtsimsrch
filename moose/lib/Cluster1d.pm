@@ -13,13 +13,13 @@ use constant PI => pi();
 # for clustering a set of non-negative numbers into 2 clusters.
 # negative numbers are interpreted as invalid and excluded.
 
-has label => ( # string describing quantity being clustered
+has label => (		  # string describing quantity being clustered
 	      isa => 'Str',
 	      is => 'ro',
 	      default => 'none specified'
-	      );
+	     );
 
-has xs => ( # numbers to be put into 2 clusters
+has xs => (			# numbers to be put into 2 clusters
 	   isa => 'ArrayRef[Num]',
 	   is => 'rw',
 	   required => 1,
@@ -36,7 +36,7 @@ has median_denom => (
 		     is => 'ro',
 		     default => 3000,
 		     # required => 1,
-		     );
+		    );
 
 has txs => (			# transformed xs
 	    isa => 'ArrayRef[Num]',
@@ -48,7 +48,7 @@ has minx => (
 	     isa => 'Maybe[Num]',
 	     is => 'rw',
 	     default => undef,
-	     );
+	    );
 
 
 has n_pts_in_kernel_width => (
@@ -87,8 +87,8 @@ sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - 
   # }
   my $pow = $self->pow();
   if ($pow eq 'log') {
-      my $minx = $self->minx // 1.0/($self->median_denom());
-      print STDERR "minx $minx \n";
+    my $minx = $self->minx // 1.0/($self->median_denom());
+    print STDERR "minx $minx \n";
     #  exit;
     @txs = map(max($minx, $_), @xs);
     # my $small_limit = 1e-8;
@@ -118,36 +118,36 @@ sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - 
 }
 
 
-sub one_d_2cluster{ # cluster 1dim data into 2 clusters
+sub one_d_2cluster{		# cluster 1dim data into 2 clusters
   my $self = shift;
-  my $pow = $self->pow();	# cluster x**$pow ( or cluster log(x) if $pow eq 'log' )
+  my $pow = $self->pow(); # cluster x**$pow ( or cluster log(x) if $pow eq 'log' )
 
   my $n_pts = scalar @{$self->txs()};
   # print STDERR "label: ", $self->label(), "  npts: $n_pts   pow: $pow  ";
   my ($km_n_L, $km_h_opt, $km_mom, $q) = $self->kmeans_2cluster();
   # print STDERR "$km_n_L  $km_h_opt $km_mom  $q  \n";
   my ($kde_n_L, $kde_h_opt, $min_kde_est, $kde_q) = $self->kde_2cluster($km_n_L-1);
-#  $km_h_opt = $km_mom; # maybe mean of means is better?
+  #  $km_h_opt = $km_mom; # maybe mean of means is better?
   if ($pow eq 'log') {
     $km_h_opt = exp($km_h_opt);
     $kde_h_opt = exp($kde_h_opt);
   } else {
-  # print STDERR "pow, etc: $pow $km_h_opt   ";
+    # print STDERR "pow, etc: $pow $km_h_opt   ";
     $km_h_opt = $km_h_opt**(1/$pow);
     $kde_h_opt = $kde_h_opt**(1/$pow);
-  # print STDERR " $km_h_opt \n";
+    # print STDERR " $km_h_opt \n";
   }
   return ($n_pts, $km_n_L, $n_pts-$km_n_L, $km_h_opt, $q, 
 	  $kde_n_L, $n_pts-$kde_n_L, $kde_h_opt, $kde_q);
 }
 
 
-sub kmeans_2cluster{ # divide into 2 clusters by minimizing
+sub kmeans_2cluster{		# divide into 2 clusters by minimizing
   # n_left*var_left + n_right*var_right
   # for N pts, just consider all N-1 possible ways of partitioning
   # into non-empty L and R sets with every value in L set < every value in R set.
   my $self = shift;
-  my $txs = $self->txs(); # array ref of transformed values.
+  my $txs = $self->txs();	# array ref of transformed values.
   my @xsqrs = map($_*$_, @$txs);
   # while (my ($i, $xx) = each @$txs){
   #     print STDERR "$i $xx  ", $xsqrs[$i], "\n";
@@ -156,11 +156,11 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
   my ($n, $sumx, $sumxsqr) = (scalar @$txs, sum(@$txs), sum(@xsqrs)); # sum(map($_*$_, @xs)));
   my ($n_left, $sumx_left, $sumxsqr_left) = (0, 0, 0);
   my ($n_right, $sumx_right, $sumxsqr_right) = ($n, $sumx, $sumxsqr);
-# print STDERR "ABC: $n_left  $sumx_left    $n_right  $sumx_right  $sumxsqr_right  \n";
+  # print STDERR "ABC: $n_left  $sumx_left    $n_right  $sumx_right  $sumxsqr_right  \n";
   my $mean_of_means_opt = -1;
   my $v_opt = $sumxsqr_right - $sumx_right*$sumx_right/$n_right;
   my $n_left_opt = -1;
- # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
+  # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
   for my $x (@$txs[0 .. $#$txs-1]) {
     $n_left++; $n_right--;
     $sumx_left += $x; $sumx_right -= $x;
@@ -169,13 +169,13 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
     #   print STDERR "$sumx_left ", $sumx_left/$n_left, "  $sumxsqr_left       $sumx_right  ", ($sumx_right/$n_right)**2, "   $sumxsqr_right   ", $sumxsqr_right/$n_right, "  ", $x*$x, "\n";
 
     my $v = ($sumxsqr_left - $sumx_left*$sumx_left/$n_left) +  ($sumxsqr_right - $sumx_right*$sumx_right/$n_right);
-   #  print STDERR "$x  $v  $v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
-    if($v < $v_opt){ # if best so far record new best solution.
+    #  print STDERR "$x  $v  $v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
+    if ($v < $v_opt) {	    # if best so far record new best solution.
       $v_opt = $v;
       $n_left_opt = $n_left;
       $mean_of_means_opt =  0.5*($sumx_left/$n_left + $sumx_right/$n_right);
       $h_opt = 0.5*($x + $txs->[$n_left]);
-     # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
+      # print STDERR "$v_opt $n_left_opt $mean_of_means_opt $h_opt\n";
     }
     # my ($Lmean, $Rmean) = ($sumx_left/$n_left, $sumx_right/$n_right);
     # $mean_of_means = 0.5*($Lmean + $Rmean);
@@ -187,7 +187,7 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
     # }
   }
   
-#  if(1){
+  #  if(1){
   # my ($mean_left, $mean_right, $mean) = ($sumx_left/$n_left, $sumx_right/$n_right, $sumx/$n);
   # my $var_left = ($sumxsqr_left/$n_left - $mean_left**2);
   # my $var_right = ($sumxsqr_right/$n_right - $mean_right**2);
@@ -195,10 +195,10 @@ sub kmeans_2cluster{ # divide into 2 clusters by minimizing
   # my $q = sqrt($var_left + $var_right)/($mean_right - $mean_left);
   # # my $q1 = (($L90 - $Lmedian) + ($Rmedian - $R90))/($Rmedian - $Lmedian);
   #my $q = qqq($txs, $n_left);
-#  print STDERR "# $var_left $var_right $var   $q  $q1\n";
+  #  print STDERR "# $var_left $var_right $var   $q  $q1\n";
   #  getchar();
   #  }
-# print STDERR "XXX:  $n_left_opt $h_opt $mean_of_means_opt \n";
+  # print STDERR "XXX:  $n_left_opt $h_opt $mean_of_means_opt \n";
   return ($n_left_opt, $h_opt, $mean_of_means_opt, qqq($self->xs(), $n_left_opt, 0.05));
 }
 
@@ -207,12 +207,12 @@ sub qqq{ # intended to be a measure of how well-separated the 2 clusters are.
   # the density in the region between the clusters
   # small value indicates good separation.
   
-  my $xs = shift; # all data pts.
-  my $nL = shift; # number in L cluster
+  my $xs = shift;		# all data pts.
+  my $nL = shift;		# number in L cluster
   my $qile = shift // 0.05;
   my $n = scalar @$xs;
 
-  my $nR = $n - $nL; # number in R cluster
+  my $nR = $n - $nL;		  # number in R cluster
   my $L25 = $xs->[int(0.25*$nL)]; # 25%ile of L cluster.
   my $L75 = $xs->[int(0.75*$nL)]; # 75%ile of L cluster.
   my $nLq = int($qile*$nL);
@@ -230,7 +230,7 @@ sub kde_2cluster{
   my $self = shift;
   my $i_opt = shift; # look for min of kde in neighborhood of $xar->[$i_opt]
   my $kernel_width = shift // $self->kernel_width();
-  my $txs = $self->txs(); # shift;
+  my $txs = $self->txs();  # shift;
   # my $kernel_width = $self->kernel_width();
   my $n = scalar @$txs;
   my $n_left = $i_opt+1;
@@ -377,102 +377,172 @@ sub jenks_2cluster{ # divide into 2 clusters using jenks natural breaks
   return ($n_left_opt, $h_opt, $LR_max);
 }
 
-# cluster by defining a (inverse) quality of separation quantity and minimize
+# cluster by defining a quality of separation quantity and maximize
 sub two_cluster{
   my $self = shift;
-  my @txs = @{$self->txs()}; # array ref of transformed values.
-
+  my @txs = @{$self->txs()};	# array ref of transformed values.
+  my $Qmin = 2;
+  
   my $n = scalar @txs;
 
   my $maxQ = -1;
   my $opt_nL = -1;
   my $optH = -1;
-  for my $i (8..int($n/4 -1)){
-    my $nL = 4*$i; # size of L cluster
-    last if($nL >= 0.8*$n);
+  my @nlhqs = ();
+  my $start_peak = -1; # when Q goes above 1.5*$Qmin this gets set to $nL
+  my $end_peak = -1; # when $start_peak > 0 and Q returns to below $Qmin this gets set to $nL
+  for my $i (8..int($n/4 -1)) {
+    my $nL = 4*$i;		# size of L cluster
+    last if($nL >= 0.85*$n);
+    #last if($nL >= 10000);
     my $Lq1 = 0.5*($txs[$i - 1] + $txs[$i]); # 1st quartile of L cluster
     my $Lq3 = 0.5*($txs[3*$i - 1] + $txs[3*$i]); # 3rd quartile of L cluster
 
     my $nV = $i;
     my ($L78ths, $Rx);
-      if($i % 2 == 0){ # $i even
-	$L78ths = 0.5*($txs[7*$i/2 - 1] + $txs[7*$i/2]);
-	$Rx =  0.5*($txs[9*$i/2 - 1] + $txs[9*$i/2]);
-      }else{  # $i odd
-	$L78ths = $txs[(7*$i-1)/2];
-	$Rx = $txs[(9*$i-1)/2];
-      }
+    if ($i % 2 == 0) {		# $i even
+      $L78ths = 0.5*($txs[7*$i/2 - 1] + $txs[7*$i/2]);
+      $Rx =  0.5*($txs[9*$i/2 - 1] + $txs[9*$i/2]);
+    } else {			# $i odd
+      $L78ths = $txs[(7*$i-1)/2];
+      $Rx = $txs[(9*$i-1)/2];
+    }
+    my $H= 0.5*($txs[$nL-1] + $txs[$nL]); # defines R edge of L cluster.
+    #my $delta = $L78ths - $H; # half-width of valley
+    #   my $Rxx = 2*$H  - $L78ths; # another way of defining R edge of valley.
+    #   my $iR = ir(\@txs, $nL, $Rxx); # find $iR, s.t. $Rxx is between $txs[$iR], $txs[$iR+1] 
     #my $Rx = 0.5*($txs[17*$i -1 ] + $txs[17*$i]); # other size of valley
+    #  print "$Rx $Rxx \n";
+    #   $Rxx = $Rx;
+    
     my $dL = 2*$i/($Lq3 - $Lq1);
     my $dV = $i/($Rx - $L78ths);
     my $Q =  $dL/$dV; #  2*($Rx - $L78ths)/($Lq3 - $Lq1);    #    4*($Rx - $Lq94)/($Lq3 - $Lq1);
-    if($Q > $maxQ){
+    if ($Q > $maxQ) { # new best $Q
       $maxQ = $Q;
       $opt_nL = $nL;
-      $optH = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+      $optH = $H;		# 0.5*($txs[$nL -1 ] + $txs[$nL]);
     }
-    my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-   print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
+    #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+    #  print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
+    if ($Q >= $Qmin) {
+      push @nlhqs, [$nL, $H, $Q];
+      $start_peak = $nL if($Q >= 1.5*$Qmin  and  $start_peak < 0);
+    } else {			# $Q < $Qmin
+      if ($start_peak > 0) {
+	if ($end_peak < 0) {
+	  $end_peak = $nL;
+	} else {
+	  if ($nL > 2*$end_peak) {
+	    print "breaking out of loop. $start_peak, $end_peak, $opt_nL, $nL\n";
+	    last;
+	  }
+	}
+      }
+    }
+
+    #print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
+  } # end of loop over possible L cluster sizes.
+#  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
+#  print "maxQ: $maxQ \n";
+my $H_mid_half_max = -1;
+if (scalar @nlhqs > 0) {
+  my ($Ledge, $Redge) = (1, -1);
+  my ($nLmin, $nLmax) = (undef, undef);
+  my $nabove = 0;
+  for my $anlhq (@nlhqs) {
+    my ($nl, $h, $q) = @$anlhq;
+    #    print join(", ", @$anlhq), "\n";
+    if ($q >= 0.5*$maxQ) {
+      $nabove++;
+      if ($h < $Ledge) {
+	$Ledge = $h;
+	$nLmin = $nl;
+      }
+      if ($h > $Redge) {
+	$Redge = $h;
+	$nLmax = $nl;
+      }
+    }
   }
-  return ($optH, $maxQ);
+  #    print "$nabove  $Ledge $Redge \n";
+  if ($nabove >= 1) {
+    $H_mid_half_max = 0.5*($Ledge+$Redge);
+  }		     # otherwise leave $H_mid_half_max as -1;
+} else {	     # no pts with $Q > 2 leave $H_mid_half_max as -1;
+}
+return ($optH, $maxQ, $H_mid_half_max);
 }
 
-# cluster by defining a (inverse) quality of separation quantity and minimize
-sub two_cluster_x{
-  my $self = shift;
-  my @txs = @{$self->txs()}; # array ref of transformed values.
-  my $a = 0.125; # 
-  my $n = scalar @txs;
+  #########################################################
 
-  my $maxQ = -1;
-  my $opt_nL = -1;
-  my $optH = -1;
-  #for my $nL (24..5000){ #$n-10){ # $nL is the L cluster size being tested in one pass through loop
-    for (my $nL = 24; $nL <= 5000; $nL += 3){
-    my @Lxs = @txs[0..$nL-1]; # pts in the L cluster
-    my @Rxs = @txs[$nL..$#txs]; # pts in the R cluster
-    my $nR = scalar @Rxs;
-    my $Lq1 = quantile(\@Lxs, 0.25); # 1st quartile of L cluster
-    my $Lq3 = quantile(\@Lxs, 0.75); # 3rd quartile of L cluster
-    my $Lq95 = quantile(\@Lxs, 1-$a);
-  #  $Lq95 = min($Lq95, $Lxs[$#Lxs]);
-    my $aR = $a*$nL/$nR; # fraction of R cluster in the valley
+#   sub ir{
+#     my $txs = shift;
+#     my $nL = shift;
+#     my $Rxx = shift;
+#     my $ir;
+#     for ($ir = $nL; $ir < scalar @$txs; $ir++) {
+#       last if ($txs->[$ir] <= $Rxx  and  $txs->[$ir+1] > $Rxx);
+#     }
+#     return $ir;
+#   }
+
+# # cluster by defining a (inverse) quality of separation quantity and minimize
+# sub two_cluster_x{
+#   my $self = shift;
+#   my @txs = @{$self->txs()};	# array ref of transformed values.
+#   my $a = 0.125;		# 
+#   my $n = scalar @txs;
+
+#   my $maxQ = -1;
+#   my $opt_nL = -1;
+#   my $optH = -1;
+#   #for my $nL (24..5000){ #$n-10){ # $nL is the L cluster size being tested in one pass through loop
+#   for (my $nL = 24; $nL <= 5000; $nL += 3) {
+#     my @Lxs = @txs[0..$nL-1];	# pts in the L cluster
+#     my @Rxs = @txs[$nL..$#txs]; # pts in the R cluster
+#     my $nR = scalar @Rxs;
+#     my $Lq1 = quantile(\@Lxs, 0.25); # 1st quartile of L cluster
+#     my $Lq3 = quantile(\@Lxs, 0.75); # 3rd quartile of L cluster
+#     my $Lq95 = quantile(\@Lxs, 1-$a);
+#     #  $Lq95 = min($Lq95, $Lxs[$#Lxs]);
+#     my $aR = $a*$nL/$nR;	# fraction of R cluster in the valley
   
-    last if($a*$nL >= ($nR-1));
-    my $vRx = quantile(\@Rxs, $aR); # other side of valley
-    my $dL = 0.5*$nL/($Lq3 - $Lq1); # L cluster interquartile density
-   # print STDERR "### $aR  $vRx  $Lq95 \n";
-    next if($a*$nL == 0  or  ($vRx - $Lq95) == 0);
-    my $dV = 2*$a*$nL/($vRx - $Lq95); # valley density
-    my $Q = $dL/$dV;
-    my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-    if($Q > $maxQ){
-      $maxQ = $Q;
-      $opt_nL = $nL;
-      $optH = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-    }
-  #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-  #print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $vRx $Lq95  $Q\n";
-  }
-  return ($optH, $maxQ);
-}
+#     last if($a*$nL >= ($nR-1));
+#     my $vRx = quantile(\@Rxs, $aR); # other side of valley
+#     my $dL = 0.5*$nL/($Lq3 - $Lq1); # L cluster interquartile density
+#     # print STDERR "### $aR  $vRx  $Lq95 \n";
+#     next if($a*$nL == 0  or  ($vRx - $Lq95) == 0);
+#     my $dV = 2*$a*$nL/($vRx - $Lq95); # valley density
+#     my $Q = $dL/$dV;
+#     my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+#     if ($Q > $maxQ) {
+#       $maxQ = $Q;
+#       $opt_nL = $nL;
+#       $optH = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+#     }
+#     #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
+#     #print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $vRx $Lq95  $Q\n";
+#   }
+#   return ($optH, $maxQ);
+# }
 
 
 
-sub quantile{ # e.g. for $q = 0.5, returns the median
-  my $ar = shift;
-  my $q = shift; # 0<$q<1
-  my @xs = @$ar;
-  my $f = $q * scalar @xs;
-  my $i = int($f) + 1;
-  # print STDERR "##  $q  $f  $i  ", scalar @xs, "\n";
-  my $xq;
-  if($i >= scalar @xs ){
-    $xq = $xs[$#xs];
-  }else{  
-    $xq = ($xs[$i] - $xs[$i-1])*($f - $i) + 0.5*($xs[$i-1] + $xs[$i]);
-  }
-  return $xq;
-}
+# sub quantile{		       # e.g. for $q = 0.5, returns the median
+#   my $ar = shift;
+#   my $q = shift;		# 0<$q<1
+#   my @xs = @$ar;
+#   my $f = $q * scalar @xs;
+#   my $i = int($f - 0.5);
+#   # print STDERR "##  $q  $f  $i  ", scalar @xs, "\n";
+#   my $xq;
+#   if ($i >= scalar @xs ) {
+#     $xq = $xs[$#xs];
+#   } else {
+#     $xq = $xs[$i] + ($xs[$i+1] - $xs[$i])*($f - ($i+0.5));
+#   }
+#   return $xq;
+# }
 
 1;
