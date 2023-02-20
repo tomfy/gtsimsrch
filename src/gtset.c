@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
+#include <stdbool.h>
 #include "gtset.h"
 //#include "various.h"
 //#include "pedigree.h"
@@ -493,10 +494,12 @@ void check_genotypesset(GenotypesSet* gtss){
 void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cleaned' accessions, which replace the raw accessions
   double max_marker_md_fraction = the_gtsset->max_marker_missing_data_fraction;
   Vlong* md_counts = the_gtsset->marker_missing_data_counts; // the number of missing data for each marker
-  Vlong* alt_allele_counts = the_gtsset->marker_alt_allele_counts;
-  
+  Vlong* alt_allele_counts = the_gtsset->marker_alt_allele_counts;  
   long n_accs = the_gtsset->n_accessions;
-  if(max_marker_md_fraction < 0){ //set max_marker_md_fraction to some multiple of median md fraction.
+  
+  if(max_marker_md_fraction < 0){ // set max_marker_md_fraction to some multiple of median md fraction.
+    // (but max_marker_md_fraction is set by default in duplicatesearch.c to 2/chunk_size;
+    // to use this way of defining max_marker_md_fraction, specify, e.g. -x -5 to set max_marker_md_fraction to 5 time median.)
     long* mdcount_histogram = (long*)calloc(n_accs+1, sizeof(long));
     double factor = -1*max_marker_md_fraction;
     for(long i=0; i< md_counts->size; i++){
@@ -512,7 +515,8 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
       }
     }
     max_marker_md_fraction = factor*(double)median_md_count/(double)n_accs;
-  }
+  } // end of optionally setting max_marker_md_fraction to multiple of median
+  
   // identify the markers to keep:
   long n_markers_to_keep = 0;
   Vlong* md_ok = construct_vlong_zeroes(md_counts->size); // set to 1 if number of missing data gts is small enough
@@ -534,12 +538,22 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
 	max_marker_md_fraction*the_gtsset->n_accessions );  /* */
     double min_min_allele_count = the_gtsset->ploidy * (the_gtsset->n_accessions - md_counts->a[i]) * the_gtsset->min_minor_allele_frequency;
     double max_min_allele_count = the_gtsset->ploidy * (the_gtsset->n_accessions - md_counts->a[i]) * (1.0 - the_gtsset->min_minor_allele_frequency);
-    if(
-       (md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions) // not too much missing data
-       &&
-       ( (alt_allele_counts->a[i] >= min_min_allele_count)  && // minor allele frequency not too small,
-	 (alt_allele_counts->a[i] <= max_min_allele_count) ) // (or too large)
-       ) {
+    /* if(alt_allele_counts->a[i] == 0  ||  alt_allele_counts->a[i] == (the_gtsset->ploidy*(the_gtsset->n_accessions - md_counts->a[i]))){ */
+    /*   // no alt alleles or no ref alleles */
+    /*   fprintf(stderr, "n accessions: %ld  alt_allele_count: %ld \n", the_gtsset->n_accessions, alt_allele_counts->a[i]); */
+    /* } */
+  
+    if (
+	(alt_allele_counts->a[i] > 0) &&  // at last one accession has the alt allele
+	(md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions)  // not too much missing data
+	){ 
+        bool alt_allele_freq_not_extreme = ( // 
+					  (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
+					  (alt_allele_counts->a[i] <= max_min_allele_count) // and not too large
+					  );
+	bool output_extreme_alt_allele_freq = false;  // false is normal here, true just for comparing effect of lo vs hi maf.
+    bool alt_allele_freq_ok = (alt_allele_freq_not_extreme || output_extreme_alt_allele_freq) && !(alt_allele_freq_not_extreme && output_extreme_alt_allele_freq);
+      if ( alt_allele_freq_ok ){ // the alt_allele_frequency is in the right range
       md_ok->a[i] = 1;
       n_markers_to_keep++;
       mdsum_kept += md_counts->a[i];
@@ -551,6 +565,7 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
       add_long_to_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
     }
   }
+  } // end of loops over markers
   double raw_md_fraction = (double)mdsum_all/(double)(md_counts->size*n_accs);
   double cleaned_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
   double raw_minor_allele_freq = (double)altallelesum_all/(md_counts->size*n_accs*the_gtsset->ploidy);

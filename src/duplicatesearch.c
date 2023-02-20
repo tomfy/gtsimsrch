@@ -274,11 +274,13 @@ main(int argc, char *argv[])
   fprintf(out_stream, "%s", rparam_buf);
   free(rparam_buf);
   
-  // *****  done processing command line  *****
+  // *****  done processing command line  *****************************************
 
   long n_ref_accessions = 0;
   long n_accessions = 0;
   long n_markers = 0;
+
+  // *****  read in genotype data (including optionally a reference data set) and create a genotypesset object.
 
   double t_start = hi_res_time();
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy); 
@@ -297,8 +299,8 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to load dosage data: %6.3lf sec.\n", hi_res_time() - t_start);
 
     ploidy = the_genotypes_set->ploidy;
-  //  find  chunk_size  if not specified on command line
-  if(chunk_size <= 0){
+  //  find  chunk_size  if not specified on command line; 
+    if(chunk_size <= 0){ // with MAX_PATTERNS of 10000, chunk_size is 8 for diploid, 5 for tetraploid, 4 for hexaploid.
     chunk_size = (long)(log(MAX_PATTERNS)/log((double)ploidy+1.0));
   }
   the_genotypes_set->max_marker_missing_data_fraction = (max_marker_missing_data_fraction <= 0)? 2.0/chunk_size : max_marker_missing_data_fraction;
@@ -307,7 +309,7 @@ main(int argc, char *argv[])
 
   // fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
 
-  rectify_markers(the_genotypes_set);
+  rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
   clean_genotypesset(the_genotypes_set);
   store_homozygs(the_genotypes_set);
   // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
@@ -713,7 +715,7 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Accession* m_acc = the_accessions->a[the_mci->match_index];
 
       
-      fprintf(ostream, "%26s  %26s  %5.2f  %3ld %7.4f  %6.4f",
+      fprintf(ostream, "%26s  %26s  %5.2f  %3ld %7.4f  %8.6f",
 	      // i_q,
 	      q_acc->id->a,   m_acc->id->a,  
 	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
