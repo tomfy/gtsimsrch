@@ -39,7 +39,7 @@ use Cluster1d;
 my $input_agmr_filename = undef;
 my $cluster_max_agmr = 'auto'; # construct graph with edges between pairs of accessions iff their agmr is <= this.
 my $output_cluster_filename = "agmr_cluster.out";
-my $pow = 1; # 'log';
+my $pow = 1;			# 'log';
 my $minx = 0.001;
 
 GetOptions(
@@ -49,44 +49,62 @@ GetOptions(
 	   'pow=s' => \$pow,
 	  );
 
-if(!defined $input_agmr_filename){
+if (!defined $input_agmr_filename) {
   print STDERR "Basic usage example: \n", "agmr_cluster -in duplicatesearch.out  -out acluster.out \n";
   print STDERR "by default agmr_cluster will attempt to automatically decide the max agmr between duplicates.\n",
     " but you can specify it with the cluster option, e.g.  -cluster 0.06 \n";
   exit;
 }
 
-my %edge_weight = ();
+# store all agmrs in the input file in hash %edge_weight
+my %edge_weight = (); # keys are ordered pairs of accession ids representing graph edges, values are agmrs
+my %id_closeidas = (); # keys are ids, values ids and agmrs of other close accessions. id1:["$id2 $agmr12", "$id3 $agmr13", ...]
+#my %id_agmrs = (); # keys are ids, values array ref of agmrs found between that id and others
 open my $fhin, "<", "$input_agmr_filename" or die "Couldn't open $input_agmr_filename for reading.\n";
-while(my $line = <$fhin>){
-   next if($line =~ /^\s*#/);
+while (my $line = <$fhin>) {
+  next if($line =~ /^\s*#/);
   my ($id1, $id2, $usable_chunks, $match_chunks, $est_agmr, $agmr) = split(" ", $line);
- my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
-$edge_weight{$edge_verts} = $agmr;
+  my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
+  if (!exists $id_closeidas{$id1}) {
+    $id_closeidas{$id1} = ["$id2 $agmr"];
+  } else {
+    push @{$id_closeidas{$id1}}, "$id2 $agmr";
+  }
+  # if(!exists $id_agmrs{$id1}){
+  #   $id_agmrs{$id1} = [$agmr];
+  # }else{
+  #   push @{$id_agmrs{$id1}}, $agmr;
+  # }
+  $edge_weight{$edge_verts} = $agmr;
 }
 close $fhin;
 
 my @agmrs = values %edge_weight;
-if($cluster_max_agmr eq 'auto'){
+if ($cluster_max_agmr eq 'auto') {
+ 
   my $cluster1d_obj = Cluster1d->new({label => '', xs => \@agmrs, pow => $pow, minx => $minx});
+  print  "before two_cluster \n";
   print  "#  pow: $pow  min: $minx \n";
-  my ($Hopt, $maxQ) = $cluster1d_obj->two_cluster();
-  my ($Hoptx, $maxQx) = (0, 0); # $cluster1d_obj->two_cluster_x();
-  
-  my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt, $kde_q) = $cluster1d_obj->one_d_2cluster();
-  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f   Hopt: %6.4f  maxQ: %6.4f.  Hoptx: %6.4f  maxQx: %6.4f \n",
-       $n_pts, $km_n_L, $km_h_opt, $km_n_R, $q,
-	  $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q, $Hopt, $maxQ, $Hoptx, $maxQx);
-  $cluster_max_agmr = $kde_h_opt;
+  my ($Hopt, $maxQ, $Hmid_half_max) = $cluster1d_obj->two_cluster();
+  # my ($Hoptx, $maxQx) = (0, 0); # $cluster1d_obj->two_cluster_x();
+  print "# after two_cluster \n";
+  #  print "# before k-means/kde clustering \n";
+  #  my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt, $kde_q) = $cluster1d_obj->one_d_2cluster();
+  #  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f   Hopt: %6.4f  maxQ: %6.4f.  Hmhmx: %6.4f \n",
+  #       $n_pts, $km_n_L, $km_h_opt, $km_n_R, $q, $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q, $Hopt, $maxQ, $Hmid_half_max);
+  printf(STDERR  "Hopt: %6.4f  maxQ: %6.4f.  Hmhmx: %6.4f \n", $Hopt, $maxQ, $Hmid_half_max);
+  $cluster_max_agmr = $Hmid_half_max;
 }
+#print "ZZZZ\n";
+#exit;
 
 # construct graph with edges between vertices (accessions) for pairs with agmr < $cluster_max_agmr
 # graph is constructed by adding edges and their endpoints; graph does not contain single unconnected vertices.
 my $g = Graph::Undirected->new;
-		# keys: vertex pairs, values: agmrs
+# keys: vertex pairs, values: agmrs
 
 
-while (my ($e, $w) = each %edge_weight){
+while (my ($e, $w) = each %edge_weight) {
  
   if ($w <= $cluster_max_agmr) {
     my ($id1, $id2) = split(" ", $e);
@@ -98,8 +116,10 @@ my @ccs = $g->connected_components; # the connected components of graph are the 
 
 my @output_lines = ();
 
-my $count = 0; # counts the number of accessions 
+my $count = 0;			# counts the number of accessions
 for my $acc (@ccs) { # for each connected component (cluster of near-identical accessions)
+  my %clusterids = map(($_ => 1), @$acc);
+  my $cluster_noncluster_gap = least_noncluster_agmr(\%clusterids, \%id_closeidas);
   my $cc_size = scalar @$acc;
   $count += $cc_size;
   my $output_line_string = '';
@@ -109,14 +129,14 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
     my ($minw, $maxw) = (100000, -1);
     for (my $j=$i+1; $j<scalar @sorted_cc; $j++) {
       my $u = $sorted_cc[$j];
-      if($u eq $v){
+      if ($u eq $v) {
 	warn "# $u $v  Why are they the same?\n";
 	next;
       }
       my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
       my $weight = $edge_weight{$edge_verts} // -1;
       if ($weight == -1) {
-	$nbad++; # just counts pairs in cluster with agmr not found
+	$nbad++;    # just counts pairs in cluster with agmr not found
       } else {
 	$minw = $weight if($weight < $minw);
 	$maxw = $weight if($weight > $maxw);
@@ -127,7 +147,7 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
     $ccmaxw = $maxw if($maxw > $ccmaxw);
     $output_line_string .= "$v  ";
   }
-  $output_line_string = "$cc_size  $ccminw $ccmaxw   $nbad  " . $output_line_string . "\n";
+  $output_line_string = "$cc_size  $ccminw $ccmaxw  $cluster_noncluster_gap  $nbaddish  $nbad  " . $output_line_string . "\n";
   push @output_lines, $output_line_string;
 }
 
@@ -143,4 +163,25 @@ sub compare_str{ # sort by size of cluster, tiebreaker is id of first accession 
   my @cols1 = split(" ", $str1);
   my @cols2 = split(" ", $str2);
   return ($cols1[0] != $cols2[0])? $cols1[0] <=> $cols2[0] : $cols1[4] cmp $cols2[4];
+}
+
+sub least_noncluster_agmr{	# call once for each cluster,
+  # to get least agmr from cluster to outside cluster.
+  my $clustids = shift;		# hash ref, keys ids in cluster.
+  my $id1_id2as = shift; # hash ref; key ids; value: array ref of strings with id2, agmr12
+  # my $cluster_max_agmr = shift;
+  my $min_agmr_to_noncluster = 1;
+  for my $id1 (keys %$clustids) { # loop over elements of cluster
+
+    for my $s (@{$id1_id2as->{$id1}}) { # loop over accessions with smallish agmr to id1
+      my ($id2, $d) = split(" ", $s);
+      if (
+	  # $d > $cluster_max_agmr  and  #
+	  !exists $clustids->{$id2}
+	 ) {
+	$min_agmr_to_noncluster = $d if($d < $min_agmr_to_noncluster);
+      }
+    }
+  }
+  return $min_agmr_to_noncluster;
 }
