@@ -84,7 +84,8 @@ void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi);
 Vlong* find_chunk_match_counts(Accession* the_gts, Chunk_pattern_ids* the_cpi);
 Vmci** find_matches(GenotypesSet* the_genotypes_set,
 		    //long n_ref_accessions, Vaccession* the_accessions,
-		    Chunk_pattern_ids* the_cpi, double max_est_agmr);
+		    Chunk_pattern_ids* the_cpi, double max_est_agmr,
+		    Vdouble* maf_threshholds);
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 void print_command_line(FILE* ostream, int argc, char** argv);
@@ -314,6 +315,12 @@ main(int argc, char *argv[])
 
   // fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
 
+  /* Vlong* xxx = the_genotypes_set->marker_alt_allele_counts; */
+  /* for(long jj=0; jj<xxx->size; jj++){ */
+  /*   fprintf(stderr, "%ld  %ld \n", jj, xxx->a[jj]); */
+  /* } */
+  /* exit(0); */
+  
   rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
   clean_genotypesset(the_genotypes_set);
   store_homozygs(the_genotypes_set);
@@ -323,6 +330,14 @@ main(int argc, char *argv[])
   long median_index = sorted_mafs->size / 2;
   double median_maf = sorted_mafs->a[median_index];
   fprintf(stderr, "median index: %ld  median maf: %lf \n", median_index, median_maf);
+   FILE* fh = fopen("mafs.out", "w");
+   for(long i=0; i<sorted_mafs->size; i++){
+     fprintf(fh, "%lf\n", sorted_mafs->a[i]);
+   }
+   Vdouble* maf_threshholds = construct_vdouble(2);
+   add_double_to_vdouble(maf_threshholds, median_maf);
+   add_double_to_vdouble(maf_threshholds, 1.0);
+   fprintf(stderr, "# # # # %ld %ld \n", maf_threshholds->capacity, maf_threshholds->size);
 
   the_accessions = the_genotypes_set->accessions;
    
@@ -365,7 +380,7 @@ main(int argc, char *argv[])
   
   t_start = hi_res_time(); 
   // Vmci** query_vmcis = find_matches(n_ref_accessions, the_accessions, the_cpi, max_est_agmr);
-  Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, max_est_agmr);
+  Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, max_est_agmr, maf_threshholds);
   long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# Time to find candidate matches and %ld true agmrs: %6.3f\n", true_agmr_count, hi_res_time() - t_start);
   fclose(out_stream);
@@ -652,7 +667,7 @@ double agmr(Accession* gtset1, Accession* gtset2){
 }
 
 Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2, Vdouble* maf_threshholds){
-  add_double_to_vdouble(maf_threshholds, 1.0);
+  //  add_double_to_vdouble(maf_threshholds, 1.0);
   Vdouble* agmrs = construct_vdouble(maf_threshholds->size);
   long n_markers = acc1->genotypes->length;
   if(DO_ASSERT) assert(acc2->genotypes->length == n_markers);
@@ -669,10 +684,9 @@ Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* ac
     if(DO_ASSERT) assert(a2 != '\0'  &&  a1 != '\0');
     if(a1 != MISSING_DATA_CHAR){
       if(a2 != MISSING_DATA_CHAR){
-	double marker_alt_allele_freq = marker_alt_allele_counts->a[i]/(double)(the_gtset->n_accessions - marker_md_counts->a[i]);
+	double marker_alt_allele_freq = 0.5*marker_alt_allele_counts->a[i]/(double)(the_gtset->n_accessions - marker_md_counts->a[i]);
 	for(long j=0; j< maf_threshholds->size; j++){
-	  if(marker_alt_allele_freq < maf_threshholds->a[j]){
-	    
+	  if(marker_alt_allele_freq < maf_threshholds->a[j]){	    
 	    denominators->a[j]++;
 	    if(a1 != a2) numerators->a[j]++;
 	    break;
@@ -685,6 +699,7 @@ Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* ac
   for(long j=0; j< agmrs->size; j++){
     agmrs->a[j] = (double)numerators->a[j]/(double)denominators->a[j];
   }
+  //  fprintf(stderr, "### %ld \n", agmrs->size);
   return agmrs;
 }
 
@@ -712,7 +727,8 @@ Vmci** find_matches(GenotypesSet* the_genotypes_set,
 		    // long n_ref_accessions, Vaccession* the_accessions,
 		    Chunk_pattern_ids* the_cpi,
 		    //long min_usable_chunks,
-		    double max_est_agmr)
+		    double max_est_agmr,
+		    Vdouble* maf_threshholds)
 {
   clock_t start = clock();
   clock_t fcmc_ticks = 0;
@@ -753,12 +769,12 @@ Vmci** find_matches(GenotypesSet* the_genotypes_set,
 	double true_agmr = agmr(q_gts, the_accessions->a[i_match]); //, &true_hgmr);
 	// Three_ds dists = poly_agmr(q_gts, the_accessions->a[i_match]);
 	//double true_agmr = dists.d1;
-	double mafs[2] = {0.02,0.2};
-	Vdouble* maf_threshholds = construct_vdouble_from_array(2, mafs);
+	//	double mafs[2] = {0.02,0.2};
+	//Vdouble* maf_threshholds = construct_vdouble_from_array(2, mafs);
 	//	fprintf(stderr, "number of maf categories: %ld \n", maf_threshholds->size);
 	if(true_agmr <= max_est_agmr){
 	  Vdouble* agmrs = maf_range_agmrs(the_genotypes_set, q_gts, the_accessions->a[i_match], maf_threshholds);
-	  //	  fprintf(stderr, "number of agmrs: %ld \n", agmrs->size);
+	  // fprintf(stderr, "number of agmrs: %ld \n", agmrs->size);
 	  true_agmr_count++;
 	  add_mci_to_vmci(query_vmcis[i_query],
 			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, agmrs)); //, dists.d2, dists.d3)); //true_hgmr))	  //  fprintf(stderr, "# i_query i_match: %ld %ld \n", i_query, i_match);
