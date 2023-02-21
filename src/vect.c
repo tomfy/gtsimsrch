@@ -236,6 +236,25 @@ Vdouble* add_double_to_vdouble(Vdouble* the_vdouble, double x){
   the_vdouble->size++;
 }
 
+void sort_vdouble(Vdouble* the_vdouble){
+  qsort(the_vdouble->a, the_vdouble->size, sizeof(double), compare_double);
+  //  for(long j=0; j<5; j++){ fprintf(stderr, "a: %lf  ", the_vdouble->a[j]); } fprintf(stderr, "\n");
+
+}
+
+int compare_double(const void* a, const void* b){
+  //  fprintf(stderr, "%lf  %lf  \n", *(double*)a, *(double*)b);
+  double aa = *(double*)a;
+  double bb = *(double*)b;
+  if(aa > bb){
+    return 1;
+  }else if(aa < bb){
+    return -1;
+  }else{
+    return 0;
+  }
+}
+
 void free_vdouble(const Vdouble* the_vdouble){ // free memory
   if(the_vdouble == NULL) return;
   free(the_vdouble->a);

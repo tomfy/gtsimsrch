@@ -76,6 +76,8 @@ void free_vchar(const Vchar* the_vchar);
 Vdouble* construct_vdouble(long cap); // construct empty Vdouble with capacity cap.
 Vdouble* construct_vdouble_from_array(long size, double* array); // intialize with array of known size
 Vdouble* add_double_to_vdouble(Vdouble* the_vdouble, double x);
+void sort_vdouble(Vdouble* the_vdouble);
+int compare_double(const void* a, const void* b);
 void free_vdouble(const Vdouble* the_vdouble); // free memory
 
 // *****  IndexId  *****
