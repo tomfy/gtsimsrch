@@ -268,7 +268,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	the_genotypes_set->marker_missing_data_counts->a[marker_count]++;
 	accession_missing_data_count++;
       }else{
-	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48); // 48->0, 49->1, 50->2
+	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48); // 48->0, 49->1, 50->2, etc.
       }
       
       marker_count++;
@@ -619,16 +619,26 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
   long n_markers = the_gtsset->marker_alt_allele_counts->size;
   long ploidy = the_gtsset->ploidy;
   // fprintf(stderr, "n_acc: %ld n_markers: %ld ploidy: %ld \n", n_accessions, n_markers, ploidy);
+     long delta_dosage;
   for(long i=0; i<n_markers; i++){
     //  fprintf(stderr, "i: %ld altcount  %ld   md count: %ld \n", i, the_gtsset->marker_alt_allele_counts->a[i], the_gtsset->marker_missing_data_counts->a[i]);
-    if(the_gtsset->marker_alt_allele_counts->a[i] > (n_accessions - the_gtsset->marker_missing_data_counts->a[i])){
+    delta_dosage = 0;
+    if(the_gtsset->marker_alt_allele_counts->a[i] > (n_accessions - the_gtsset->marker_missing_data_counts->a[i])){ // 
       for(long j=0; j<n_accessions; j++){
 	char dosage = the_gtsset->accessions->a[j]->genotypes->a[i];
 	if(dosage != MISSING_DATA_CHAR){
-	  the_gtsset->accessions->a[j]->genotypes->a[i] = (ploidy - (dosage - 48)) + 48;
+	  long ldosage = dosage-48;
+	  the_gtsset->accessions->a[j]->genotypes->a[i] = (char)(ploidy - ldosage) + 48;
+	  delta_dosage += ploidy - 2*ldosage;
+	  //  fprintf(stderr, "%ld %ld %ld  %ld  %ld\n", ploidy, (long)(dosage-48), ldosage, (long)(the_gtsset->accessions->a[j]->genotypes->a[i] - 48), delta_dosage );
+	  //	  getchar();
 	}
       }
     }
+    // so far genotypes of each accession have (if necessary) been 'rectified', but now marker_alt_allele_counts needs to be updated
+    //  fprintf(stderr, "%ld  %ld   ", the_gtsset->marker_alt_allele_counts->a[i], delta_dosage);
+    the_gtsset->marker_alt_allele_counts->a[i] += delta_dosage;
+    //  fprintf(stderr, "%ld\n", the_gtsset->marker_alt_allele_counts->a[i]);
   }
 }
 
