@@ -55,6 +55,7 @@ char* ipat_to_strpat(long len, long ipat); // unused
 long strpat_to_ipat(long len, char* strpat); // unused
 double agmr(Accession* gts1, Accession* gts2);
 Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2, Vdouble* maf_threshholds);
+Vdouble* get_sorted_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
@@ -316,7 +317,12 @@ main(int argc, char *argv[])
   rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
   clean_genotypesset(the_genotypes_set);
   store_homozygs(the_genotypes_set);
+  Vdouble* sorted_mafs = get_sorted_minor_allele_frequencies(the_genotypes_set);
+  // for(long i=0; i<15; i++){ fprintf(stderr, "%lf  ", sorted_mafs->a[i]); } fprintf(stderr, "\n"); 
   // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
+  long median_index = sorted_mafs->size / 2;
+  double median_maf = sorted_mafs->a[median_index];
+  fprintf(stderr, "median index: %ld  median maf: %lf \n", median_index, median_maf);
 
   the_accessions = the_genotypes_set->accessions;
    
@@ -622,8 +628,6 @@ void sort_vmci_by_index(Vmci* the_vmci){ // sort by agmr (low to high), query in
   qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_i);
 }
 
-
-
 // *********************************************
 // *********************************************
 
@@ -682,6 +686,26 @@ Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* ac
     agmrs->a[j] = (double)numerators->a[j]/(double)denominators->a[j];
   }
   return agmrs;
+}
+
+Vdouble* get_sorted_minor_allele_frequencies(GenotypesSet* the_gtset){
+  Vlong* missing_data_counts = the_gtset->marker_missing_data_counts;
+  Vlong* minor_allele_counts = the_gtset->marker_alt_allele_counts;
+  if(DO_ASSERT) assert(missing_data_counts->size == minor_allele_counts->size);
+  Vdouble* marker_mafs = construct_vdouble(missing_data_counts->size);
+  for(long i=0; i<missing_data_counts->size; i++){
+    long ok_count = the_gtset->n_accessions - missing_data_counts->a[i];
+    if(ok_count > 0){
+      double minor_allele_frequency = (double)minor_allele_counts->a[i]/(double)(2.0*ok_count);
+      add_double_to_vdouble(marker_mafs, minor_allele_frequency);
+      }
+  }
+  // now sort the mafs:
+  //  for(long j=0; j<5; j++){ fprintf(stderr, "%lf  ", marker_mafs->a[j]); } fprintf(stderr, "\n");
+  sort_vdouble(marker_mafs);
+  // for(long j=0; j<5; j++){ fprintf(stderr, "%lf  ", marker_mafs->a[j]); } fprintf(stderr, "\n");
+
+  return marker_mafs;
 }
 
 Vmci** find_matches(GenotypesSet* the_genotypes_set,
