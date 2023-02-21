@@ -729,8 +729,8 @@ Vmci** find_matches(GenotypesSet* the_genotypes_set,
 	double true_agmr = agmr(q_gts, the_accessions->a[i_match]); //, &true_hgmr);
 	// Three_ds dists = poly_agmr(q_gts, the_accessions->a[i_match]);
 	//double true_agmr = dists.d1;
-	double mafs[1] = {0.07};
-	Vdouble* maf_threshholds = construct_vdouble_from_array(1, mafs);
+	double mafs[2] = {0.02,0.2};
+	Vdouble* maf_threshholds = construct_vdouble_from_array(2, mafs);
 	//	fprintf(stderr, "number of maf categories: %ld \n", maf_threshholds->size);
 	if(true_agmr <= max_est_agmr){
 	  Vdouble* agmrs = maf_range_agmrs(the_genotypes_set, q_gts, the_accessions->a[i_match], maf_threshholds);
