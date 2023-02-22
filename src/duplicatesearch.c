@@ -112,6 +112,7 @@ main(int argc, char *argv[])
   double max_est_agmr = 0.2;
   long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
   char default_output_filename[] = "duplicatesearch.out";
+  long n_maf_categories = 3;
 
   char* rparam_buf;
   size_t rparam_len;
@@ -131,10 +132,10 @@ main(int argc, char *argv[])
   FILE* out_stream = NULL;
     
   int c;
-  while((c = getopt(argc, argv, "i:r:o:n:k:e:s:x:a:f:h")) != -1){
+  while((c = getopt(argc, argv, "i:r:o:n:m:k:e:s:x:a:f:h")) != -1){
     // i: input file name (required).
     // r: reference set file name (optional).
-    // o: output file name. Default:
+    // o: output file name. Default: "duplicatesearch.out"
     // s: random number seed. Default: get seed from clock.
     // x: marker max missing data fraction. Default: 2.0/chunk_size
     // f: accession max missing data fraction. Default: 0.5
@@ -144,6 +145,7 @@ main(int argc, char *argv[])
     // n: use n*n_markers/chunk_size chunks. (i.e. each marker gets used in ~n chunks). Default: 1
     // v: verbosity. Default: 1, 2 gives slightly more output.
     // h: help. print usage info
+    // m: n maf categories. Default: 2;
      
     switch(c){
     case 'i':
@@ -178,6 +180,13 @@ main(int argc, char *argv[])
       n_passes = (long)atoi(optarg);
       if(n_passes <= 0){
 	fprintf(stderr, "option n (n_passes) requires an integer argument > 0\n");
+	exit(EXIT_FAILURE);
+      }
+      break;
+        case 'm': 
+      n_maf_categories = (long)atoi(optarg);
+      if(n_maf_categories <= 0){
+	fprintf(stderr, "option m (n_maf_categories) requires an integer argument > 0\n");
 	exit(EXIT_FAILURE);
       }
       break;
@@ -327,20 +336,23 @@ main(int argc, char *argv[])
 
   //  ************************************************
   Vdouble* sorted_mafs = get_sorted_minor_allele_frequencies(the_genotypes_set);
+  Vdouble* maf_threshholds = construct_vdouble(n_maf_categories);
   // for(long i=0; i<15; i++){ fprintf(stderr, "%lf  ", sorted_mafs->a[i]); } fprintf(stderr, "\n"); 
   // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
-  long median_index = sorted_mafs->size / 2;
-  double median_maf = 0.5*(sorted_mafs->a[median_index] + sorted_mafs->a[median_index]);
-			   
-  fprintf(stderr, "median index: %ld  median maf: %lf \n", median_index, median_maf);
-   FILE* fh = fopen("mafs.out", "w");
-   for(long i=0; i<sorted_mafs->size; i++){
-     fprintf(fh, "%lf\n", sorted_mafs->a[i]);
-   }
-   Vdouble* maf_threshholds = construct_vdouble(2);
-   add_double_to_vdouble(maf_threshholds, median_maf);
-   add_double_to_vdouble(maf_threshholds, 1.0);
-   //  ************************************************			   
+  for(long i=1; i<n_maf_categories; i++){
+    long quantile_index = sorted_mafs->size*i/n_maf_categories;
+    double quantile_maf = 0.5*(sorted_mafs->a[quantile_index] + sorted_mafs->a[quantile_index+1]);
+    add_double_to_vdouble(maf_threshholds, quantile_maf);
+    fprintf(stderr, "quantile: %lf index: %ld  maf: %lf \n", (double)i/n_maf_categories, quantile_index, quantile_maf);
+  }
+  add_double_to_vdouble(maf_threshholds, 1.0);
+  
+  FILE* fh = fopen("mafs.out", "w");
+  for(long i=0; i<sorted_mafs->size; i++){
+    fprintf(fh, "%lf\n", sorted_mafs->a[i]);
+  }
+  fclose(fh);
+  //  ************************************************			   
 
   the_accessions = the_genotypes_set->accessions;
    
