@@ -299,7 +299,7 @@ main(int argc, char *argv[])
     fprintf(stdout, "# Done reading reference data set dosages from file %s. %ld accessions and %ld markers.\n",
 	    reference_set_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   }
-  add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new leset of accessions
+  add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
   fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   fprintf(stdout, "# Time to load dosage data: %6.3lf sec.\n", hi_res_time() - t_start);
@@ -324,11 +324,14 @@ main(int argc, char *argv[])
   rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
   clean_genotypesset(the_genotypes_set);
   store_homozygs(the_genotypes_set);
+
+  //  ************************************************
   Vdouble* sorted_mafs = get_sorted_minor_allele_frequencies(the_genotypes_set);
   // for(long i=0; i<15; i++){ fprintf(stderr, "%lf  ", sorted_mafs->a[i]); } fprintf(stderr, "\n"); 
   // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
   long median_index = sorted_mafs->size / 2;
-  double median_maf = sorted_mafs->a[median_index];
+  double median_maf = 0.5*(sorted_mafs->a[median_index] + sorted_mafs->a[median_index]);
+			   
   fprintf(stderr, "median index: %ld  median maf: %lf \n", median_index, median_maf);
    FILE* fh = fopen("mafs.out", "w");
    for(long i=0; i<sorted_mafs->size; i++){
@@ -337,7 +340,7 @@ main(int argc, char *argv[])
    Vdouble* maf_threshholds = construct_vdouble(2);
    add_double_to_vdouble(maf_threshholds, median_maf);
    add_double_to_vdouble(maf_threshholds, 1.0);
-   fprintf(stderr, "# # # # %ld %ld \n", maf_threshholds->capacity, maf_threshholds->size);
+   //  ************************************************			   
 
   the_accessions = the_genotypes_set->accessions;
    
@@ -677,6 +680,7 @@ Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* ac
   Vlong* denominators =  construct_vlong_zeroes(maf_threshholds->size);
   Vlong* marker_alt_allele_counts = the_gtset->marker_alt_allele_counts;
   Vlong* marker_md_counts = the_gtset->marker_missing_data_counts;
+  Vlong* markers_used = construct_vlong_zeroes(maf_threshholds->size);
   // fprintf(stderr, "n genotypes: %ld  %ld \n", acc1->genotypes->length, acc2->genotypes->length);
   for(long i=0; i<n_markers; i++){ 
     char a1 = gts1[i];
@@ -686,14 +690,18 @@ Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* ac
       if(a2 != MISSING_DATA_CHAR){
 	double marker_alt_allele_freq = 0.5*marker_alt_allele_counts->a[i]/(double)(the_gtset->n_accessions - marker_md_counts->a[i]);
 	for(long j=0; j< maf_threshholds->size; j++){
-	  if(marker_alt_allele_freq < maf_threshholds->a[j]){	    
+	  if(marker_alt_allele_freq <= maf_threshholds->a[j]){	    
 	    denominators->a[j]++;
 	    if(a1 != a2) numerators->a[j]++;
+	    markers_used->a[j]++;
 	    break;
 	  }
 	} // end loop over maf ranges
       }
     }
+    /* for(long jjj=0; jjj<markers_used->size; jjj++){ */
+    /*   fprintf(stderr, "%ld  %8.5lf  ", markers_used->a[jjj], maf_threshholds->a[jjj]); */
+    /* }fprintf(stderr, "\n"); */
   } // end loop over markers
   agmrs->size = numerators->size;
   for(long j=0; j< agmrs->size; j++){

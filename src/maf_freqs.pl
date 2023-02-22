@@ -12,6 +12,7 @@ my @mds;
 my $N;
 my $n_accessions = 0;
 my $n_ok_accessions = 0;
+my $bad_acc_count = 0;
 while (<>) {
   next if(/^\s*#/);
   my @cols;
@@ -29,23 +30,26 @@ while (<>) {
     my $accid = $1;
     my $NA_count = () = /NA/gi;
     $n_accessions++;
-    next if($NA_count > $acc_max_md_fraction*$N); # accession has excessive missing data
+    if ($NA_count > $acc_max_md_fraction*$N) { # accession has excessive missing data
+      $bad_acc_count++;
+      next;
+    }
     @cols = split(" ", $_);
-      while (my($i, $v) = each @cols) {
-	if ($v eq 'NA') {
-	  $mds[$i]++;
-	} elsif ($v == 0) {
-	  $zeroes[$i]++;
-	} elsif ($v == 1) {
-	  $ones[$i]++;
-	} elsif ($v == 2) {
-	  $twos[$i]++;
-	} else {
-	  warn "dosage is $v ??\n";
-	}
+    while (my($i, $v) = each @cols) {
+      if ($v eq 'NA') {
+	$mds[$i]++;
+      } elsif ($v == 0) {
+	$zeroes[$i]++;
+      } elsif ($v == 1) {
+	$ones[$i]++;
+      } elsif ($v == 2) {
+	$twos[$i]++;
+      } else {
+	warn "dosage is $v ??\n";
       }
+    }
+    $n_ok_accessions++;
   }
-  $n_ok_accessions++;
 }
 
 for (my $i=0; $i < scalar @marker_ids; $i++) {
