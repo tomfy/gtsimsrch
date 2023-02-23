@@ -54,7 +54,10 @@ void print_usage_info(FILE* ostream);
 char* ipat_to_strpat(long len, long ipat); // unused
 long strpat_to_ipat(long len, char* strpat); // unused
 double agmr(Accession* gts1, Accession* gts2);
-Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2, Vdouble* maf_threshholds);
+// Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2, Vdouble* maf_threshholds);
+Vlong** get_maf_cat_marker_indices(GenotypesSet* the_genotypes_set, long n_maf_categories);
+Vdouble* maf_category_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2, // Vdouble* maf_threshholds,
+			    long n_maf_categories, Vlong** maf_cat_marker_indices);
 Vdouble* get_sorted_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 // *****  Mci  ********
@@ -83,9 +86,9 @@ void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi);
 // *****  Gts and Chunk_pattern_ids  ***********
 Vlong* find_chunk_match_counts(Accession* the_gts, Chunk_pattern_ids* the_cpi);
 Vmci** find_matches(GenotypesSet* the_genotypes_set,
-		    //long n_ref_accessions, Vaccession* the_accessions,
 		    Chunk_pattern_ids* the_cpi, double max_est_agmr,
-		    Vdouble* maf_threshholds);
+		      long n_maf_categories,
+		    Vlong** maf_cat_marker_indices);
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 void print_command_line(FILE* ostream, int argc, char** argv);
@@ -112,7 +115,7 @@ main(int argc, char *argv[])
   double max_est_agmr = 0.2;
   long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
   char default_output_filename[] = "duplicatesearch.out";
-  long n_maf_categories = 3;
+  long n_maf_categories = 2;
 
   char* rparam_buf;
   size_t rparam_len;
@@ -321,37 +324,13 @@ main(int argc, char *argv[])
   the_genotypes_set->max_marker_missing_data_fraction = (max_marker_missing_data_fraction <= 0)? 2.0/chunk_size : max_marker_missing_data_fraction;
   fprintf(out_stream, "# Max. marker missing data fraction: %5.3lf\n", the_genotypes_set->max_marker_missing_data_fraction);
   fprintf(stdout, "# Max. marker missing data fraction: %5.3lf\n", the_genotypes_set->max_marker_missing_data_fraction);
-
-  // fprintf(stdout, "# pre-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
-
-  /* Vlong* xxx = the_genotypes_set->marker_alt_allele_counts; */
-  /* for(long jj=0; jj<xxx->size; jj++){ */
-  /*   fprintf(stderr, "%ld  %ld \n", jj, xxx->a[jj]); */
-  /* } */
-  /* exit(0); */
   
   rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
   clean_genotypesset(the_genotypes_set);
   store_homozygs(the_genotypes_set);
 
   //  ************************************************
-  Vdouble* sorted_mafs = get_sorted_minor_allele_frequencies(the_genotypes_set);
-  Vdouble* maf_threshholds = construct_vdouble(n_maf_categories);
-  // for(long i=0; i<15; i++){ fprintf(stderr, "%lf  ", sorted_mafs->a[i]); } fprintf(stderr, "\n"); 
-  // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
-  for(long i=1; i<n_maf_categories; i++){
-    long quantile_index = sorted_mafs->size*i/n_maf_categories;
-    double quantile_maf = 0.5*(sorted_mafs->a[quantile_index] + sorted_mafs->a[quantile_index+1]);
-    add_double_to_vdouble(maf_threshholds, quantile_maf);
-    fprintf(stderr, "quantile: %lf index: %ld  maf: %lf \n", (double)i/n_maf_categories, quantile_index, quantile_maf);
-  }
-  add_double_to_vdouble(maf_threshholds, 1.0);
-  
-  FILE* fh = fopen("mafs.out", "w");
-  for(long i=0; i<sorted_mafs->size; i++){
-    fprintf(fh, "%lf\n", sorted_mafs->a[i]);
-  }
-  fclose(fh);
+  Vlong** maf_category_marker_indices = get_maf_cat_marker_indices(the_genotypes_set, n_maf_categories);
   //  ************************************************			   
 
   the_accessions = the_genotypes_set->accessions;
@@ -395,7 +374,7 @@ main(int argc, char *argv[])
   
   t_start = hi_res_time(); 
   // Vmci** query_vmcis = find_matches(n_ref_accessions, the_accessions, the_cpi, max_est_agmr);
-  Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, max_est_agmr, maf_threshholds);
+  Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, max_est_agmr, n_maf_categories, maf_category_marker_indices);
   long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# Time to find candidate matches and %ld true agmrs: %6.3f\n", true_agmr_count, hi_res_time() - t_start);
   fclose(out_stream);
@@ -446,7 +425,7 @@ void populate_chunk_pattern_ids_from_vaccession(Vaccession* the_accessions, Chun
 	the_cpi->a[i_chunk]->a[the_pat] = construct_vlong(1);
       }
       Vlong* the_accidxs = the_cpi->a[i_chunk]->a[the_pat];	
-      add_long_to_vlong(the_accidxs, the_gts->index);
+      push_vlong(the_accidxs, the_gts->index);
     }
   }
   
@@ -681,7 +660,88 @@ double agmr(Accession* gtset1, Accession* gtset2){
   return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1;
 }
 
-Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2, Vdouble* maf_threshholds){
+Vlong** get_maf_cat_marker_indices(GenotypesSet* the_genotypes_set, long n_maf_categories){
+  
+  Vdouble* sorted_mafs = get_sorted_minor_allele_frequencies(the_genotypes_set);
+  Vdouble* maf_threshholds = construct_vdouble(n_maf_categories);
+  // for(long i=0; i<15; i++){ fprintf(stderr, "%lf  ", sorted_mafs->a[i]); } fprintf(stderr, "\n"); 
+  // fprintf(stdout, "# post-cleaning ragmr: %8.6f \n", ragmr(the_genotypes_set));
+  for(long i=1; i<n_maf_categories; i++){
+    long quantile_index = sorted_mafs->size*i/n_maf_categories;
+    double quantile_maf = 0.5*(sorted_mafs->a[quantile_index] + sorted_mafs->a[quantile_index+1]);
+    add_double_to_vdouble(maf_threshholds, quantile_maf);
+    fprintf(stderr, "quantile: %lf index: %ld  maf: %lf \n", (double)i/n_maf_categories, quantile_index, quantile_maf);
+  }
+  add_double_to_vdouble(maf_threshholds, 1.0);
+  
+  FILE* fh = fopen("mafs.out", "w");
+  for(long i=0; i<sorted_mafs->size; i++){
+    fprintf(fh, "%lf\n", sorted_mafs->a[i]);
+  }
+  fclose(fh);
+
+  //  ******   Now get arrays of indices of markers in the maf categories:
+  Vlong** maf_category_marker_indices = (Vlong**)malloc(n_maf_categories*sizeof(Vlong*));
+  
+  for(long i=0; i<n_maf_categories; i++){ // 
+    maf_category_marker_indices[i] = construct_vlong(the_genotypes_set->n_markers);
+  }   
+  Vlong* missing_data_counts = the_genotypes_set->marker_missing_data_counts;
+  Vlong* minor_allele_counts = the_genotypes_set->marker_alt_allele_counts;
+  if(DO_ASSERT) assert(missing_data_counts->size == minor_allele_counts->size);
+  for(long i_marker=0; i_marker<minor_allele_counts->size; i_marker++){
+    long ok_count = the_genotypes_set->n_accessions - missing_data_counts->a[i_marker];
+    if(ok_count > 0){
+      double marker_minor_allele_frequency = (double)minor_allele_counts->a[i_marker]/(double)(2*ok_count);
+    	for(long j_maf=0; j_maf<n_maf_categories; j_maf++){
+	  if(marker_minor_allele_frequency <= maf_threshholds->a[j_maf]){
+	    push_vlong(maf_category_marker_indices[j_maf], i_marker);
+	    break;
+	  }
+	} // end loop over maf ranges
+    }
+  }
+  return maf_category_marker_indices;
+}
+
+
+Vdouble* maf_category_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2,
+			    long n_maf_categories, Vlong** maf_cat_marker_indices){
+  Vdouble* agmrs = construct_vdouble(n_maf_categories+1);
+  
+  //  fprintf(stderr, "n_maf_categories %ld  agmrs size: %ld \n", n_maf_categories, agmrs->size);
+  long numerator = 0; // for the calculation using all markers
+  long denominator = 0; // for the calculation using all markers
+  for(long i_maf=0; i_maf<n_maf_categories; i_maf++){ 
+    Vlong* marker_indices = maf_cat_marker_indices[i_maf];
+    /* for(long jjjj=0; jjjj<8; jjjj++){ */
+    /*   fprintf(stderr, "  %ld  %ld  %ld  ", i_maf, marker_indices->size, marker_indices->a[jjjj]);  */
+    /* }fprintf(stderr, "\n"); getchar(); */
+    long maf_numerator = 0;
+    long maf_denominator = 0;
+    for(long i=0; i<marker_indices->size; i++){
+      long i_marker = marker_indices->a[i];
+      char a1 = acc1->genotypes->a[i_marker];
+      if(a1 != MISSING_DATA_CHAR){
+	char a2 = acc2->genotypes->a[i_marker];
+	if(a2 != MISSING_DATA_CHAR){
+	  maf_denominator++; // count all genotype pairs with neither being missing data.
+	  if(a1 != a2) maf_numerator++; // count genotype pairs with differing dosages.
+	}
+      }
+    }
+     add_double_to_vdouble(agmrs, (maf_denominator > 0)? (double)maf_numerator/(double)maf_denominator : -1);
+    numerator += maf_numerator;
+    denominator += maf_denominator;
+  
+    // agmrs->size = n_maf_categories;
+  } // end loop over maf categories
+    add_double_to_vdouble(agmrs, (denominator > 0)? (double)numerator/(double)denominator : -1);
+  return agmrs;
+}
+      
+
+Vdouble* maf_range_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* acc2, Vdouble* maf_threshholds){ //, long n_maf_categories){ //, Vlong** maf_cat_marker_indices){
   //  add_double_to_vdouble(maf_threshholds, 1.0);
   Vdouble* agmrs = construct_vdouble(maf_threshholds->size);
   long n_markers = acc1->genotypes->length;
@@ -744,15 +804,20 @@ Vdouble* get_sorted_minor_allele_frequencies(GenotypesSet* the_gtset){
 }
 
 Vmci** find_matches(GenotypesSet* the_genotypes_set,
-		    // long n_ref_accessions, Vaccession* the_accessions,
 		    Chunk_pattern_ids* the_cpi,
-		    //long min_usable_chunks,
 		    double max_est_agmr,
-		    Vdouble* maf_threshholds)
+		    long n_maf_categories,
+		    Vlong** maf_cat_marker_indices)
 {
   clock_t start = clock();
   clock_t fcmc_ticks = 0;
 
+  // ********************
+/*   Vdouble* agmrs = construct_vdouble(2); */
+/* add_double_to_vdouble(agmrs, 0.2); */
+/* add_double_to_vdouble(agmrs, 0.3); */
+// ******
+ 
   Vaccession* the_accessions = the_genotypes_set->accessions;
   long n_ref_accessions = the_genotypes_set->n_ref_accessions;
   long n_markers = the_accessions->a[0]->genotypes->length;
@@ -786,16 +851,20 @@ Vmci** find_matches(GenotypesSet* the_genotypes_set,
 	double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	double est_agmr = 1.0 - pow(matching_chunk_fraction, 1.0/chunk_size);
 	// double true_hgmr;
-	double true_agmr = agmr(q_gts, the_accessions->a[i_match]); //, &true_hgmr);
+	double true_agmr = -1 ; //agmr(q_gts, the_accessions->a[i_match]); //, &true_hgmr);
 	// Three_ds dists = poly_agmr(q_gts, the_accessions->a[i_match]);
 	//double true_agmr = dists.d1;
 	//	double mafs[2] = {0.02,0.2};
-	//Vdouble* maf_threshholds = construct_vdouble_from_array(2, mafs);
+	//	Vdouble* maf_threshholds = construct_vdouble_from_array(2, mafs);
 	//	fprintf(stderr, "number of maf categories: %ld \n", maf_threshholds->size);
-	if(true_agmr <= max_est_agmr){
-	  Vdouble* agmrs = maf_range_agmrs(the_genotypes_set, q_gts, the_accessions->a[i_match], maf_threshholds);
-	  // fprintf(stderr, "number of agmrs: %ld \n", agmrs->size);
+
+	  // Vdouble* agmrs = maf_range_agmrs(the_genotypes_set, q_gts, the_accessions->a[i_match], maf_threshholds);
+	    Vdouble* agmrs = maf_category_agmrs(the_genotypes_set, q_gts, the_accessions->a[i_match], n_maf_categories, maf_cat_marker_indices);
+	  //	  fprintf(stderr, "number of agmrs: %ld \n", agmrs->size);
 	  true_agmr_count++;
+	  true_agmr = agmrs->a[n_maf_categories];
+	  agmrs->size--;
+	  	if(0  ||  true_agmr <= max_est_agmr){
 	  add_mci_to_vmci(query_vmcis[i_query],
 			  construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr, agmrs)); //, dists.d2, dists.d3)); //true_hgmr))	  //  fprintf(stderr, "# i_query i_match: %ld %ld \n", i_query, i_match);
 	  if(i_match >= n_ref_accessions){ add_mci_to_vmci(query_vmcis[i_match],
@@ -933,9 +1002,9 @@ void print_command_line(FILE* ostream, int argc, char** argv){
 /*   if(i012 == 1){ */
 /*     Vlong* new_vlong = construct_vlong(3*ipats->size); */
 /*     for(long i=0; i<ipats->size; i++){ */
-/*       add_long_to_vlong(new_vlong, 3*ipats->a[i] + 0); */
-/*       add_long_to_vlong(new_vlong, 3*ipats->a[i] + 1); */
-/*       add_long_to_vlong(new_vlong, 3*ipats->a[i] + 2); */
+/*       push_vlong(new_vlong, 3*ipats->a[i] + 0); */
+/*       push_vlong(new_vlong, 3*ipats->a[i] + 1); */
+/*       push_vlong(new_vlong, 3*ipats->a[i] + 2); */
 /*     } */
 /*     free_vlong(ipats); */
 /*     return new_vlong; */
