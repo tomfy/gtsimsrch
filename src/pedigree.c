@@ -1142,7 +1142,7 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessi
   //  Vaccession* accessions = construct_vaccession(100);
   for(long i=0; i<offspring_counts->size; i++){
     if(offspring_counts->a[i] > 0){
-      add_long_to_vlong(accidxs_with_offspring, i);
+      push_vlong(accidxs_with_offspring, i);
       //    add_accession_to_vaccession(accessions, the_gtsset->accessions->a[i];
     }
   }
@@ -1392,8 +1392,8 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
 
   // get best candidate parents on basis of hgmr (plus those in pedigree)
   Vlong* best_parent_candidate_idxs = construct_vlong(10); 
-  if(fparent != NULL) add_long_to_vlong(best_parent_candidate_idxs, fparent_idx); // add female parent (from pedigree)
-  if(mparent != NULL  &&  mparent_idx != fparent_idx) add_long_to_vlong(best_parent_candidate_idxs, mparent_idx); // add male parent (from pedigree) if distinct
+  if(fparent != NULL) push_vlong(best_parent_candidate_idxs, fparent_idx); // add female parent (from pedigree)
+  if(mparent != NULL  &&  mparent_idx != fparent_idx) push_vlong(best_parent_candidate_idxs, mparent_idx); // add male parent (from pedigree) if distinct
 
   // sort accession indices by hgmr   
   Idxhgmr* the_idxhgmrs = (Idxhgmr*)malloc(n_parents*sizeof(Idxhgmr));
@@ -1412,7 +1412,7 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
       if(the_hgmr >= max_ok_hgmr) break; // all the rest are worse, so skip them.
       //   if(the_hgmr >= 0){
       if(the_idx != fparent_idx  &&  the_idx != mparent_idx){
-	add_long_to_vlong(best_parent_candidate_idxs, the_idx);
+	push_vlong(best_parent_candidate_idxs, the_idx);
       }     
       // }
     }
@@ -1489,7 +1489,7 @@ Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gts
       // fprintf(stderr, "%s %ld  %8.5f\n", the_acc->id->a, the_idx, the_hgmr);
       if(the_hgmr >= max_ok_hgmr) break; // all the rest are worse, so skip them.
       //   if(the_hgmr >= 0){
-      add_long_to_vlong(best_parent_candidate_idxs, the_idx);
+      push_vlong(best_parent_candidate_idxs, the_idx);
           
       // }
     }
@@ -1584,8 +1584,8 @@ long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset){
 /*   // get best candidate parents on basis of hgmr (plus those in pedigree) */
 /*   // the_pedigree parent_idxs the_gtsset */
 /*   Vlong* best_parent_candidate_idxs = construct_vlong(10);  */
-/*   add_long_to_vlong(best_parent_candidate_idxs, fparent_idx); // add female parent (from pedigree) */
-/*   if(mparent_idx != fparent_idx) add_long_to_vlong(best_parent_candidate_idxs, mparent_idx); // add male parent (from pedigree) if distinct */
+/*   push_vlong(best_parent_candidate_idxs, fparent_idx); // add female parent (from pedigree) */
+/*   if(mparent_idx != fparent_idx) push_vlong(best_parent_candidate_idxs, mparent_idx); // add male parent (from pedigree) if distinct */
 
 /*   // sort accession indices by hgmr    */
 /*   Idxhgmr* the_idxhgmrs = (Idxhgmr*)malloc(n_parents*sizeof(Idxhgmr)); */
@@ -1604,7 +1604,7 @@ long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset){
 /*       if(the_hgmr >= 0.06) break;  */
 /*       if(the_hgmr >= 0){ */
 /* 	if(the_idx != fparent_idx  &&  the_idx != mparent_idx  &&  the_idx != acc_idx){ */
-/* 	  add_long_to_vlong(best_parent_candidate_idxs, the_idx); */
+/* 	  push_vlong(best_parent_candidate_idxs, the_idx); */
 /* 	}      */
 /*       } */
 /*     } */

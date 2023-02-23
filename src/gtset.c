@@ -67,7 +67,7 @@ long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_c
 	break;
       }
     } // end of loop over the k chars in a chunk.
-    add_long_to_vlong(chunk_pats, i_pat);
+    push_vlong(chunk_pats, i_pat);
     
   } // loop over chunks.
   the_gts->chunk_patterns = chunk_pats;
@@ -563,8 +563,8 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
 	long marker_id_length = strlen(the_gtsset->marker_ids->a[i]);
 	char* marker_id_to_keep = strcpy((char*)malloc((marker_id_length+1)*sizeof(char)), the_gtsset->marker_ids->a[i]);
 	add_string_to_vstr(cleaned_marker_ids, marker_id_to_keep); // store the kept marker ids.
-	add_long_to_vlong(cleaned_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
-	add_long_to_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
+	push_vlong(cleaned_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
+	push_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
       }
       }else{
 	too_much_missing_data_count++;
@@ -659,14 +659,14 @@ void store_homozygs(GenotypesSet* the_gtsset){ // for each accession,
       if(acc->genotypes->a[j] == MISSING_DATA_CHAR) continue;
       long dosage = (long)(acc->genotypes->a[j] - 48); // 0, 1, ..., ploidy
       if( dosage == the_gtsset->ploidy){ // if dosage == ploidy
-	add_long_to_vlong(acc->alt_homozygs, j);
+	push_vlong(acc->alt_homozygs, j);
 	
 	//	 fprintf(stderr, "i %ld  dosage: %ld  ploidy: %ld \n", i, (long)acc->genotypes->a[j] - 48, the_gtsset->ploidy);
       }else if(dosage == 0){
-	add_long_to_vlong(acc->ref_homozygs, j);
+	push_vlong(acc->ref_homozygs, j);
       }
       /* else{ */
-      /* 	add_long_to_vlong(acc->heterozygs, j); */
+      /* 	push_vlong(acc->heterozygs, j); */
       /* } */
     }
   }

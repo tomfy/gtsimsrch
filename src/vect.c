@@ -44,7 +44,8 @@ Vlong* construct_vlong_whole_numbers(long size){ // initialize to 0,1,2,3,...siz
   return the_vlong;
 }
 
-void add_long_to_vlong(Vlong* the_vlong, long x){
+//void add_long_to_vlong(Vlong* the_vlong, long x){
+void push_vlong(Vlong* the_vlong, long x){
   long cap = the_vlong->capacity;
   long n = the_vlong->size;
   if(n == cap){   // if necessary, resize w realloc
@@ -68,7 +69,7 @@ void shuffle_vlong(Vlong* the_vlong){
 
 void append_vlong_to_vlong(Vlong* the_vlong, Vlong* a_vlong){
   for(long i=0; i<a_vlong->size; i++){
-    add_long_to_vlong(the_vlong, a_vlong->a[i]);
+    push_vlong(the_vlong, a_vlong->a[i]);
   }
 }
 
