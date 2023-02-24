@@ -49,8 +49,7 @@ Vlong* construct_vlong(long cap); // set capacity = cap, size = 0
 Vlong* construct_vlong_zeroes(long size);
 Vlong* construct_vlong_from_array(long size, long* array); // initialize with array of known size
 Vlong* construct_vlong_whole_numbers(long size); // initialize to 0,1,2,3,...size-1
-//void add_long_to_vlong(Vlong* the_vlong, long x); // push, realloc if necessary
-void push_vlong(Vlong* the_vlong, long x); // push, realloc if necessary
+void push_to_vlong(Vlong* the_vlong, long x); // push, realloc if necessary
 void shuffle_vlong(Vlong* the_vlong); // randomize order of array elements
 void append_vlong_to_vlong(Vlong* the_vlong, Vlong* a_vlong);
 void free_vlong(const Vlong* the_vlong); // free memory
@@ -58,7 +57,7 @@ void free_vlong(const Vlong* the_vlong); // free memory
 // *****  Vstr  *****************************************************************************
 Vstr* construct_vstr(long cap); // set capacity = cap, size = 0
 Vstr* construct_vstr_copy(Vstr* the_vstr);
-void add_string_to_vstr(Vstr* the_vstr, char* str); // push, realloc if necessary
+void push_to_vstr(Vstr* the_vstr, char* str); // push, realloc if necessary
 char* ith_str_from_vstr(Vstr* the_vstr, long i); // perl-like: index -1 -> last element, etc.
 char* copy_ith_str_from_vstr(Vstr* the_vstr, long i); // perl-like: index -1 -> last element, etc.
 long compare_vstrs(Vstr* vstr1, Vstr* vstr2); // return value: -1: different sizes; 0: all strs equal; 1: at least 1 pair of unequal strs.
@@ -76,7 +75,8 @@ void free_vchar(const Vchar* the_vchar);
 // ***** Vdouble *****
 Vdouble* construct_vdouble(long cap); // construct empty Vdouble with capacity cap.
 Vdouble* construct_vdouble_from_array(long size, double* array); // intialize with array of known size
-Vdouble* add_double_to_vdouble(Vdouble* the_vdouble, double x);
+Vdouble* push_to_vdouble(Vdouble* the_vdouble, double x);
+double pop_from_vdouble(Vdouble* the_vdouble);
 void sort_vdouble(Vdouble* the_vdouble);
 int compare_double(const void* a, const void* b);
 void free_vdouble(const Vdouble* the_vdouble); // free memory

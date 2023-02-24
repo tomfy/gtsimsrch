@@ -1,9 +1,4 @@
 // *****  typedefs for Pedigree, Vpedigree *****
-/* typedef struct{ */
-/*   long n; // numerator */
-/*   long d; // denominator */
-// }ND; // numerator and denominator
-
 typedef struct{
   ND agmr12;
   ND par1_hgmr;
@@ -63,7 +58,7 @@ Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gts
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
 Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d);
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees);
-void add_pedigree_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
+void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 void free_vpedigree(const Vpedigree* the_vped);
 
 // *****  array of Idxhgmr  *****

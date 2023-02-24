@@ -187,8 +187,8 @@ main(int argc, char *argv[])
 	double dbl_xhgmr = (double)the_xhgmr.n/the_xhgmr.d;
 	if(dbl_xhgmr <= max_xhgmr){
 	  n_xhgmrs_le_max++;
-	  push_vlong(cand_pppairs[ii], jj);
-	  push_vlong(cand_pppairs[jj], ii);
+	  push_to_vlong(cand_pppairs[ii], jj);
+	  push_to_vlong(cand_pppairs[jj], ii);
 	}
       } 
     }

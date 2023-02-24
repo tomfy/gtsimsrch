@@ -37,17 +37,6 @@ typedef struct{
   Accession** a;
 }Vaccession;
 
-/* typedef struct{ */
-/*   Vchar* id;  */
-/*   double alt_allele_freq; */
-/* }Marker; */
-
-/* typedef struct{ */
-/*   long capacity; */
-/*   long size; */
-/*   Marker** a; */
-/* }Vmarker;  */
-
 typedef struct{
   long capacity; // needed?
   double max_marker_missing_data_fraction;
@@ -84,7 +73,7 @@ void free_accession_innards(Accession* the_accession);
 
 // *****  Vaccession  *****
 Vaccession* construct_vaccession(long cap);
-void add_accession_to_vaccession(Vaccession* the_vacc, Accession* the_acc);
+void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc);
 void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy);
 void print_vaccession(Vaccession* the_accessions, FILE* ostream);
 void check_accession_indices(Vaccession* the_accessions);

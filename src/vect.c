@@ -44,8 +44,7 @@ Vlong* construct_vlong_whole_numbers(long size){ // initialize to 0,1,2,3,...siz
   return the_vlong;
 }
 
-//void add_long_to_vlong(Vlong* the_vlong, long x){
-void push_vlong(Vlong* the_vlong, long x){
+void push_to_vlong(Vlong* the_vlong, long x){
   long cap = the_vlong->capacity;
   long n = the_vlong->size;
   if(n == cap){   // if necessary, resize w realloc
@@ -69,7 +68,7 @@ void shuffle_vlong(Vlong* the_vlong){
 
 void append_vlong_to_vlong(Vlong* the_vlong, Vlong* a_vlong){
   for(long i=0; i<a_vlong->size; i++){
-    push_vlong(the_vlong, a_vlong->a[i]);
+    push_to_vlong(the_vlong, a_vlong->a[i]);
   }
 }
 
@@ -105,7 +104,7 @@ Vstr* construct_vstr_copy(Vstr* the_vstr){
   return the_copy;
 }
 
-void add_string_to_vstr(Vstr* the_vstr, char* str){ // 
+void push_to_vstr(Vstr* the_vstr, char* str){ // 
   long cap = the_vstr->capacity;
   long n = the_vstr->size;
   if(n == cap){   // if necessary, resize w realloc
@@ -225,7 +224,7 @@ Vdouble* construct_vdouble_from_array(long size, double* array){ // intialize wi
   }
   return the_vdouble;
 }
-Vdouble* add_double_to_vdouble(Vdouble* the_vdouble, double x){
+Vdouble* push_to_vdouble(Vdouble* the_vdouble, double x){
    long cap = the_vdouble->capacity;
   long n = the_vdouble->size;
   if(n == cap){   // if necessary, resize w realloc
@@ -235,6 +234,10 @@ Vdouble* add_double_to_vdouble(Vdouble* the_vdouble, double x){
   }
   the_vdouble->a[n] = x;
   the_vdouble->size++;
+}
+double pop_from_vdouble(Vdouble* the_vdouble){
+  the_vdouble->size--;
+  return the_vdouble->a[the_vdouble->size];
 }
 
 void sort_vdouble(Vdouble* the_vdouble){
