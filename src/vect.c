@@ -224,8 +224,20 @@ Vdouble* construct_vdouble_from_array(long size, double* array){ // intialize wi
   }
   return the_vdouble;
 }
+
+Vdouble* copy_vdouble(Vdouble* the_vdouble){
+  Vdouble* the_copy = (Vdouble*)malloc(1*sizeof(Vdouble));
+  the_copy->capacity = the_vdouble->capacity;
+  the_copy->size = the_vdouble->size;
+  the_copy->a = (double*)malloc(the_copy->size * sizeof(double));
+  for(long i=0; i<the_copy->size; i++){
+    the_copy->a[i] = the_vdouble->a[i];
+  }
+  return the_copy;
+}
+
 Vdouble* push_to_vdouble(Vdouble* the_vdouble, double x){
-   long cap = the_vdouble->capacity;
+  long cap = the_vdouble->capacity;
   long n = the_vdouble->size;
   if(n == cap){   // if necessary, resize w realloc
     cap *= 2;
@@ -240,10 +252,20 @@ double pop_from_vdouble(Vdouble* the_vdouble){
   return the_vdouble->a[the_vdouble->size];
 }
 
-void sort_vdouble(Vdouble* the_vdouble){
+double get_ith_double_from_vdouble(Vdouble* the_vdouble, long i){ // i=-1  ->  last element, etc.
+  // for(long j=0; j<the_vdouble->size; j++){ fprintf(stderr, "%f ", the_vdouble->a[j]);} fprintf(stderr, "\n");
+  double x = (i >= 0)?
+    the_vdouble->a[i] :
+    the_vdouble->a[the_vdouble->size + i];
+  // fprintf(stderr, "i: %ld  x: %f  vdouble->size: %ld \n", i, x, the_vdouble->size-i);
+  return x;
+}
+  
+
+Vdouble* sort_vdouble(Vdouble* the_vdouble){
   qsort(the_vdouble->a, the_vdouble->size, sizeof(double), compare_double);
   //  for(long j=0; j<5; j++){ fprintf(stderr, "a: %lf  ", the_vdouble->a[j]); } fprintf(stderr, "\n");
-
+  return the_vdouble;
 }
 
 int compare_double(const void* a, const void* b){
@@ -274,7 +296,7 @@ IndexId* construct_indexid(long idx, char* id){
 }
 
 void free_indexid(const IndexId* the_idxid){
-    if(the_idxid == NULL) return;
+  if(the_idxid == NULL) return;
   free(the_idxid->id);
   free((IndexId*)the_idxid);
 }
@@ -362,7 +384,7 @@ void print_vidxid(FILE* fh, Vidxid* the_vidxid){
 }
 
 void free_vidxid(const Vidxid* the_vidxid){
-    if(the_vidxid == NULL) return;
+  if(the_vidxid == NULL) return;
   for(long i=0; i<the_vidxid->size; i++){
     free_indexid(the_vidxid->a[i]);
   }

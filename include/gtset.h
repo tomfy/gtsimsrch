@@ -52,7 +52,8 @@ typedef struct{
   Vstr* marker_ids; // vector of marker_ids
   //  Vmarker* markers; // vector of markers
   Vlong* marker_missing_data_counts; //
-  Vlong* marker_alt_allele_counts;
+  Vlong* marker_alt_allele_counts; //
+  Vdouble* mafs; 
   Vlong** marker_dose_counts; // counts of dosages.
 }GenotypesSet;
 

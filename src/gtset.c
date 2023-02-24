@@ -170,6 +170,7 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
   // the_gtsset->markers = NULL;
   the_gtsset->marker_missing_data_counts = NULL; // md_counts;
   the_gtsset->marker_alt_allele_counts = NULL; // md_counts;
+  the_gtsset->mafs = NULL;
   the_gtsset->marker_dose_counts = NULL;
   return the_gtsset;
 }
@@ -268,7 +269,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	the_genotypes_set->marker_missing_data_counts->a[marker_count]++;
 	accession_missing_data_count++;
       }else{
-	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48); // 48->0, 49->1, 50->2, etc.
+	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
       }
       
       marker_count++;
