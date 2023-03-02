@@ -368,6 +368,11 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
     fprintf(out_stream, "# chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
 
+    if(1){
+      FILE* fh_gtsout = fopen("cleaned_gtset.out", "w");
+      print_genotypesset(fh_gtsout, the_genotypes_set);
+      fclose(fh_gtsout);
+    }
   // *****  done reading and storing input  **********
   
  
@@ -972,16 +977,18 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Agmri* the_agmri = pop_from_vagmri(the_mci->agmrs);
       double agmr = (the_agmri->d >0)? the_agmri->n/(double)the_agmri->d : -1;
       
-      fprintf(ostream, "%26s  %26s  %5.2f  %3ld %7.4f  %8.6f %8.6f %ld  ",
+      fprintf(ostream, "%26s  %26s  %5.2f  %3ld %7.4f  %ld %8.6f %ld  ",
 	      // i_q,
 	      q_acc->id->a,   m_acc->id->a,  
 	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
-	      the_mci->est_agmr,  agmr, the_agmri->n/the_agmri->en, the_agmri->d);
+	      the_mci->est_agmr,  the_agmri->n, the_agmri->en,
+	      // the_agmri->n/the_agmri->en,
+	      the_agmri->d);
 
       for(long iii=0; iii<the_mci->agmrs->size; iii++){
 	Agmri* maf_agmri = the_mci->agmrs->a[iii];
 	double maf_agmr = (maf_agmri->d > 0)? maf_agmri->n/(double)maf_agmri->d : -1;
-	fprintf(ostream, "  %7.5f %7.5f %ld ", maf_agmr, maf_agmri->n/maf_agmri->en, maf_agmri->d);
+	fprintf(ostream, "  %ld %7.5f %ld ", maf_agmri->n, maf_agmri->en, maf_agmri->d);
       }
       if (output_format == 1){
 	// leave as is
