@@ -1125,7 +1125,12 @@ void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
     fprintf(fh, "%s ", the_gtsset->marker_ids->a[i]);
   }fprintf(fh, "\n");
   for(long i=0; i<the_gtsset->n_accessions; i++){
-    fprintf(fh, "%s  %s\n", the_gtsset->accessions->a[i]->id->a, the_gtsset->accessions->a[i]->genotypes->a);
+    Accession* acc = the_gtsset->accessions->a[i];
+    fprintf(fh, "%s  ", acc->id->a);
+    for(long j=0; j < acc->genotypes->length; j++){
+      fprintf(fh, "%c ", acc->genotypes->a[j]);
+    }
+    fprintf(fh, "\n");
   }
 }
 
