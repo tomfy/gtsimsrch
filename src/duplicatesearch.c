@@ -92,6 +92,7 @@ Agmri* construct_agmri(long n, long d, double en);
 Vagmri* construct_vagmri(long cap);
 void push_to_vagmri(Vagmri* the_vagmri, Agmri* the_agmri);
 Agmri* pop_from_vagmri(Vagmri* the_vagmri);
+Agmri* get_ith_agmri_from_vagmri(Vagmri* the_vagmri, long i);
 void free_vagmri(Vagmri* the_vagmri);
 
 // *****  Pattern_ids; indices are patterns; elements are Vlong* of accids having that pattern.
@@ -593,6 +594,15 @@ Agmri* pop_from_vagmri(Vagmri* the_vagmri){
   return the_agmri;
 }
 
+Agmri* get_ith_agmri_from_vagmri(Vagmri* the_vagmri, long i){ // i=-1  ->  last element, etc.
+  // for(long j=0; j<the_vdouble->size; j++){ fprintf(stderr, "%f ", the_vdouble->a[j]);} fprintf(stderr, "\n");
+  Agmri* x = (i >= 0)?
+    the_vagmri->a[i] :
+    the_vagmri->a[the_vagmri->size + i];
+  // fprintf(stderr, "i: %ld  x: %f  vdouble->size: %ld \n", i, x, the_vdouble->size-i);
+  return x;
+}
+
 void free_vagmri(Vagmri* the_vagmri){
   if(the_vagmri == NULL) return;
   for(long i=0; i< the_vagmri->size; i++){
@@ -939,9 +949,12 @@ Vmci** find_matches(GenotypesSet* the_genotypes_set,
 	double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	double est_agmr = 1.0 - pow(matching_chunk_fraction, 1.0/chunk_size);
 	    Vagmri* agmrs = maf_category_agmrs(the_genotypes_set, q_gts, the_accessions->a[i_match], n_maf_categories, maf_cat_marker_indices);
+	    //   fprintf(stderr, "agmrs->size: %ld \n", agmrs->size);
 	  true_agmr_count++;
 	  //double nhagmr = pop_from_vdouble(agmrs);
-	  double true_agmr = -1; //pop_from_vdouble(agmrs);
+	  Agmri* aaa = get_ith_agmri_from_vagmri(agmrs, -1);
+	  
+	  double true_agmr = (aaa->d > 0)? aaa->n/(double)aaa->d : -1; //pop_from_vdouble(agmrs);
 	  	if(true_agmr <= max_est_agmr){
 	  push_to_vmci(query_vmcis[i_query],
 		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, agmrs)); //true_agmr, agmrs, nhagmr)); //, dists.d2, dists.d3)); //true_hgmr))	  //  fprintf(stderr, "# i_query i_match: %ld %ld \n", i_query, i_match);
@@ -974,21 +987,20 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
 
       //    the_mci->nhagmr = pop_from_vdouble(the_mci->agmrs);
       //    the_mci->agmr = pop_from_vdouble(the_mci->agmrs);
-      Agmri* the_agmri = pop_from_vagmri(the_mci->agmrs);
+      //  fprintf(stderr, "%s %s  %ld \n", q_acc->id->a, m_acc->id->a, the_mci->agmrs->size);
+      Agmri* the_agmri = get_ith_agmri_from_vagmri(the_mci->agmrs, -1); // get last element;
       double agmr = (the_agmri->d >0)? the_agmri->n/(double)the_agmri->d : -1;
       
-      fprintf(ostream, "%26s  %26s  %5.2f  %3ld %7.4f  %ld %8.6f %ld  ",
+      fprintf(ostream, "%26s  %26s  %5.2f  %3ld %7.4f  %8.6f ",
 	      // i_q,
 	      q_acc->id->a,   m_acc->id->a,  
 	      the_mci->usable_chunks,  the_mci->n_matching_chunks,
-	      the_mci->est_agmr,  the_agmri->n, the_agmri->en,
-	      // the_agmri->n/the_agmri->en,
-	      the_agmri->d);
+	      the_mci->est_agmr,  agmr);
 
-      for(long iii=0; iii<the_mci->agmrs->size; iii++){
+      for(long iii=0; iii<the_mci->agmrs->size-1; iii++){
 	Agmri* maf_agmri = the_mci->agmrs->a[iii];
 	double maf_agmr = (maf_agmri->d > 0)? maf_agmri->n/(double)maf_agmri->d : -1;
-	fprintf(ostream, "  %ld %7.5f %ld ", maf_agmri->n, maf_agmri->en, maf_agmri->d);
+	fprintf(ostream, "  %7.5f  ", maf_agmr);
       }
       if (output_format == 1){
 	// leave as is
