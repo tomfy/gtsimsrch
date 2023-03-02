@@ -42,6 +42,7 @@ GetOptions(
 	   'hw|half_width=f' => \$hw,
 	   'delta=f' => \$delta, 
 	   'min_read_depth=f' => \$min_read_depth,
+
 	  );
 
 die "if specifying use of AD (allele depth), ploidy must also be specified\n" if($field_to_use eq 'AD'  and  $ploidy == -1);
@@ -82,7 +83,8 @@ my $missing_data_count = 0;
 while (<$fhin>) {
   my @dosages_this_row = ();
   my @cols = split(" ", $_);
-  my $row_id = $cols[2];
+  my $row_id = $cols[0] . "_" . $cols[1];
+  # my $row_id = $cols[2];
   my $format_str = $cols[8];
   # if($format_str != $format_string){
   #   if($format_string eq 'xxx'){
