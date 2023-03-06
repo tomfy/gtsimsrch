@@ -41,14 +41,17 @@ my $cluster_max_agmr = 'auto'; # construct graph with edges between pairs of acc
 my $output_cluster_filename = "agmr_cluster.out";
 my $pow = 1;			# 'log';
 my $minx = 0.001;
+my $column = 6; # the agmrs to use for cluster are found in this column (unit-based)
 
 GetOptions(
 	   'input_file=s' => \$input_agmr_filename, # file with id1 id2 x xx agmr_est agmr (duplicatesearch output)
 	   'output_file=s' => \$output_cluster_filename,
 	   'cluster_max_agmr=s' => \$cluster_max_agmr, # cluster using graph with edges for pairs with agmr < this.
 	   'pow=s' => \$pow,
+	   'column=i' => \$column,
 	  );
-
+print STDERR "Clustering based on column: $column\n";
+$column--;
 if (!defined $input_agmr_filename) {
   print STDERR "Basic usage example: \n", "agmr_cluster -in duplicatesearch.out  -out acluster.out \n";
   print STDERR "by default agmr_cluster will attempt to automatically decide the max agmr between duplicates.\n",
@@ -63,7 +66,9 @@ my %id_closeidas = (); # keys are ids, values ids and agmrs of other close acces
 open my $fhin, "<", "$input_agmr_filename" or die "Couldn't open $input_agmr_filename for reading.\n";
 while (my $line = <$fhin>) {
   next if($line =~ /^\s*#/);
-  my ($id1, $id2, $usable_chunks, $match_chunks, $est_agmr, $agmr) = split(" ", $line);
+  my @cols = split(" ", $line);
+  my ($id1, $id2, $usable_chunks, $match_chunks, $est_agmr) = @cols[0..4];
+  my $agmr = $cols[$column];
   my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
   if (!exists $id_closeidas{$id1}) {
     $id_closeidas{$id1} = ["$id2 $agmr"];
@@ -124,7 +129,7 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
   $count += $cc_size;
   my $output_line_string = '';
   my @sorted_cc = sort {$a cmp $b} @$acc; # sort the accession ids in the cluster
-  my ($ccminw, $ccmaxw, $nbad, $nbaddish) = (100000, -1, 0, 0);
+  my ($ccminw, $ccmaxw, $ccsumw, $nbad, $nbaddish) = (100000, -1, 0, 0, 0);
   while (my($i, $v) = each @sorted_cc) { # loop over every pair of ids in the cluster.
     my ($minw, $maxw) = (100000, -1);
     for (my $j=$i+1; $j<scalar @sorted_cc; $j++) {
@@ -140,6 +145,7 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
       } else {
 	$minw = $weight if($weight < $minw);
 	$maxw = $weight if($weight > $maxw);
+	$ccsumw += $weight;
 	$nbaddish++ if($weight > $cluster_max_agmr)
       }
     }
@@ -147,11 +153,16 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
     $ccmaxw = $maxw if($maxw > $ccmaxw);
     $output_line_string .= "$v  ";
   }
-  $output_line_string = "$cc_size  $ccminw $ccmaxw  $cluster_noncluster_gap  $nbaddish  $nbad  " . $output_line_string . "\n";
+  my $n_cluster_edges = $cc_size*($cc_size-1)/2;
+  my $ccavgw = $ccsumw/$n_cluster_edges;
+  $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d  %s\n ",
+				$cc_size, $ccminw, $ccavgw, $ccmaxw, $cluster_noncluster_gap,
+				$nbaddish, $nbad, $output_line_string);
   push @output_lines, $output_line_string;
 }
 
 open my $fhout, ">", "$output_cluster_filename" or die "Couldn't open $output_cluster_filename for writing.\n";
+print $fhout "size d_min d_avg d_max d_cnc_min nbad1 nbad2 \n";
 my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
 print $fhout "# graph max edge length: $cluster_max_agmr. Found ", scalar @ccs, " groups, with total of $count accessions.\n";
 print $fhout join('', @sorted_output_lines);
