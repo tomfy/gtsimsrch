@@ -356,8 +356,9 @@ main(int argc, char *argv[])
 
   //  ************************************************
   Vlong** maf_category_marker_indices =
-    get_maf_cat_marker_indices(the_genotypes_set, n_maf_categories);
-    //  get_maf_cat_marker_indices_x(the_genotypes_set);
+    //  get_maf_cat_marker_indices(the_genotypes_set, n_maf_categories);
+      get_maf_cat_marker_indices_x(the_genotypes_set);
+  n_maf_categories = 5;
   //  ************************************************			   
   fprintf(stderr, "after get_maf...indices.\n");
   the_accessions = the_genotypes_set->accessions;
@@ -804,8 +805,10 @@ Vlong** get_maf_cat_marker_indices_x(GenotypesSet* the_genotypes_set){
   /*     maf_threshholds->a[5] = 0.16; */
   /*     maf_threshholds->a[6] = 0.32; */
   //  push_to_vdouble(maf_threshholds, 0.01);
+	push_to_vdouble(maf_threshholds, 0.075);
 	push_to_vdouble(maf_threshholds, 0.1);
-	push_to_vdouble(maf_threshholds, 0.22);
+	push_to_vdouble(maf_threshholds, 0.125);
+	push_to_vdouble(maf_threshholds, 0.15);
         push_to_vdouble(maf_threshholds, 1.0);
 
   /* for(long i=1; i<n_maf_categories; i++){ */
