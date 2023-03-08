@@ -162,18 +162,18 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
 }
 
 open my $fhout, ">", "$output_cluster_filename" or die "Couldn't open $output_cluster_filename for writing.\n";
-print $fhout "size d_min d_avg d_max d_cnc_min nbad1 nbad2 \n";
+print $fhout "#  size d_min d_avg d_max d_cnc_min nbad1 nbad2 \n";
 my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
 print $fhout "# graph max edge length: $cluster_max_agmr. Found ", scalar @ccs, " groups, with total of $count accessions.\n";
 print $fhout join('', @sorted_output_lines);
 close $fhout;
 
-sub compare_str{ # sort by size of cluster, tiebreaker is id of first accession in cluster. 
+sub compare_str{ # sort by size of cluster, tiebreaker is avg intra-cluster distance.
   my $str1 = shift;
   my $str2 = shift;
   my @cols1 = split(" ", $str1);
   my @cols2 = split(" ", $str2);
-  return ($cols1[0] != $cols2[0])? $cols1[0] <=> $cols2[0] : $cols1[4] cmp $cols2[4];
+  return ($cols1[0] != $cols2[0])? $cols1[0] <=> $cols2[0] : $cols1[2] cmp $cols2[2];
 }
 
 sub least_noncluster_agmr{	# call once for each cluster,
