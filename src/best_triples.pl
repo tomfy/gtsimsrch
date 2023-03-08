@@ -8,12 +8,12 @@ my $input_filename = undef;
 my $output_filename = 'bt.out';
 my $the_col = 18;	# unit-based
 my $verbose = 0;
-my $max_solns_out = 3;
+my $max_solns_out = 2;
 
 GetOptions(
-	   'input_file=s' => \$input_filename, # file with id1 id2 x xx agmr_est agmr
+	   'input_file=s' => \$input_filename, 
 	   'output_file=s' => \$output_filename,
-	   'column=i' => \$the_col, # cluster using graph with edges for pairs with agmr < this.
+	   'column=i' => \$the_col, # 
 	   'verbose!' => \$verbose,
 	   'solutions=i' => \$max_solns_out,
 	  );
