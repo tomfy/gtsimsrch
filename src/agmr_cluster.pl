@@ -3,6 +3,7 @@ use strict;
 use Graph::Undirected;
 use Getopt::Long;
 use File::Basename 'dirname';
+
 use Cwd 'abs_path';
 my ( $bindir, $libdir );
 BEGIN {     # this has to go in Begin block so happens at compile time
@@ -157,7 +158,7 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
     $output_line_string .= "$degree  ";
     push @output_id_degree_pairs, [$v, $degree];
   }
-  @output_id_degree_pairs = sort {$a->[1] <=> $b->[1]} @output_id_degree_pairs;
+  @output_id_degree_pairs = sort {$b->[1] <=> $a->[1]} @output_id_degree_pairs; # sort by degree high to low
   my @id_degree_strs = map($_->[0] . ' ' . $_->[1], @output_id_degree_pairs);
   $output_line_string = join("  ", @id_degree_strs);
   my $n_cluster_edges = $cc_size*($cc_size-1)/2;
