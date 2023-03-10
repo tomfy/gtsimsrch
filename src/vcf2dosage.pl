@@ -10,7 +10,7 @@ use List::Util qw(min max sum);
 # and if it has GP (genotype prob.) or GQ (genotype quality) 
 # we can also reject entries (i.e. regard as missing data) if these are not good enough
 
-# usage:  vcf2dosage.pl <  <input vcf file>  >  <output file>
+# usage:  vcf2dosage.pl -i <input vcf file>  -o <output file>
 
 my $minGQ = 96;                 #
 my $minGP = 0.9; # there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
@@ -24,11 +24,12 @@ my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA
 my $field_to_use = 'AUTO'; # default is DS if present, then GT if present, then AD if present, then give up.
 # recognized choices are DS (alt dosage e.g. 2), GT (genotype e.g. '/1/0' ) , AD (allele depths, e.g.'136:25' ), and AUTO.
 my $ploidy = -1; # infer from data - user must specify if AD (allele depth) is specified.
-my $hw = 0.33; # if not $map_to_012, round to integer if within +- $hw
-my $delta = 0.1; # if map_to_012 [0, $delta ->0], [1-$hw, $ploidy-1+$hw] -> 1, [$ploidy-$delta, $ploidy] -> 2
+my $delta = 0.1; # if not $map_to_012, round to integer if within +- $delta
+                 # if map_to_012 [0, $delta ->0], [1-$delta, $ploidy-1+$delta] -> 1, [$ploidy-$delta, $ploidy] -> 2
 my $min_read_depth = 1;
 my $input_vcf_filename = undef;
 my $output_dosages_filename = undef; # default: construct from input filename
+my $missing_data_string = 'NA';
 
 GetOptions(
 	   'input_file|vcf=s' => \$input_vcf_filename,
@@ -39,14 +40,13 @@ GetOptions(
 	   'field=s' => \$field_to_use,
 	   'ploidy=f' => \$ploidy,
 	   'map_to_012!' => \$map_to_012,
-	   'hw|half_width=f' => \$hw,
 	   'delta=f' => \$delta, 
 	   'min_read_depth=f' => \$min_read_depth,
 
 	  );
 
 die "if specifying use of AD (allele depth), ploidy must also be specified\n" if($field_to_use eq 'AD'  and  $ploidy == -1);
-#print STDERR "$transpose  $minGQ  $minGP  $field_to_use \n";
+print STDERR "$transpose  $minGQ  $minGP  $field_to_use \n";
 
 die "Must specify input vcf filename. \n" if(!defined $input_vcf_filename);
 
@@ -74,7 +74,7 @@ while (<$fhin>) {
   }
 }
 
-#print "# number of col ids: #  ", scalar @col_ids, "\n";
+print "# number of col ids: #  ", scalar @col_ids, "\n";
 #sleep(2);
 # read the rows with genotype data
 # my $in_ploidy;
@@ -83,7 +83,7 @@ my $missing_data_count = 0;
 while (<$fhin>) {
   my @dosages_this_row = ();
   my @cols = split(" ", $_);
-  my $row_id = $cols[0] . "_" . $cols[1];
+  my $row_id = $cols[0] . "_" . $cols[1]; # construct an id from col[0] (chromosome number) and col[1] (position)
   # my $row_id = $cols[2];
   my $format_str = $cols[8];
   # if($format_str != $format_string){
@@ -94,8 +94,9 @@ while (<$fhin>) {
   #   }
   # }
   push @row_ids, $row_id;	# store row (marker) id
-  # print "$row_id  "; # the row id
-  
+ # print "$row_id  "; # the row id
+
+  # record which data fields are present (DS, GT, AD, GP, GQ)
   my @fields = split(':', $format_str);
   my $nfields = scalar @fields;
   my ($DSidx, $GTidx, $ADidx, $GPidx, $GQidx) = (-1, -1, -1, -1, -1);
@@ -112,14 +113,20 @@ while (<$fhin>) {
       $GQidx = $i;
     }
   }
+
+  # for this row (i.e. marker) loop over data for all accessions
   @cols = @cols[9..$#cols]; # a typical elem: 0/0/0/0/0/1:79,18:97   GT:AD:DP  (genotype:allele depths:read depth)
   for my $e (@cols) {
-    my $dosage = 'NA';		# indicates missing data
+    my $dosage = $missing_data_string;		# indicates missing data
     my @field_values = split(":", $e);
     die if(scalar @field_values != $nfields);
     if ($field_to_use eq 'DS') {
       if ($DSidx >= 0) {      # DS; use dosage if present in vcf file.
-	$dosage = $field_values[$DSidx];
+	my $float_dosage = $field_values[$DSidx];
+	my $int_dosage = int($float_dosage + 0.5); # round to integer
+	if(abs($float_dosage - $int_dosage) <= $delta){ # float_dosage is close to integer, use
+	  $dosage = $int_dosage;
+	}# else keep as missing data.
       } else {
 	die "Selected data field 'DS' not present.\n";
       }
@@ -144,18 +151,18 @@ while (<$fhin>) {
 	  $dosage = int($float_dosage + 0.5);
 	  if ($map_to_012) {
 	    if (
-		($float_dosage > $delta  and  $float_dosage < 1-$hw)
+		($float_dosage > $delta  and  $float_dosage < 1-$delta)
 		or
-		($float_dosage > $ploidy-1+$hw  and  $float_dosage < $ploidy-$delta)) {
-	      $dosage = 'NA';
+		($float_dosage > $ploidy-1+$delta  and  $float_dosage < $ploidy-$delta)) {
+	      $dosage = $missing_data_string;
 	    }
 	  } else {
-	    $dosage = 'NA' if(
-			      abs($float_dosage - $dosage) > $hw
+	    $dosage = $missing_data_string if(
+			      abs($float_dosage - $dosage) > $delta
 			      or
-			      ($float_dosage > $delta  and  $float_dosage < 1-$hw)
+			      ($float_dosage > $delta  and  $float_dosage < 1-$delta)
 			      or
-			      ($float_dosage > $ploidy-1+$hw  and  $float_dosage < $ploidy-$delta)
+			      ($float_dosage > $ploidy-1+$delta  and  $float_dosage < $ploidy-$delta)
 			     );
 	  }
 	}
@@ -164,7 +171,14 @@ while (<$fhin>) {
       }
     } else {   # no data field selected, look for DS, then GT, then AD
       if ($DSidx >= 0) {      # DS; use dosage if present in vcf file.
-	$dosage = $field_values[$DSidx];
+#	$dosage = $field_values[$DSidx];
+		my $float_dosage = $field_values[$DSidx];
+	my $int_dosage = int($float_dosage + 0.5); # round to integer
+	if(abs($float_dosage - $int_dosage) <= $delta){ # float_dosage is close to integer, use
+	  $dosage = $int_dosage;
+	}else{
+	  $dosage = $missing_data_string;
+	}
       } elsif ($GTidx >= 0) {	# GT; use genotype if present
 	if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
 	} else {			      # count 0's and 1's
@@ -179,7 +193,7 @@ while (<$fhin>) {
 	if ($read_depth >= $min_read_depth) {
 	  my $float_dosage = $ploidy*$alt_depth/$read_depth;
 	  $dosage = int($float_dosage + 0.5);
-	  $dosage = 'NA' if(abs($float_dosage - $dosage) > $hw);
+	  $dosage = $missing_data_string if(abs($float_dosage - $dosage) > $delta);
 	}
       }
     }
@@ -187,15 +201,15 @@ while (<$fhin>) {
 
     ###   do quality checks here if GP or GQ available   ###
     # check if GQ present but too low:
-    $dosage = 'NA' if($GQidx >= 0  and  $field_values[$GQidx] < $minGQ);
+    $dosage = $missing_data_string if($GQidx >= 0  and  $field_values[$GQidx] < $minGQ);
     # check if GP present but insufficiently strong preference for one genotype:
     if ($GPidx >= 0) {
       my @gt_probs = split(',', $field_values[$GPidx]);
-      $dosage = 'NA' if(max(@gt_probs) < $minGP);
+      $dosage = $missing_data_string if(max(@gt_probs) < $minGP);
     }
-    if ($dosage eq 'NA') {
+    if ($dosage eq $missing_data_string) {
       $missing_data_count++ 
-    } else {			# $dosage ne 'NA'
+    } else {			# $dosage ne $missing_data_string
       $ploidy = $dosage if($dosage > $ploidy);
       $dosage_distribution[$dosage]++;
     }
@@ -204,12 +218,13 @@ while (<$fhin>) {
     push @dosages_this_row, $dosage;
   }				# end loop over entries in a row
   die "# n col ids: ", scalar @col_ids, "; n dosages in row: ", scalar @dosages_this_row, "\n" if(scalar @dosages_this_row != scalar @col_ids);
-  #print "# n col ids: ", scalar @col_ids, "; n dosages in row: ", scalar @dosages_this_row, "\n";
+#  print "# n col ids: ", scalar @col_ids, "; n dosages in row: ", scalar @dosages_this_row, "\n";
   #sleep(1);
   push @rows, \@dosages_this_row;
 
 }				# end loop over rows
 close $fhin;
+print STDERR "Done processing all rows.\n";
 
 # #####  output  #####
 open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
@@ -241,7 +256,7 @@ if (! $transpose) {
       my $d = $r->[$i];
       # at this point $d = 0, 1, 2, ... , ploidy or NA (missing data)
       if ($map_to_012) {
-	if ($d eq 'NA') {
+	if ($d eq $missing_data_string) {
 	  # no change
 	} elsif ($d eq $ploidy) {
 	  $d = 2;
