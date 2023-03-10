@@ -232,7 +232,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   }
   
   // if the_genotypes_set already has marker_ids set, check for agreement with marker_ids
-  // i.e. in case of using reference set, make sure the number of markers is the same in both data sets.
+  // i.e. in case of using reference set, make sure the set of markers is the same in both data sets.
   if(the_genotypes_set->marker_ids  == NULL){
     the_genotypes_set->marker_ids = marker_ids;
   }else{
@@ -263,7 +263,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       if(token == NULL)	break;
      
       genotypes[marker_count] = token_to_dosage(token, &(the_genotypes_set->ploidy));
-      
+      // fprintf(stderr, "token, dosage: %s  %c\n", token, genotypes[marker_count]);
       //  fprintf(stdout, "token, ploidy: %s  %ld\n", token, the_genotypes_set->ploidy); // marker_count, genotypes[marker_count]);
       if(genotypes[marker_count] == MISSING_DATA_CHAR){
 	the_genotypes_set->marker_missing_data_counts->a[marker_count]++;
@@ -274,6 +274,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       
       marker_count++;
     } // done reading dosages for all markers of this accession
+    // fprintf(stderr, "# read all dosages for this accession. %ld %ld \n", marker_count, markerid_count);
     if(marker_count != markerid_count) exit(EXIT_FAILURE);
     Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
     free(acc_id); // or cut out the middleman (acc_id)?
@@ -286,7 +287,8 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
 	      the_accession->id->a, accession_missing_data_count, the_genotypes_set->marker_ids->size);
       the_genotypes_set->n_bad_accessions++;
-    } 
+    }
+    // fprintf(stderr, "# bottom of row loop\n");
   } // done reading all lines
   fclose(g_stream);
   fprintf(stderr, "###good/bad accessions:  %ld %ld \n", accession_count, the_genotypes_set->n_bad_accessions);
@@ -318,7 +320,8 @@ long str_to_long(char* str){ // using strtol and checking for various problems.
   
 
 char token_to_dosage(char* token, long* ploidy){
-  if(strcmp(token,"NA") == 0){ // missing data
+  if(strcmp(token, "X") == 0){ // missing data
+    // fprintf(stderr, "# encountered an X\n");
     return MISSING_DATA_CHAR;
   }else{
     long l = str_to_long(token);
