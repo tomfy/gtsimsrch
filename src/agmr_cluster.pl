@@ -128,6 +128,7 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
   my $cc_size = scalar @$acc;
   $count += $cc_size;
   my $output_line_string = '';
+  my @output_id_degree_pairs = ();
   my @sorted_cc = sort {$a cmp $b} @$acc; # sort the accession ids in the cluster
   my ($ccminw, $ccmaxw, $ccsumw, $nbad, $nbaddish) = (100000, -1, 0, 0, 0);
   while (my($i, $v) = each @sorted_cc) { # loop over every pair of ids in the cluster.
@@ -151,8 +152,14 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
     }
     $ccminw = $minw if($minw < $ccminw);
     $ccmaxw = $maxw if($maxw > $ccmaxw);
-    $output_line_string .= "$v  ";
+    $output_line_string .= "$v ";
+    my $degree = $g->degree($v);
+    $output_line_string .= "$degree  ";
+    push @output_id_degree_pairs, [$v, $degree];
   }
+  @output_id_degree_pairs = sort {$a->[1] <=> $b->[1]} @output_id_degree_pairs;
+  my @id_degree_strs = map($_->[0] . ' ' . $_->[1], @output_id_degree_pairs);
+  $output_line_string = join("  ", @id_degree_strs);
   my $n_cluster_edges = $cc_size*($cc_size-1)/2;
   my $ccavgw = $ccsumw/$n_cluster_edges;
   $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d  %s\n ",
