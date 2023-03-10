@@ -2,12 +2,13 @@
 use strict;
 use Getopt::Long;
 use List::Util qw(min max sum);
+use File::Spec 'splitpath';
 
 # vcf file should have one of :
 # dosage DS,
 # genotype GT, e.g. 0/0/0/1  or  0|0|0|1
 # allele depth AD, e.g. 21,19
-# and if it has GP (genotype prob.) or GQ (genotype quality) 
+# and if it has GP (genotype prob., e.g. 0.9,0.16,0.04) or GQ (genotype quality, e.g. 98) 
 # we can also reject entries (i.e. regard as missing data) if these are not good enough
 
 # usage:  vcf2dosage.pl -i <input vcf file>  -o <output file>
@@ -20,7 +21,7 @@ my $transpose = 1; # default is to transpose; use -notrans to output untranspose
 
 # if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
 # we can just lump together all heterozygous genotypes, map to just 3 genotypes:
-my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, NA -> NA
+my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, X -> X
 my $field_to_use = 'AUTO'; # default is DS if present, then GT if present, then AD if present, then give up.
 # recognized choices are DS (alt dosage e.g. 2), GT (genotype e.g. '/1/0' ) , AD (allele depths, e.g.'136:25' ), and AUTO.
 my $ploidy = -1; # infer from data - user must specify if AD (allele depth) is specified.
@@ -29,7 +30,9 @@ my $delta = 0.1; # if not $map_to_012, round to integer if within +- $delta
 my $min_read_depth = 1;
 my $input_vcf_filename = undef;
 my $output_dosages_filename = undef; # default: construct from input filename
-my $missing_data_string = 'NA';
+my $missing_data_string = 'X';
+my $min_marker_avg_pref_gt_prob = -0.9;
+my $max_marker_missing_data_fraction = 0.4;
 
 GetOptions(
 	   'input_file|vcf=s' => \$input_vcf_filename,
@@ -50,17 +53,20 @@ print STDERR "$transpose  $minGQ  $minGP  $field_to_use \n";
 
 die "Must specify input vcf filename. \n" if(!defined $input_vcf_filename);
 
-if(!defined $output_dosages_filename){
-  $output_dosages_filename = $input_vcf_filename;
-  $output_dosages_filename =~ s/vcf/dosages/;
+if(!defined $output_dosages_filename){ # construct an output filename from input vcf file name.
+  (my $vol, my $dir, $output_dosages_filename) = splitpath($input_vcf_filename);
+  if($output_dosages_filename =~ /vcf$/){
+    $output_dosages_filename =~ s/vcf/dosages/; #  replace final 'vcf' with 'dosages'
+  }else{ # just append '.dosages'
+    $output_dosages_filename .= ".dosages";
+  }
 }
 
-# read lines up to and including first starting with a single #
-# that line has accession identifiers for columns 9, 10, ...
-#
+# #####  read in initial comments and marker ids  #####
+# read lines up to and including first starting with a single  '#'
+# that line has accession identifiers in columns 9, 10, ...
+
 my @col_ids = ();
-my @row_ids = ();
-my @rows = ();
 my @dosage_distribution = ();
 open my $fhin, "<", "$input_vcf_filename" or die "Couldn't open $input_vcf_filename for reading.\n";
 while (<$fhin>) {
@@ -73,28 +79,33 @@ while (<$fhin>) {
     last;
   }
 }
+print "# number of accession ids: #  ", scalar @col_ids, "\n";
+# #####  done reading accessions ids  #####
 
-print "# number of col ids: #  ", scalar @col_ids, "\n";
-#sleep(2);
-# read the rows with genotype data
-# my $in_ploidy;
-my $format_string = 'xxx';
+
+# #####  read the rows with genotype data  #####
+my @row_ids = ();
+my @alt_row_ids = ();
+my %rowid = ();
+my %altrowid = ();
+my @rows = ();
 my $missing_data_count = 0;
+my $markers_read_count = 0;
 while (<$fhin>) {
+  my $marker_missing_data_count = 0;
+  my @marker_dosage_distribution = ();
   my @dosages_this_row = ();
   my @cols = split(" ", $_);
-  my $row_id = $cols[0] . "_" . $cols[1]; # construct an id from col[0] (chromosome number) and col[1] (position)
-  # my $row_id = $cols[2];
-  my $format_str = $cols[8];
-  # if($format_str != $format_string){
-  #   if($format_string eq 'xxx'){
-  #     $format_string = $format_str;
-  #   }else{
-  #    die;
-  #   }
-  # }
+  my $row_id = $cols[2]; # store row id in file (if these are not distinct, we will use $alt_row_id).
+  my $alt_row_id = $cols[0] . "_" . $cols[1]; # construct a marker id from col[0] (chromosome number) and col[1] (position)
+  my $format_str = $cols[8]; # e.g. 'GT:DS:AD' tells which types of data are present.
+
   push @row_ids, $row_id;	# store row (marker) id
- # print "$row_id  "; # the row id
+  $rowid{$row_id} = 1;
+  push @alt_row_ids, $alt_row_id;
+  $altrowid{$alt_row_id} = 1;
+
+  my ($avg_pref_gt_prob, $pgtprob_count) = (0, 0); 
 
   # record which data fields are present (DS, GT, AD, GP, GQ)
   my @fields = split(':', $format_str);
@@ -114,8 +125,10 @@ while (<$fhin>) {
     }
   }
 
-  # for this row (i.e. marker) loop over data for all accessions
-  @cols = @cols[9..$#cols]; # a typical elem: 0/0/0/0/0/1:79,18:97   GT:AD:DP  (genotype:allele depths:read depth)
+  # for this row (i.e. marker) loop over data for all accessions. Typical elements:
+  # (GT:AD:DP): 0/0/0/0/0/1:79,18:97   ((hexaploid)genotype:allele depths:read depth)
+  # (GT:DS:GP): 0|0:0.001:0.999,0.001,0    ((diploid)genotype:dosage:est_genotype_prob)
+  @cols = @cols[9..$#cols]; # cols 9 and above have genotype info.
   for my $e (@cols) {
     my $dosage = $missing_data_string;		# indicates missing data
     my @field_values = split(":", $e);
@@ -205,31 +218,62 @@ while (<$fhin>) {
     # check if GP present but insufficiently strong preference for one genotype:
     if ($GPidx >= 0) {
       my @gt_probs = split(',', $field_values[$GPidx]);
-      $dosage = $missing_data_string if(max(@gt_probs) < $minGP);
+      my $preferred_gt_prob = max(@gt_probs);
+      $avg_pref_gt_prob += $preferred_gt_prob;
+      $pgtprob_count++; # 
+      $dosage = $missing_data_string if($preferred_gt_prob < $minGP);
     }
     if ($dosage eq $missing_data_string) {
-      $missing_data_count++ 
+      $marker_missing_data_count++; 
     } else {			# $dosage ne $missing_data_string
       $ploidy = $dosage if($dosage > $ploidy);
-      $dosage_distribution[$dosage]++;
+      $marker_dosage_distribution[$dosage]++;
     }
-   
-
     push @dosages_this_row, $dosage;
   }				# end loop over entries in a row
+ 
+  $missing_data_count += $marker_missing_data_count;
+ 
+ 
   die "# n col ids: ", scalar @col_ids, "; n dosages in row: ", scalar @dosages_this_row, "\n" if(scalar @dosages_this_row != scalar @col_ids);
-#  print "# n col ids: ", scalar @col_ids, "; n dosages in row: ", scalar @dosages_this_row, "\n";
+  #  print "# n col ids: ", scalar @col_ids, "; n dosages in row: ", scalar @dosages_this_row, "\n";
   #sleep(1);
-  push @rows, \@dosages_this_row;
-
+  $avg_pref_gt_prob /= $pgtprob_count;
+  my $marker_missing_data_fraction = $marker_missing_data_count/(scalar @dosages_this_row);
+  #  print STDERR "# avg pref gt prob: $avg_pref_gt_prob ;  marker md fraction: $marker_missing_data_fraction \n";
+  if ($avg_pref_gt_prob >= $min_marker_avg_pref_gt_prob  and
+      $marker_missing_data_fraction <= $max_marker_missing_data_fraction) { # there is good data for this marker; store and output later.
+    push @rows, \@dosages_this_row;
+     while(my($i, $c) = each @marker_dosage_distribution){
+    $dosage_distribution[$i] += $c // 0;
+  }
+  }else{ # mark the marker as bad
+    $row_ids[$markers_read_count] = undef;
+    $alt_row_ids[$markers_read_count] = undef;
+  }
+  
+  $markers_read_count++;
+ print STDERR "# $markers_read_count lines of marker data read.\n" if($markers_read_count % 1000 == 0);
 }				# end loop over rows
 close $fhin;
-print STDERR "Done processing all rows.\n";
+print STDERR "Done processing all rows. ", scalar @rows, " rows stored to be output.\n";
 
 # #####  output  #####
+# Use @rowids as marker ids, if they are all distinct,
+if (scalar keys %rowid != scalar @row_ids) { # @row_ids are not all distinct; try @alt_row_ids
+  if (scalar keys %altrowid == scalar @alt_row_ids) {
+    @row_ids = @alt_row_ids;	# use @alt_row_ids 
+  } else {	 # problem getting a set of unique marker identifiers.
+    die "Neither @row_ids nor @alt_row_ids has all distinct identifiers.\n";
+  }
+}
+my @row_ids_out = ();
+for my $rid (@row_ids){ # select the ids of the rows we are using.
+  push @row_ids_out, $rid if(defined $rid);
+}
 open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
 my ($transtr, $n_rows_out, $n_cols_out) = ($transpose)?
-  ("# transpose", scalar @col_ids, scalar @row_ids) : ("# no transpose", scalar @row_ids, scalar @col_ids);
+  ("# transpose", scalar @col_ids, scalar @rows) : ("# no transpose", scalar @rows, scalar @col_ids);
 my $n_elements = $n_rows_out * $n_cols_out;
 my $info_string = "$transtr\n";
 $info_string .= sprintf("# outputting %d rows and %d columns of data.\n", $n_rows_out, $n_cols_out);
@@ -243,18 +287,18 @@ print STDERR $info_string;
 print $fhout $info_string;
 if (! $transpose) {
   print $fhout "MARKER ", join(" ", @col_ids), "\n";
-  die if(scalar @row_ids  !=  scalar @rows);
+  die if(scalar @row_ids_out  !=  scalar @rows);
   while (my ($i, $row_dosages) = each(@rows)) {
-    print $fhout $row_ids[$i], "  ", join(" ", @$row_dosages), "\n";
+    print $fhout $row_ids_out[$i], "  ", join(" ", @$row_dosages), "\n";
   }
 } else {			# transpose
-  print $fhout "MARKER ", join(" ", @row_ids), "\n";
+  print $fhout "MARKER ", join(" ", @row_ids_out), "\n";
   while (my ($i, $col_id) = each @col_ids) {
     # print col i as a row
     print $fhout "$col_id  ";
     while (my($j, $r) = each @rows) {
       my $d = $r->[$i];
-      # at this point $d = 0, 1, 2, ... , ploidy or NA (missing data)
+      # at this point $d = 0, 1, 2, ... , ploidy or X (missing data)
       if ($map_to_012) {
 	if ($d eq $missing_data_string) {
 	  # no change
