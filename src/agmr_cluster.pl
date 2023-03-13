@@ -123,6 +123,7 @@ my @ccs = $g->connected_components; # the connected components of graph are the 
 my @output_lines = ();
 
 my $count = 0;			# counts the number of accessions
+my $count_cluster_accessions_out = 0;
 for my $acc (@ccs) { # for each connected component (cluster of near-identical accessions)
   my %clusterids = map(($_ => 1), @$acc);
   my $cluster_noncluster_gap = least_noncluster_agmr(\%clusterids, \%id_closeidas);
@@ -166,13 +167,16 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
   $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d  %s\n ",
 				$cc_size, $ccminw, $ccavgw, $ccmaxw, $cluster_noncluster_gap,
 				$nbaddish, $nbad, $output_line_string);
-  push @output_lines, $output_line_string;
+  if($cluster_noncluster_gap/$ccmaxw > 3){
+    push @output_lines, $output_line_string;
+    $count_cluster_accessions_out += $cc_size;
+  }
 }
 
 open my $fhout, ">", "$output_cluster_filename" or die "Couldn't open $output_cluster_filename for writing.\n";
 print $fhout "#  size d_min d_avg d_max d_cnc_min nbad1 nbad2 \n";
 my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
-print $fhout "# graph max edge length: $cluster_max_agmr. Found ", scalar @ccs, " groups, with total of $count accessions.\n";
+print $fhout "# graph max edge length: $cluster_max_agmr. Found ", scalar @output_lines, " groups, with total of $count_cluster_accessions_out accessions.\n";
 print $fhout join('', @sorted_output_lines);
 close $fhout;
 
