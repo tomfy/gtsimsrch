@@ -535,6 +535,7 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   long altallelesum_kept = 0;
   long only_one_allele_count = 0;
   long too_much_missing_data_count = 0;
+  long maf_too_low_count = 0;
   for(long i=0; i<md_counts->size; i++){
     mdsum_all += md_counts->a[i];
     altallelesum_all += alt_allele_counts->a[i];
@@ -543,22 +544,20 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
 	the_gtsset->n_accessions, alt_allele_counts->a[i],
 	the_gtsset->ploidy * the_gtsset->n_accessions * the_gtsset->min_minor_allele_frequency, md_counts->a[i],
 	max_marker_md_fraction*the_gtsset->n_accessions );  /* */
-    double min_min_allele_count = the_gtsset->ploidy * (the_gtsset->n_accessions - md_counts->a[i]) * the_gtsset->min_minor_allele_frequency;
-    double max_min_allele_count = the_gtsset->ploidy * (the_gtsset->n_accessions - md_counts->a[i]) * (1.0 - the_gtsset->min_minor_allele_frequency);
+ 
     /* if(alt_allele_counts->a[i] == 0  ||  alt_allele_counts->a[i] == (the_gtsset->ploidy*(the_gtsset->n_accessions - md_counts->a[i]))){ */
     /*   // no alt alleles or no ref alleles */
     /*   fprintf(stderr, "n accessions: %ld  alt_allele_count: %ld \n", the_gtsset->n_accessions, alt_allele_counts->a[i]); */
     /* } */
   
-    if (alt_allele_counts->a[i] > 0){  // at last one accession has the alt allele
+    //  if (alt_allele_counts->a[i] > 0){  // at last one accession has the alt allele
       if (md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions){  // not too much missing data
-       
-      bool alt_allele_freq_not_extreme = ( // 
-					   (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
-					   (alt_allele_counts->a[i] <= max_min_allele_count) // and not too large
-					   );
-      bool output_extreme_alt_allele_freq = false;  // false is normal here, true just for comparing effect of lo vs hi maf.
-      bool alt_allele_freq_ok = (alt_allele_freq_not_extreme || output_extreme_alt_allele_freq) && !(alt_allele_freq_not_extreme && output_extreme_alt_allele_freq);
+	long max_possible_alt_alleles = the_gtsset->ploidy * (the_gtsset->n_accessions - md_counts->a[i]);
+	double min_min_allele_count = fmax(max_possible_alt_alleles * the_gtsset->min_minor_allele_frequency, 1);
+	double max_min_allele_count = fmin(max_possible_alt_alleles * (1.0 - the_gtsset->min_minor_allele_frequency), max_possible_alt_alleles-1);
+	bool alt_allele_freq_ok = (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
+	(alt_allele_counts->a[i] <= max_min_allele_count);     // and not too large
+	//	fprintf(stderr, "#ZZZ  %ld %10.3f %10.3f %ld  %8.5f \n", max_possible_alt_alleles, min_min_allele_count, max_min_allele_count, alt_allele_counts->a[i], the_gtsset->min_minor_allele_frequency);
       if ( alt_allele_freq_ok ){ // the alt_allele_frequency is in the right range
 	md_ok->a[i] = 1;
 	n_markers_to_keep++;
@@ -569,22 +568,30 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
 	push_to_vstr(cleaned_marker_ids, marker_id_to_keep); // store the kept marker ids.
 	push_to_vlong(cleaned_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
 	push_to_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
+      }else{
+	maf_too_low_count++;
       }
       }else{
 	too_much_missing_data_count++;
       }
-    }else{
-      only_one_allele_count++;
-    }
   } // end of loop over markers
+  fprintf(stderr, "# mdsum_all: %ld  mdsum_kept: %ld  n_markers all: %ld  n_markers_to_keep: %ld\n",
+	  mdsum_all, mdsum_kept, md_counts->size, n_markers_to_keep);
   double raw_md_fraction = (double)mdsum_all/(double)(md_counts->size*n_accs);
   double cleaned_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
   double raw_minor_allele_freq = (double)altallelesum_all/(md_counts->size*n_accs*the_gtsset->ploidy);
   double cleaned_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
-  fprintf(stdout, "# Removing markers with only one allele present. Removed %ld markers.\n", only_one_allele_count);
-  fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
-	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
-  fprintf(stdout, "# Removed %ld markers.\n", too_much_missing_data_count);
+  //  fprintf(stdout, "# Removing markers with only one allele present. Removed %ld markers.\n", only_one_allele_count);
+
+  fprintf(stderr, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
+  	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
+  fprintf(stderr, "# removing %ld markers for excessive missing data.\n", too_much_missing_data_count);
+  fprintf(stderr, "# and removing an additional %ld markers for too small maf.\n", maf_too_low_count);
+   fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
+  	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
+  fprintf(stdout, "# removing %ld markers for excessive missing data.\n", too_much_missing_data_count);
+  fprintf(stdout, "# and removing an additional %ld markers for too small maf.\n", maf_too_low_count);
+  
   fprintf(stdout, "# Raw data has %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
 	  md_counts->size, raw_md_fraction, raw_minor_allele_freq);
   fprintf(stdout, "# Cleaned data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
