@@ -43,6 +43,9 @@ my $output_cluster_filename = "agmr_cluster.out";
 my $pow = 1;			# 'log';
 my $minx = 0.001;
 my $column = 6; # the agmrs to use for cluster are found in this column (unit-based)
+my $min_minextra_maxintra_ratio = 0; # can use this to only output clusters whose
+# ratio ( min distance to extra-cluster accession / max intra-cluster distance )
+# is at least this large.
 
 GetOptions(
 	   'input_file=s' => \$input_agmr_filename, # file with id1 id2 x xx agmr_est agmr (duplicatesearch output)
@@ -50,6 +53,7 @@ GetOptions(
 	   'cluster_max_agmr=s' => \$cluster_max_agmr, # cluster using graph with edges for pairs with agmr < this.
 	   'pow=s' => \$pow,
 	   'column=i' => \$column,
+	   'min_ratio=f' => \$min_minextra_maxintra_ratio,
 	  );
 print STDERR "Clustering based on column: $column\n";
 $column--;
@@ -167,7 +171,7 @@ for my $acc (@ccs) { # for each connected component (cluster of near-identical a
   $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d  %s\n ",
 				$cc_size, $ccminw, $ccavgw, $ccmaxw, $cluster_noncluster_gap,
 				$nbaddish, $nbad, $output_line_string);
-  if($cluster_noncluster_gap/$ccmaxw > 3){
+  if($cluster_noncluster_gap/$ccmaxw >= $min_minextra_maxintra_ratio){
     push @output_lines, $output_line_string;
     $count_cluster_accessions_out += $cc_size;
   }
