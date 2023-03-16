@@ -669,6 +669,8 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     }
     i++;
   }
+  Pedigree_stats* pedigree_stats = (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
+  
   long n_0 = // 15 triples consistent with true parents-offspring relationship,
     // with no genotyping errors
     n_00_0 + n_01_0 + n_01_1 + n_02_1 +
@@ -685,11 +687,11 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   // ************************************
   long n_a2 = n_00_2 + n_22_0; // delta = 2 triples
   long n_a1 =   n_00_1 + n_02_0 + n_02_2 +
-    n_20_0 + n_20_2 + n_22_1; // delta = 1 triples used by apparent
+                         n_20_0 + n_20_2 + n_22_1; // delta = 1 triples used by apparent
   long n_o1 =   n_01_2 + n_10_2 + n_12_0 + n_21_0; // other delta = 1 triples.
 
   long n_00 = n_00_0 + n_00_1 + n_00_2;
-  long n_22 + n_22_0 + n_22_1 + n_22_2;
+  long n_22 = n_22_0 + n_22_1 + n_22_2;
 
   long n_02 = n_02_0 + n_02_1 + n_02_2;
   long n_20 = n_20_0 + n_20_1 + n_20_2;
@@ -701,13 +703,19 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   long n_21 = n_21_0 + n_21_1 + n_21_2;
 
   // 'apparent': (n_a2 + 0.5*n_a1)/(n_00 + n_22 + n_02 + n_20)
-  // find_parents: (n_a2 + n_a1 + n_o1)/(n_00 + n_02 + n_20 + n_22 + n_01 + n_10 + n_02 + n_20);
-  // to try:  (n_a2 + wa*n_a1 + wo*n_o1))/(n_00 + n_02 + n_20 + n_22 + wx*(n_01 + n_10 + n_02 + n_20));
+  // find_parents: (n_a2 + n_a1 + n_o1)/(n_00 + n_02 + n_20 + n_22 + n_01 + n_10 + n_12 + n_21);
+  // to try:  (n_a2 + wa*n_a1 + wo*n_o1))/(n_00 + n_02 + n_20 + n_22 + wx*(n_01 + n_10 + n_12 + n_21));
   // so wa=1/2, wo=wx=0
   // also just look at n_o1/(n_01 + n_10 + n_02 + n_20);
   // ************************************
-
+  ND d_22 = {n_a2, n_00 + n_22}; // parents both homozyg, delta = 2
+  pedigree_stats->d_22 = d_22;
+  ND d_21 = {n_a1, n_00 + n_22 + n_02 + n_20}; // parents both homozyg, delta = 1
+  pedigree_stats->d_21 = d_21;
   
+  ND d_11 = {n_o1, n_01 + n_10 + n_12 + n_21}; // one parents homozyg, one heterozyg, delta = 1;
+  //  fprintf(stderr, "### %ld %ld \n", d_11.n, d_11.d);
+  pedigree_stats->d_11 = d_11; 
   
   long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0;
   long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1;
@@ -770,7 +778,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     n_11_0 + n_11_1 + n_11_2 + //n_11_3 +
     n_22_0 + n_22_1 + n_22_2; //n_22_3;
 
-  Pedigree_stats* pedigree_stats = (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
+  
   ND agmr12_nd = {agmr12_numer, agmr12_denom};
   pedigree_stats->agmr12 = agmr12_nd;
 

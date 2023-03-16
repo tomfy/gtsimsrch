@@ -218,7 +218,20 @@ main(int argc, char *argv[])
 	  the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog, 0); // do full (not 'quick') xhgmr
 	  the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog, 0); // do full (not 'quick') xhgmr
 	  fprintf(o_stream, "%s %s %s  %ld  ", prog->id->a, par1->id->a, par2->id->a, ncandpairs);
-	  print_pedigree_stats(o_stream, the_ps); fprintf(o_stream, "\n");
+	  print_pedigree_stats(o_stream, the_ps);
+	  long N_22 = the_ps->d_22.n;
+	  long D_22 = the_ps->d_22.d;
+	  long N_21 = the_ps->d_21.n;
+	  long D_21 = the_ps->d_21.d;
+	  // 'apparent' style dissimilarity:
+	  ND nd_app = {N_22 + 0.5*N_21, D_22 + D_21};
+	  print_d_r(o_stream, nd_app);
+	  print_d_r(o_stream, the_ps->d_22);
+	  print_d_r(o_stream, the_ps->d_21);
+	  print_d_r(o_stream, the_ps->d_11);
+	  ND xxx = {N_22 + N_21 + the_ps->d_11.n, D_21 + the_ps->d_11.d};
+	  print_d_r(o_stream, xxx);
+	  fprintf(o_stream, "\n");
 
 	}
       }
