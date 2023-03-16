@@ -42,8 +42,8 @@ my $cluster_max_agmr = 'auto'; # construct graph with edges between pairs of acc
 my $output_cluster_filename = "agmr_cluster.out";
 my $pow = 1;			# 'log';
 my $minx = 0.001;
-my $column = 6; # the agmrs to use for cluster are found in this column (unit-based)
-my $min_minextra_maxintra_ratio = 0; # can use this to only output clusters whose
+my $column = 6; # the agmrs to use for clustering are found in this column (unit-based)
+my $min_minextra_maxintra_ratio = -1; # can use this to only output clusters whose
 # ratio ( min distance to extra-cluster accession / max intra-cluster distance )
 # is at least this large.
 
