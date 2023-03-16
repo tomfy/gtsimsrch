@@ -10,6 +10,9 @@ typedef struct{
   ND pseudo_hgmr;
   ND xhgmr1;
   ND xhgmr2;
+  ND d_22; // both parents homozyg, delta = 2 
+  ND d_21; // both parents homozyg, delta = 1
+  ND d_11; // one parent homozyg, one heterozyg, delta = 1
 }Pedigree_stats; // 
 
 typedef struct{
