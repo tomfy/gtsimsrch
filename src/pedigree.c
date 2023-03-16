@@ -681,6 +681,33 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     n_10_2 + n_12_0 +
     n_20_0 + n_20_2 + n_21_0 + n_22_1;  // these 10 can happen if just one error of 0<->1 or 1<->2 type.
   long n_2 = n_00_2 + n_22_0; // these 2 can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
+
+  // ************************************
+  long n_a2 = n_00_2 + n_22_0; // delta = 2 triples
+  long n_a1 =   n_00_1 + n_02_0 + n_02_2 +
+    n_20_0 + n_20_2 + n_22_1; // delta = 1 triples used by apparent
+  long n_o1 =   n_01_2 + n_10_2 + n_12_0 + n_21_0; // other delta = 1 triples.
+
+  long n_00 = n_00_0 + n_00_1 + n_00_2;
+  long n_22 + n_22_0 + n_22_1 + n_22_2;
+
+  long n_02 = n_02_0 + n_02_1 + n_02_2;
+  long n_20 = n_20_0 + n_20_1 + n_20_2;
+
+  long n_01 = n_01_0 + n_01_1 + n_01_2;
+  long n_10 = n_10_0 + n_10_1 + n_10_2;
+	
+  long n_12 = n_12_0 + n_12_1 + n_12_2;
+  long n_21 = n_21_0 + n_21_1 + n_21_2;
+
+  // 'apparent': (n_a2 + 0.5*n_a1)/(n_00 + n_22 + n_02 + n_20)
+  // find_parents: (n_a2 + n_a1 + n_o1)/(n_00 + n_02 + n_20 + n_22 + n_01 + n_10 + n_02 + n_20);
+  // to try:  (n_a2 + wa*n_a1 + wo*n_o1))/(n_00 + n_02 + n_20 + n_22 + wx*(n_01 + n_10 + n_02 + n_20));
+  // so wa=1/2, wo=wx=0
+  // also just look at n_o1/(n_01 + n_10 + n_02 + n_20);
+  // ************************************
+
+  
   
   long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0;
   long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1;
