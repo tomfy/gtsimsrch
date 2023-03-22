@@ -311,13 +311,14 @@ main(int argc, char *argv[])
   }else{
     fprintf(rparam_stream, "# Max. marker missing data fraction will be set to 2.0/chunk_size.\n");
   }
-  fprintf(rparam_stream, "# Max. agmr: %5.3lf\n", max_est_agmr);
+  fprintf(rparam_stream, "# Max. estimated agmr: %5.3lf\n", max_est_agmr);
   fclose(rparam_stream);
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
   free(rparam_buf);
   
   // *****  done processing command line  *****************************************
+  fprintf(stderr, "# max_marker_missing_data_fraction: %8.5f\n", max_marker_missing_data_fraction);
 
   long n_ref_accessions = 0;
   long n_accessions = 0;
@@ -347,8 +348,8 @@ main(int argc, char *argv[])
     chunk_size = (long)(log(MAX_PATTERNS)/log((double)ploidy+1.0));
   }
   the_genotypes_set->max_marker_missing_data_fraction = (max_marker_missing_data_fraction <= 0)? 2.0/chunk_size : max_marker_missing_data_fraction;
-  fprintf(out_stream, "# Max. marker missing data fraction: %5.3lf\n", the_genotypes_set->max_marker_missing_data_fraction);
-  fprintf(stdout, "# Max. marker missing data fraction: %5.3lf\n", the_genotypes_set->max_marker_missing_data_fraction);
+  fprintf(out_stream, "# Chunk size: %ld\n# Max. marker missing data fraction: %5.3lf\n", chunk_size, the_genotypes_set->max_marker_missing_data_fraction);
+  fprintf(stdout, "# Chunk size: %ld\n# Max. marker missing data fraction: %5.3lf\n", chunk_size, the_genotypes_set->max_marker_missing_data_fraction);
   
   rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
   clean_genotypesset(the_genotypes_set);
@@ -886,7 +887,9 @@ Vagmri* maf_category_agmrs(GenotypesSet* the_gtset, Accession* acc1, Accession* 
 	  double maf = the_gtset->mafs->a[i_marker];
 	  maf_nhagmr += 4.0*maf*(1.0-maf)*(1.0 - 1.5*maf*(1.0-maf));
 	  maf_denominator++; // count all genotype pairs with neither being missing data.
-	  if(a1 != a2) maf_numerator++; // count genotype pairs with differing dosages.
+	  if(a1 != a2) { // count genotype pairs with differing dosages.
+	    maf_numerator += abs(a1 - a2); // 
+	  }
 	}
       }
     }
