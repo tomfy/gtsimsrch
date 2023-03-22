@@ -23,6 +23,7 @@ my $transpose = 1; # default is to transpose; use -notrans to output untranspose
 my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, X -> X
 my $field_to_use = 'AUTO'; # default is DS if present, then GT if present, then AD if present, then give up.
 # recognized choices are DS (alternative allele dosage e.g. 2), GT (genotype e.g. '/1/0' ) , AD (allele depths, e.g.'136:25' ), and AUTO.
+### could add another option: GP, i.e. choose whichever gt has est. greatest probability.
 my $ploidy = -1; # infer from data - user must specify if AD (allele depth) is specified.
 my $delta = 0.1; # if not $map_to_012, round to integer if within +- $delta
                  # if map_to_012 [0, $delta ->0], [1-$delta, $ploidy-1+$delta] -> 1, [$ploidy-$delta, $ploidy] -> 2
@@ -32,8 +33,8 @@ my $output_dosages_filename = undef; # default: construct from input filename
 my $missing_data_string = 'X';
 my $minGQ = 96;			# if GQ present, must be >= this.
 my $minGP = 0.9; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
-my $min_marker_avg_pref_gt_prob = -0.9; # default is negative (don't filter on this)
-my $max_marker_missing_data_fraction = 0.4; # remove markers with excessive missing data.
+my $min_marker_avg_pref_gt_prob = -1.0; # default is negative (meaning don't filter on this)
+my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
 
 my $info_string = "# command: " . join(" ", @ARGV) . "\n";
 
@@ -42,13 +43,13 @@ GetOptions(
 	   'output_file|dosage_file=s' => \$output_dosages_filename,
 	   'transpose!' => \$transpose, # -notranspose to output untransposed. (duplicatesearch requires transposed which is default)
 	   'GQmin=f' => \$minGQ,	# min genotype quality.
-	   'GPmin=f' => \$minGP,	# must
+	   'GPmin=f' => \$minGP,	# 
 	   'field=s' => \$field_to_use,
-	   'ploidy=f' => \$ploidy,
-	   'map_to_012!' => \$map_to_012,
 	   'delta=f' => \$delta, 
 	   'min_read_depth=f' => \$min_read_depth,
 	   'max_marker_md_fraction=f' => \$max_marker_missing_data_fraction,
+	   'ploidy=f' => \$ploidy,
+	   'map_to_012!' => \$map_to_012,
 	  );
 
 # #####  check for input filename; construct output filename if not specified  #####
@@ -74,7 +75,7 @@ $info_string .= "# data field to use: $field_to_use\n";
 $info_string .= "# delta: $delta ; min read depth: $min_read_depth\n";
 $info_string .= "# GPmin: $minGP ; GQmin: $minGQ\n";
 $info_string .= "# max marker missing data fraction: $max_marker_missing_data_fraction \n";
-$info_string .= "\n";
+# $info_string .= "\n";
 print $fhout $info_string;
 print STDERR $info_string;
 $info_string = '';
@@ -110,6 +111,7 @@ my %altrowid = ();
 my @rows = ();
 my $missing_data_count = 0;
 my $markers_read_count = 0;
+  my %fieldused_count = (); # keys: 'DS', 'GT', etc.; values: count of gt data of that format.
 while (<$fhin>) {
   my $marker_missing_data_count = 0;
   my @marker_dosage_distribution = ();
@@ -125,17 +127,23 @@ while (<$fhin>) {
   my @fields = split(':', $format_str);
   my $nfields = scalar @fields;
   my ($DSidx, $GTidx, $ADidx, $GPidx, $GQidx) = (-1, -1, -1, -1, -1);
+  my @fields_present = (); # e.g. ('DS', 'GT', 'GP') 
   while (my($i, $f) = each @fields) {
     if ($f eq 'DS') {	# dosage. e.g. 0 or 1, but can be non-integer.
       $DSidx = $i;
+      push @fields_present, 'DS'; 
     } elsif ($f eq 'GT') { # genotype. e.g. 0/1 (unphased) or 0|1 (phased), or 0/0/0/1 (tetraploid)
       $GTidx = $i;
+      push @fields_present, 'GT'; 
     } elsif ($f eq 'AD') {	# allele depth. e.g. 142,31
       $ADidx = $i;
+      push @fields_present, 'AD'; 
     } elsif ($f eq 'GP') { # genotype probability. e.g. 0.002,0.998,0.001   
       $GPidx = $i;
+      push @fields_present, 'GP'; 
     } elsif ($f eq 'GQ') {	# genotype quality. e.g. 
       $GQidx = $i;
+      push @fields_present, 'GT'; 
     }
   }
 
@@ -151,16 +159,18 @@ while (<$fhin>) {
     # #####  if the data field is specified (DS, GT, AD)  #####
     if ($field_to_use eq 'DS') {
       if ($DSidx >= 0) {      # DS; use dosage if present in vcf file.
+	$fieldused_count{'DS'}++;
 	my $float_dosage = $field_values[$DSidx];
 	my $int_dosage = int($float_dosage + 0.5); # round to integer
 	if (abs($float_dosage - $int_dosage) <= $delta) { # float_dosage is close to integer, use
 	  $dosage = $int_dosage;
-	}			# else keep as missing data.
+	}			# else regard as missing data.
       } else {
 	die "Selected data field 'DS' not present.\n";
       }
     } elsif ($field_to_use eq 'GT') {
       if ($GTidx >= 0) {	# GT; use genotype if present
+	$fieldused_count{'GT'}++;
 	if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
 	} else {			      # count 0's and 1's
 	  my $ref_allele_count = $field_values[$GTidx] =~ tr/0/0/;
@@ -172,7 +182,8 @@ while (<$fhin>) {
       }
     } elsif ($field_to_use eq 'AD') {
       if ($ADidx >= 0) {
-	# AD; use allele depth 
+	# AD; use allele depth
+	$fieldused_count{'AD'}++;
 	my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
 	my $read_depth = $ref_depth + $alt_depth;
 	if ($read_depth >= $min_read_depth) {
@@ -201,6 +212,7 @@ while (<$fhin>) {
     } else {   # no data field selected, look for DS, then GT, then AD
       die "Selected data field $field_to_use is unknown.\n" if($field_to_use ne 'AUTO');
       if ($DSidx >= 0) {      # DS; use dosage if present in vcf file.
+	$fieldused_count{'DS'}++;
 	my $float_dosage = $field_values[$DSidx];
 	my $int_dosage = int($float_dosage + 0.5); # round to integer
 	if (abs($float_dosage - $int_dosage) <= $delta) { # float_dosage is close to integer, use
@@ -209,13 +221,15 @@ while (<$fhin>) {
 	  $dosage = $missing_data_string;
 	}
       } elsif ($GTidx >= 0) {	# GT; use genotype if present
+	$fieldused_count{'GT'}++;
 	if ($field_values[$GTidx] =~ /[.]/) { # no valid GT -> missing data
 	} else {			      # count 0's and 1's
 	  my $ref_allele_count = $field_values[$GTidx] =~ tr/0/0/;
 	  my $alt_allele_count = $field_values[$GTidx] =~ tr/1/1/;
 	  $dosage = $alt_allele_count;
 	}
-      } elsif ($ADidx >= 0) {	# AD; use allele depth 
+      } elsif ($ADidx >= 0) {	# AD; use allele depth
+	$fieldused_count{'AD'}++;
 	my ($ref_depth, $alt_depth) = split(',', $field_values[$ADidx]);
 	my $read_depth = $ref_depth + $alt_depth;
 	if ($read_depth >= $min_read_depth) {
@@ -278,8 +292,12 @@ while (<$fhin>) {
   print STDERR "# $markers_read_count lines of marker data read. \n" if($markers_read_count % 200 == 0);
 }				# end loop over rows
 close $fhin;
-$info_string .= "# Done processing all $markers_read_count rows.\n";
-$info_string .=  "# ", scalar @rows, " rows stored to be output.\n";
+$info_string .= "# Done processing all $markers_read_count rows (markers).\n";
+$info_string .= "# ", scalar @rows, " rows stored to be output.\n";
+$info_string .= "# Data format: count.  ";
+while(my($f, $c) = each %fieldused_count){
+$info_string .= "$f: $c;  ";
+}$info_string .= "\n";
 print $fhout $info_string;
 print STDERR $info_string;
 
@@ -302,7 +320,7 @@ my ($n_rows_out, $n_cols_out) = (scalar @rows, scalar @col_ids);
 my $n_elements = $n_rows_out * $n_cols_out;
 $info_string = '';
 $info_string .= sprintf("# ploidy appears to be: %d\n", $ploidy);
-$info_string .= sprintf("# outputting %d rows and %d columns of data.\n", $n_rows_out, $n_cols_out);
+$info_string .= sprintf("# outputting data for %d accessions and %d markers.\n", $n_cols_out, $n_rows_out);
 $info_string .= sprintf("# dosage distribution:\n");
 for my $i (0..$ploidy) {
   $info_string .= sprintf("#    %2d        %8d   %8.6f\n", $i, $dosage_distribution[$i], $dosage_distribution[$i]/$n_elements);
