@@ -15,11 +15,11 @@ use File::Spec;
 my $input_dosages_filename = undef;
 my $input_clusters_filename = undef;
 #my $do_remove_bad_accessions = shift // m
-my $max_acc_missing_data_fraction = 0.5;
-my $max_marker_missing_data_fraction = undef;
+#my $max_acc_missing_data_fraction = 0.5;
+#my $max_marker_missing_data_fraction = undef;
 my $output_dosages_filename = undef;
-my $max_agmr = 0.15;
-my $cluster_max_agmr = 'auto';
+#my $max_agmr = 0.15;
+#my $cluster_max_agmr = 'auto';
 my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
 my $vote = 0;
 my $md_string = 'X';
@@ -28,10 +28,10 @@ GetOptions(
 	   'dosages_input_file=s' => \$input_dosages_filename,
 	   'clusters_input_file=s' => \$input_clusters_filename,
 	   'output_file=s' => \$output_dosages_filename,
-	   'acc_max_md_fraction=f' => \$max_acc_missing_data_fraction,
-	   'marker_max_md_fraction=f' => \$max_marker_missing_data_fraction,
-	   'agmr_max=f' => \$max_agmr,
-	   'cluster_max_agmr=s' => \$cluster_max_agmr,
+	 #  'acc_max_md_fraction=f' => \$max_acc_missing_data_fraction,
+	#   'marker_max_md_fraction=f' => \$max_marker_missing_data_fraction,
+	#   'agmr_max=f' => \$max_agmr,
+	#   'cluster_max_agmr=s' => \$cluster_max_agmr,
 	   'fraction=f' => \$cluster_fraction,
 	   'vote!' => \$vote,
 	  );
@@ -57,9 +57,9 @@ if (!defined $output_dosages_filename) {
 my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 
 
-system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
+# system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
 
-print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
+# print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
 
@@ -95,7 +95,7 @@ close $fh_clusters;
 print STDERR "before storing dosages\n";
 
 # store individual lines of dosage file in hash
-open my $fh_dosages, "<", "$cleaned_dosages_filename";
+open my $fh_dosages, "<", "$input_dosages_filename";
 open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
 
 # store ids and genotypes of clusters (size >= 2), and output singletons.
