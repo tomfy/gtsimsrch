@@ -201,8 +201,8 @@ main(int argc, char *argv[])
   long count_accs_w_no_cand_parents = 0;
   long count_accs_w_too_many_cand_parents = 0;
   for(long i=0; i<n_acc; i++){
-    Accession* prog = the_genotypes_set->accessions->a[i];
-    Vlong* cppps = cand_pppairs[i];
+    Accession* prog = the_genotypes_set->accessions->a[i]; // the progeny accession, for which we seek parents.
+    Vlong* cppps = cand_pppairs[i]; // these are the indices of candidate parents to accession 'prog'. 
     long ncandpairs = cppps->size;
     //   fprintf(stdout, "%ld  %20s  %ld \n", i, prog->id->a, ncandpairs);
     if(ncandpairs == 0){
@@ -219,18 +219,20 @@ main(int argc, char *argv[])
 	  the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog, 0); // do full (not 'quick') xhgmr
 	  fprintf(o_stream, "%s %s %s  %ld  ", prog->id->a, par1->id->a, par2->id->a, ncandpairs);
 	  print_pedigree_stats(o_stream, the_ps);
-	  long N_22 = the_ps->d_22.n;
-	  long D_22 = the_ps->d_22.d;
-	  long N_21 = the_ps->d_21.n;
-	  long D_21 = the_ps->d_21.d;
+	  long N_22 = the_ps->d_22.n; // n_00_2 + n_22_0
+	  long D_22 = the_ps->d_22.d; // n_00_x + n_22_x
+	  long N_21 = the_ps->d_21.n; // n_02_0 + n_02_2 + n_20_0 + n_20_2 + n_00_1 + n_22_1
+	  long D_21 = the_ps->d_21.d; // n_00_x + n_02_x + n_20_x + n_22
 	  // 'apparent' style dissimilarity:
-	  ND nd_app = {N_22 + 0.5*N_21, D_22 + D_21};
-	  print_d_r(o_stream, nd_app);
-	  print_d_r(o_stream, the_ps->d_22);
-	  print_d_r(o_stream, the_ps->d_21);
-	  print_d_r(o_stream, the_ps->d_11);
+	  ND nd_app = {N_22 + 0.5*N_21, D_21};
+	  print_d_r(o_stream, nd_app); // col 24
+	  print_d_r(o_stream, the_ps->d_22); // col 26
+	  print_d_r(o_stream, the_ps->d_21); // col 28
+	  print_d_r(o_stream, the_ps->d_11); // col 30
 	  ND xxx = {N_22 + N_21 + the_ps->d_11.n, D_21 + the_ps->d_11.d};
 	  print_d_r(o_stream, xxx);
+	  ND xxxx = {N_21 + the_ps->d_11.n, D_21 + the_ps->d_11.d};
+	  print_d_r(o_stream, xxxx);
 	  fprintf(o_stream, "\n");
 
 	}
