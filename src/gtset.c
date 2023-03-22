@@ -291,7 +291,8 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     // fprintf(stderr, "# bottom of row loop\n");
   } // done reading all lines
   fclose(g_stream);
-  fprintf(stderr, "###good/bad accessions:  %ld %ld \n", accession_count, the_genotypes_set->n_bad_accessions);
+  fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
+	  the_genotypes_set->n_bad_accessions, accession_count);
   free(line); // only needs to be freed once.
   the_genotypes_set->n_accessions = the_genotypes_set->accessions->size;
   the_genotypes_set->n_markers = the_genotypes_set->marker_ids->size;
@@ -1138,7 +1139,9 @@ void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
     Accession* acc = the_gtsset->accessions->a[i];
     fprintf(fh, "%s  ", acc->id->a);
     for(long j=0; j < acc->genotypes->length; j++){
-      fprintf(fh, "%c ", acc->genotypes->a[j]);
+      char gt = acc->genotypes->a[j];
+      if(gt == '~') gt = 'X';
+      fprintf(fh, "%c ", gt); // acc->genotypes->a[j]);
     }
     fprintf(fh, "\n");
   }
