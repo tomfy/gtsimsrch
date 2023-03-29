@@ -219,7 +219,7 @@ close $fhout;
 
 # ************************************************
 
-sub cluster_consensus{
+sub cluster_consensus{ # for looking at which markers have more disagreement between cluster members.
   my $clusters = shift;
   my $id_dosages = shift;
 
