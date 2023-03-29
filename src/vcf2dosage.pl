@@ -24,7 +24,8 @@ my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, X 
 my $field_to_use = 'AUTO'; # default is DS if present, then GT if present, then AD if present, then give up.
 # recognized choices are DS (alternative allele dosage e.g. 2), GT (genotype e.g. '/1/0' ) , AD (allele depths, e.g.'136:25' ), and AUTO.
 ### could add another option: GP, i.e. choose whichever gt has est. greatest probability.
-my $ploidy = -1; # infer from data - user must specify if AD (allele depth) is specified.
+my $ploidy = 2; # need to specify, will die if find dosages greater than specified ploidy.-
+my $inferred_ploidy = -1; # infer from data; die if > specified $ploidy
 my $delta = 0.1; # if not $map_to_012, round to integer if within +- $delta
                  # if map_to_012 [0, $delta ->0], [1-$delta, $ploidy-1+$delta] -> 1, [$ploidy-$delta, $ploidy] -> 2
 my $min_read_depth = 1;
@@ -35,7 +36,7 @@ my $minGQ = 96;			# if GQ present, must be >= this.
 my $minGP = 0.9; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $min_marker_avg_pref_gt_prob = -1.0; # default is negative (meaning don't filter on this)
 my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
-
+my $min_marker_maf = 0;
 my $info_string = "# command: " . join(" ", @ARGV) . "\n";
 
 GetOptions(
@@ -48,12 +49,13 @@ GetOptions(
 	   'delta=f' => \$delta, 
 	   'min_read_depth=f' => \$min_read_depth,
 	   'max_marker_md_fraction=f' => \$max_marker_missing_data_fraction,
+	   'min_maf=f' => \$min_marker_maf,
 	   'ploidy=f' => \$ploidy,
 	   'map_to_012!' => \$map_to_012,
 	  );
 
 # #####  check for input filename; construct output filename if not specified  #####
-die "if specifying use of AD (allele depth), ploidy must also be specified\n" if($field_to_use eq 'AD'  and  $ploidy == -1);
+# die "if specifying use of AD (allele depth), ploidy must also be specified\n" if($field_to_use eq 'AD'  and  $ploidy == -1);
 die "Must specify input vcf filename. \n" if(!defined $input_vcf_filename);
 
 if (!defined $output_dosages_filename) { # construct an output filename from input vcf file name.
@@ -114,6 +116,7 @@ my $markers_read_count = 0;
   my %fieldused_count = (); # keys: 'DS', 'GT', etc.; values: count of gt data of that format.
 while (<$fhin>) {
   my $marker_missing_data_count = 0;
+  my $marker_alt_allele_count = 0;
   my @marker_dosage_distribution = ();
   my @dosages_this_row = ();
   my @cols = split(" ", $_);
@@ -257,10 +260,18 @@ while (<$fhin>) {
     } else {			# $dosage ne $missing_data_string
       $ploidy = $dosage if($dosage > $ploidy);
       $marker_dosage_distribution[$dosage]++;
+      $marker_alt_allele_count += $dosage;
     }
     push @dosages_this_row, $dosage;
+  
   }				# end loop over entries in a row
-
+  die "Inferred ploidy ($inferred_ploidy) is greater than specified ploidy ($ploidy).\n" if($inferred_ploidy > $ploidy);
+  my $marker_total_allele_count = $ploidy*((scalar @dosages_this_row) - $marker_missing_data_count);
+  my $marker_alt_allele_frequency = $marker_alt_allele_count/$marker_total_allele_count;
+  my $marker_minor_allele_frequency = ($marker_alt_allele_frequency <= 0.5)?
+    $marker_alt_allele_frequency :
+    1.0 - $marker_alt_allele_frequency;
+  
   $missing_data_count += $marker_missing_data_count;
 
   die "# n col ids: ", scalar @col_ids, "; n dosages in row: ", scalar @dosages_this_row, "\n" if(scalar @dosages_this_row != scalar @col_ids);
@@ -268,9 +279,11 @@ while (<$fhin>) {
   #sleep(1);
   $avg_pref_gt_prob /= $pgtprob_count;
   my $marker_missing_data_fraction = $marker_missing_data_count/(scalar @dosages_this_row);
-  #  print STDERR "# avg pref gt prob: $avg_pref_gt_prob ;  marker md fraction: $marker_missing_data_fraction \n";
+  
+ #  print STDERR "# avg pref gt prob: $avg_pref_gt_prob ;  marker md fraction: $marker_missing_data_fraction  $marker_missing_data_count\n";
   if ($avg_pref_gt_prob >= $min_marker_avg_pref_gt_prob  and
-      $marker_missing_data_fraction <= $max_marker_missing_data_fraction) { # there is good data for this marker; store and output later.
+      $marker_missing_data_fraction <= $max_marker_missing_data_fraction and
+     $marker_minor_allele_frequency >= $min_marker_maf) { # there is good data for this marker; store and output later.
     push @rows, \@dosages_this_row;
     push @row_ids, $row_id;	# store row (marker) id
     $rowid{$row_id} = 1; # also store in a hash to see whether all ids are distinct.
