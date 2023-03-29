@@ -140,7 +140,7 @@ main(int argc, char *argv[])
   double max_est_agmr = 0.2;
   long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
   char default_output_filename[] = "duplicatesearch.out";
-  long n_maf_categories = 2;
+  long n_maf_categories = 1;
 
   char* rparam_buf;
   size_t rparam_len;
