@@ -72,7 +72,9 @@ open my $fhin, "<", "$input_agmr_filename" or die "Couldn't open $input_agmr_fil
 while (my $line = <$fhin>) {
   next if($line =~ /^\s*#/);
   my @cols = split(" ", $line);
-  my ($id1, $id2, $usable_chunks, $match_chunks, $est_agmr) = @cols[0..4];
+  my ($id1, $id2) =
+    # , $usable_chunks, $match_chunks, $est_agmr) =
+    @cols[0..1];
   my $agmr = $cols[$column];
   my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
   if (!exists $id_closeidas{$id1}) {
@@ -89,21 +91,23 @@ while (my $line = <$fhin>) {
 }
 close $fhin;
 
+
 my @agmrs = values %edge_weight;
 if ($cluster_max_agmr eq 'auto') {
  
   my $cluster1d_obj = Cluster1d->new({label => '', xs => \@agmrs, pow => $pow, minx => $minx});
-  print  "before two_cluster \n";
+  print  "before two_cluster to choose cluster max agmr\n";
   print  "#  pow: $pow  min: $minx \n";
   my ($Hopt, $maxQ, $Hmid_half_max) = $cluster1d_obj->two_cluster();
   # my ($Hoptx, $maxQx) = (0, 0); # $cluster1d_obj->two_cluster_x();
-  print "# after two_cluster \n";
+  $cluster_max_agmr = $Hmid_half_max;
+  print "# after two_cluster. Cluster max agmr: $cluster_max_agmr \n";
   #  print "# before k-means/kde clustering \n";
   #  my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt, $kde_q) = $cluster1d_obj->one_d_2cluster();
   #  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f   Hopt: %6.4f  maxQ: %6.4f.  Hmhmx: %6.4f \n",
   #       $n_pts, $km_n_L, $km_h_opt, $km_n_R, $q, $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q, $Hopt, $maxQ, $Hmid_half_max);
   printf(STDERR  "Hopt: %6.4f  maxQ: %6.4f.  Hmhmx: %6.4f \n", $Hopt, $maxQ, $Hmid_half_max);
-  $cluster_max_agmr = $Hmid_half_max;
+  
 }
 #print "ZZZZ\n";
 #exit;
@@ -195,12 +199,12 @@ sub compare_str{ # sort by size of cluster, tiebreaker is avg intra-cluster dist
 sub least_noncluster_agmr{	# call once for each cluster,
   # to get least agmr from cluster to outside cluster.
   my $clustids = shift;		# hash ref, keys ids in cluster.
-  my $id1_id2as = shift; # hash ref; key ids; value: array ref of strings with id2, agmr12
+  my $id1_id2ds = shift; # hash ref; key ids; value: array ref of strings with id2, agmr12
   # my $cluster_max_agmr = shift;
   my $min_agmr_to_noncluster = 1;
   for my $id1 (keys %$clustids) { # loop over elements of cluster
 
-    for my $s (@{$id1_id2as->{$id1}}) { # loop over accessions with smallish agmr to id1
+    for my $s (@{$id1_id2ds->{$id1}}) { # loop over accessions with smallish agmr to id1
       my ($id2, $d) = split(" ", $s);
       if (
 	  # $d > $cluster_max_agmr  and  #
