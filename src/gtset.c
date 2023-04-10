@@ -498,7 +498,7 @@ void check_genotypesset(GenotypesSet* gtss){
   fprintf(stderr, "# Successfully completed check_genotypesset\n");
 }
 
-void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cleaned' accessions, which replace the raw accessions
+void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'filtered' accession genotypes, which replace the raw ones.
   double max_marker_md_fraction = the_gtsset->max_marker_missing_data_fraction;
   Vlong* md_counts = the_gtsset->marker_missing_data_counts; // the number of missing data for each marker
   Vlong* alt_allele_counts = the_gtsset->marker_alt_allele_counts;  
@@ -527,9 +527,9 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   // identify the markers to keep:
   long n_markers_to_keep = 0;
   Vlong* md_ok = construct_vlong_zeroes(md_counts->size); // set to 1 if number of missing data gts is small enough
-  Vstr* cleaned_marker_ids = construct_vstr(1000);
-  Vlong* cleaned_md_counts = construct_vlong(1000);
-  Vlong* cleaned_alt_allele_counts = construct_vlong(1000);
+  Vstr* filtered_marker_ids = construct_vstr(1000);
+  Vlong* filtered_md_counts = construct_vlong(1000);
+  Vlong* filtered_alt_allele_counts = construct_vlong(1000);
   long mdsum_all = 0;
   long mdsum_kept = 0;
   long altallelesum_all = 0;
@@ -566,9 +566,9 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
 	altallelesum_kept += alt_allele_counts->a[i];
 	long marker_id_length = strlen(the_gtsset->marker_ids->a[i]);
 	char* marker_id_to_keep = strcpy((char*)malloc((marker_id_length+1)*sizeof(char)), the_gtsset->marker_ids->a[i]);
-	push_to_vstr(cleaned_marker_ids, marker_id_to_keep); // store the kept marker ids.
-	push_to_vlong(cleaned_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
-	push_to_vlong(cleaned_alt_allele_counts, alt_allele_counts->a[i]);
+	push_to_vstr(filtered_marker_ids, marker_id_to_keep); // store the kept marker ids.
+	push_to_vlong(filtered_md_counts, md_counts->a[i]); // store the md counts for the kept markers.
+	push_to_vlong(filtered_alt_allele_counts, alt_allele_counts->a[i]);
       }else{
 	maf_too_low_count++;
       }
@@ -579,9 +579,9 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   fprintf(stderr, "# mdsum_all: %ld  mdsum_kept: %ld  n_markers all: %ld  n_markers_to_keep: %ld\n",
 	  mdsum_all, mdsum_kept, md_counts->size, n_markers_to_keep);
   double raw_md_fraction = (double)mdsum_all/(double)(md_counts->size*n_accs);
-  double cleaned_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
+  double filtered_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
   double raw_minor_allele_freq = (double)altallelesum_all/(md_counts->size*n_accs*the_gtsset->ploidy);
-  double cleaned_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
+  double filtered_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
   //  fprintf(stdout, "# Removing markers with only one allele present. Removed %ld markers.\n", only_one_allele_count);
 
   fprintf(stderr, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
@@ -595,28 +595,28 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   
   fprintf(stdout, "# Raw data has %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
 	  md_counts->size, raw_md_fraction, raw_minor_allele_freq);
-  fprintf(stdout, "# Cleaned data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
-	  n_markers_to_keep, cleaned_md_fraction, cleaned_minor_allele_freq);
+  fprintf(stdout, "# Filtered data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
+	  n_markers_to_keep, filtered_md_fraction, filtered_minor_allele_freq);
 
   Vaccession* the_accessions = construct_vaccession(the_gtsset->n_accessions); //(Accession*)malloc(the_gtsset->n_accessions*sizeof(Accession)); 
   for(long i=0; i<the_gtsset->n_accessions; i++){ // loop over accessions
     char* raw_gts = the_gtsset->accessions->a[i]->genotypes->a; // the string with all the genotypes for accession i
-    char* cleaned_gts = (char*)malloc((n_markers_to_keep+1)*sizeof(char));
+    char* filtered_gts = (char*)malloc((n_markers_to_keep+1)*sizeof(char));
     long k=0; // k: index of kept markers
     long acc_md_count = 0;
     for(long j=0; j<the_gtsset->n_markers; j++){ // j: index of original markers
       // fprintf(stderr, "j: %ld  gt: %d \n", j, raw_gts[j]);
       if(md_ok->a[j] == 1){
-	cleaned_gts[k] = raw_gts[j];
+	filtered_gts[k] = raw_gts[j];
 	k++;
 	if(raw_gts[j] == MISSING_DATA_CHAR) acc_md_count++;
       }
     }
-    cleaned_gts[k] = '\0'; // terminate with null.
+    filtered_gts[k] = '\0'; // terminate with null.
     if(DBUG && do_checks) assert(k == n_markers_to_keep);
-    // fprintf(stderr, "cleaned genotypes: %s \n", cleaned_gts);
-    Accession* the_accession = construct_accession( the_gtsset->accessions->a[i]->id->a, i, cleaned_gts, acc_md_count ); //(Accession*)malloc(sizeof(Accession));
-    free(cleaned_gts);
+    // fprintf(stderr, "filtered genotypes: %s \n", filtered_gts);
+    Accession* the_accession = construct_accession( the_gtsset->accessions->a[i]->id->a, i, filtered_gts, acc_md_count ); //(Accession*)malloc(sizeof(Accession));
+    free(filtered_gts);
     //   the_accession->missing_data_count = acc_md_count;
     push_to_vaccession(the_accessions, the_accession);
     //   fprintf(stderr, "xx: %ld %s\n", the_accession->index, the_accession->id->a);
@@ -626,13 +626,13 @@ void clean_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'cl
   free_vaccession(the_gtsset->accessions);
   the_gtsset->accessions = the_accessions;
   free_vstr(the_gtsset->marker_ids);
-  the_gtsset->marker_ids = cleaned_marker_ids;
+  the_gtsset->marker_ids = filtered_marker_ids;
   free_vlong(the_gtsset->marker_missing_data_counts);
-  the_gtsset->marker_missing_data_counts = cleaned_md_counts;
+  the_gtsset->marker_missing_data_counts = filtered_md_counts;
   free_vlong(the_gtsset->marker_alt_allele_counts);
-  the_gtsset->marker_alt_allele_counts = cleaned_alt_allele_counts;
+  the_gtsset->marker_alt_allele_counts = filtered_alt_allele_counts;
   the_gtsset->n_markers = the_gtsset->accessions->a[0]->genotypes->length;
-} // end clean_genotypesset
+} // end filter_genotypesset
 
 void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency > 0.5, dosage -> ploidy-dosage
   long n_accessions = the_gtsset->accessions->size;
