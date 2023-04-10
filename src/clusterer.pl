@@ -57,7 +57,7 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   my $d_column = 6; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
-  my $verbose = 0;
+  my $full_output = 1;
  
   my $min_minextra_maxintra_ratio = -1; # can use this to only output clusters whose
   # ratio ( min distance to extra-cluster accession / max intra-cluster distance )
@@ -72,7 +72,7 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
 	     'pow=s' => \$pow,
 	     'dcolumn=i' => \$d_column,
 	     'min_ratio=f' => \$min_minextra_maxintra_ratio,
-	     'verbose!' => \$verbose,
+	     'full_output!' => \$full_output,
 	    );
   print "# Getting accessions ids from columns: $id1_column, $id2_column \n";
   print "# Clustering based on distances in column: $d_column\n";
@@ -96,13 +96,13 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   print "# Number of edges stored ", scalar @sorted_edges, "\n";
 
   #######################################################################################################
-  # store accession ids and their genotype sets.
+  # store accession ids and their genotype sets, if genotypes file specified.
   my $id_gts = undef;
-  if(defined $genotypes_filename){
-  ####   Store dosages  #########################################################
-  print "before storing dosages\n";
-  $id_gts = store_dosages($genotypes_filename, $id_closeidds);
-}
+  if (defined $genotypes_filename) {
+    ####   Store dosages  #########################################################
+    print "before storing dosages\n";
+    $id_gts = store_dosages($genotypes_filename, $id_closeidds);
+  }
 
   #######################################################################################################
   # if $link_max_distance not specified, attempt to find a reasonable value by looking at the distances
@@ -112,96 +112,46 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
     my ($Hopt, $Ledge, $Redge) = auto_max_link_distance($edge_weight, $pow, $minx);
     $link_max_distance = ((1-$f)*$Ledge + $f*$Redge);
   }
-  #######################################################################################################
   print "# Max link distance: $link_max_distance \n";
+  #######################################################################################################
+  
 
   #######################################################################################################
   # construct graph with edges between vertices (accessions) for pairs with distance < $link_max_distance
   # construct graph by adding edges & their endpoints; graph does not contain single unconnected vertices.
 
   my $the_graph = construct_graph($edge_weight, $link_max_distance, \@sorted_edges);
+  # the connected components of graph are the clusters
+  my @clusters = $the_graph->connected_components; # array of array refs of ids
+  my @vertices = $the_graph->vertices();
+  my $n_nodes = scalar @vertices;
+  print "# Graph created with ", scalar @clusters, " clusters and $n_nodes cluster members.\n";
+  ########################################################################################################
 
-  my @clusters = $the_graph->connected_components; # the connected components of graph are the clusters
-
+  ########################################################################################################
+  # loop over clusters, evaluating quality of each.
+  
   my @output_lines = ();
-
-  my @all_cluster_ids = ();
-
-  my $count_cluster_accessions = 0;		# counts the number of accessions
+  my $count_cluster_accessions = 0; # counts the number of accessions in clusters (should be equal to $n_nodes)
   my $count_cluster_accessions_out = 0;
+  my $count_rejected_clusters = 0;
   while ( my($i, $accs) = each @clusters) { # for each connected component (cluster of near-identical accessions)
+    my $cluster_size = scalar @$accs;
+    $count_cluster_accessions += $cluster_size;
     my %thisclusterids = map(($_ => 1), @$accs);
-    push @all_cluster_ids, keys %thisclusterids;
 
-    my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt,	$d, $e, $clusterid_dist2consensus);
+    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds) = cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance);
+    my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt, $d, $e, $clusterid_dist2consensus);
     if (defined $id_gts) {
       my $consensus_dosages = cluster_consensus_dosages($accs, $id_gts); # array ref holding the consensus dosages for this cluster
       ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt, $d, $e, $clusterid_dist2consensus) =
 	quality_metrics($consensus_dosages, $id_gts, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
     } else {
-      ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt) = cluster_quality($the_graph, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
+      ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt) = cluster_quality2($the_graph, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
     }
 
-    my $cluster_size = scalar @$accs;
-    $count_cluster_accessions += $cluster_size;
-
     my $output_line_string = '';
- # if(0) {  my @output_id_degree_pairs = ();
- #    my @sorted_clusterids = sort {$a cmp $b} @$accs; # sort the accession ids in the cluster
- #    my ($cluster_min_d, $cluster_max_d, $cluster_sum_d, $missing_distance_count, $intracluster_far_pair_count) = (10000, -1, 0, 0, 0);
- #    my $sum_of_degrees = 0;
- #    my $cluster_edge_count = 0;
- #    if(0){
- # 	while (my($i, $v) = each @sorted_clusterids) { # loop over every pair of ids in the cluster.
- #      my ($minw, $maxw) = (10000, -1);
- #      for (my $j=$i+1; $j<scalar @sorted_clusterids; $j++) {
- # 	my $u = $sorted_clusterids[$j];
- # 	if ($u eq $v) {
- # 	  warn "# $u $v  Why are they the same?\n";
- # 	  next;
- # 	}
- # 	my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
- # 	my $weight = $edge_weight->{$edge_verts} // -1;
- # 	if ($weight == -1) {
- # 	  $missing_distance_count++; # just counts pairs in cluster with distance not found
- # 	} else {
- # 	  $minw = $weight if($weight < $minw);
- # 	  $maxw = $weight if($weight > $maxw);
- # 	  $cluster_sum_d += $weight;
- # 	  $cluster_edge_count++;
- # 	  $intracluster_far_pair_count++ if($weight > $link_max_distance); # count intra-cluster pairs with distance > $link_max_distance
- # 	}
- #      }
- #      $cluster_min_d = $minw if($minw < $cluster_min_d);
- #      $cluster_max_d = $maxw if($maxw > $cluster_max_d);
- #      $output_line_string .= "$v ";
- #      my $degree = $the_graph->degree($v);
- #      $sum_of_degrees += $degree;
- #      $output_line_string .= "$degree  "; # add number of edges joining cluster member to other cluster members.
- #      push @output_id_degree_pairs, [$v, $degree, $maxw]; # $clusterid_dist2consensus->{$v}];
- #    }
- #      } #####
- #    my $xxx = ($cluster_size*($cluster_size-1) - $sum_of_degrees)/2;
- #    print STDERR "cluster size, sum of degree, intracluster_far_pair_count: $cluster_size $sum_of_degrees  $intracluster_far_pair_count $xxx \n";
- #    @output_id_degree_pairs = sort {$b->[2] <=> $a->[2]} @output_id_degree_pairs; # sort by degree high to low
- #    my @id_degree_strs =
- #      #  map($_->[0] . ' ' . $_->[1] . ' ' . $_->[2], @output_id_degree_pairs);
- #      map( sprintf("%s %4d %7.5f", $_->[0], $_->[1], $_->[2]), @output_id_degree_pairs);;
- #    $output_line_string = ($verbose)? join("  ", @id_degree_strs) : ''; 
- #    # print STDERR "[ $output_line_string ] \n";
- #    my $n_cluster_edges = $cluster_size*($cluster_size-1)/2;
- # 	  my $cluster_avg_d = $cluster_sum_d/$n_cluster_edges;
- # 	}
-    
- #   print STDERR "BBB $cluster_size $n_cluster_edges  $cluster_edge_count   $cluster_sum_d  $cluster_avg_d \n";
-
-    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds) = cluster_quality_b($accs, $edge_weight, $the_graph, $link_max_distance);
-#    print STDERR "CCC: $cluster_size  $dmin $davg $dmax  $intracluster_far_point_count \n";
-  #  print STDERR "DDD: $cluster_min_d $dmin  $cluster_avg_d $davg  $cluster_max_d $dmax  $intracluster_far_pair_count $intracluster_far_point_count \n";
-  #  die if($cluster_avg_d != $davg  or  $intracluster_far_pair_count != $intracluster_far_point_count);
-    #  return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count,
-    #	$max_d_to_consensus, $far_from_consensus_count);
-    if($verbose){
+    if ($full_output) {
       my @iddegds = map( sprintf("%s %1d %7.5f", $_->[0], $_->[1], $_->[2]), @$out_iddegds);
       $output_line_string = join("  ", @iddegds);
     }
@@ -214,15 +164,22 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
     if ($cluster_noncluster_gap/$cluster_max_d >= $min_minextra_maxintra_ratio) {
       push @output_lines, $output_line_string;
       $count_cluster_accessions_out += $cluster_size;
+    }else{
+      $count_rejected_clusters++;
     }
   }				# end loop over clusters
-  my %id_inanycluster = map(($_ => 1), @all_cluster_ids);
+  #######################################################################################################
 
-  my $N_clusters_found = scalar @output_lines;
-  print "# Found $N_clusters_found clusters containing $count_cluster_accessions_out accessions.\n";
+  ########################################################################################################
+  # output
+  
+  my $N_clusters_out = scalar @output_lines;
+  die if($N_clusters_out + $count_rejected_clusters != scalar @clusters);
+  print "# Found $N_clusters_out acceptable clusters containing $count_cluster_accessions_out accessions.\n";
   open my $fhout, ">", "$output_cluster_filename" or die "Couldn't open $output_cluster_filename for writing.\n";
   
-  print $fhout "# graph max edge length: $link_max_distance. Found $N_clusters_found clusters, containing $count_cluster_accessions_out accessions.\n";
+  print $fhout "# Graph max edge length: $link_max_distance. \n";
+  print $fhout "# Found $N_clusters_out acceptable clusters, containing $count_cluster_accessions_out accessions.\n";
   print $fhout "# col 1: cluster size.\n";
   print $fhout "# col 2, 3, 4: min, avg. and max. intra-cluster distances.\n";
   print $fhout "# col 5: min distance between cluster pts and non-cluster pts.\n";
@@ -231,15 +188,16 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   print $fhout "# 'nearby' defined as within $in_out_factor * link_max_distance = ", $in_out_factor*$link_max_distance, ".\n";
   print $fhout "# col 8: number of intra-cluster distances > link_max_distance ($link_max_distance).\n";
   print $fhout "# col 9: number of intra-cluster pairs with distance not present in input file.\n";
-#  print $fhout "# col 10: max distance between cluster pt. and cluster consensus.\n";
-#  print $fhout "# col 11: number of cluster pts. further than $d_to_consensus_factor * link_max_distance from cluster consensus.\n";
+  #  print $fhout "# col 10: max distance between cluster pt. and cluster consensus.\n";
+  #  print $fhout "# col 11: number of cluster pts. further than $d_to_consensus_factor * link_max_distance from cluster consensus.\n";
   print $fhout "# then clusters and for each the number of other cluster members within link_max_distance.\n";
   my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
-#  print scalar @output_lines, '   ', scalar @sorted_output_lines, "\n";
   print $fhout join('', @sorted_output_lines);
   close $fhout;
 
 }				# end of 'main'
+
+##########################################################################################################
 
 sub compare_str{ # sort by cluster size; 1st tiebreaker: avg intra-cluster distance;
   # 2nd tiebreaker: max distance from consensus, 3rd tiebreaker first accession id. 
@@ -249,42 +207,8 @@ sub compare_str{ # sort by cluster size; 1st tiebreaker: avg intra-cluster dista
   my @cols2 = split(" ", $str2);
   return ($cols1[0] != $cols2[0])? $cols1[0] <=> $cols2[0] : # cluster size.
     ($cols1[2] <=> $cols2[2])?
-    $cols1[2] <=> $cols2[2] : # avg. intra-cluster distance.
-    ($cols1[9] cmp $cols2[9]);	#  id of first accession in cluster.
-}
-
-sub least_noncluster_distance{	# call once for each cluster,
-  # to get least distance from cluster to outside cluster, etc.
-
-  my $thisclustids = shift;	# hash ref, keys ids in this cluster.
-  my $id1_id2ds = shift; # hash ref; key ids; value: array ref of strings with id2, distance12
-  my $near_noncluster_distance = shift; # set to some multiple of $link_max_distance
-  my $short_cluster_noncluster_edge_count = 0; # count number of cluster-noncluster edges < $near_noncluster_distance
-  my %near_noncluster_points = ();
-  my %cluster_pts_near_noncluster_pt = ();
-  my $min_distance_to_noncluster = 1;
-  #print STDERR "# in least... cluster size: ", scalar keys %$thisclustids, "\n";
-  for my $id1 (keys %$thisclustids) { # loop over elements of cluster
-    for my $s (@{$id1_id2ds->{$id1}}) { # loop over accessions with smallish distance to id1
-      my ($id2, $d) = @$s;
-      if ( !exists $thisclustids->{$id2} ) { # $id2 is not in this cluster
-	if ($d < $min_distance_to_noncluster) {
-	  $min_distance_to_noncluster = $d;
-	}
-	#	else{ # @$ is sorted by $d, small to large, so if this $d isn't small enough, we're done with @$s
-	if ($d < $near_noncluster_distance) {
-	  $short_cluster_noncluster_edge_count++;
-	  $near_noncluster_points{$id2}++;
-	  $cluster_pts_near_noncluster_pt{$id1}++;
-	} else {
-	  last;			#
-	}
-      }
-    }
-  }
-  my $nearby_noncluster_points_count = scalar keys %near_noncluster_points;
-  my $cluster_pts_near_noncluster_pt_count = scalar keys %cluster_pts_near_noncluster_pt;
-  return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count);
+    $cols1[2] <=> $cols2[2] :	# avg. intra-cluster distance.
+    (defined $cols1[9])? ($cols1[9] cmp $cols2[9]) : 0;	#  id of first accession in cluster.
 }
 
 sub store_distances{
@@ -364,6 +288,112 @@ sub construct_graph{
   }
   return $the_graph;
 }
+
+
+sub cluster_quality1{
+  my $accs = shift;		# array ref of ids of cluster members
+  my $edge_weight = shift; # hashref; keys: order id pairs, values: weights (distances)
+  my $graph = shift;
+  my $link_max_distance = shift;
+  my $output_line_string = '';
+  my @output_id_degree_maxds = ();
+  my @sorted_clusterids = sort {$a cmp $b} @$accs; # sort the accession ids in the cluster
+  my ($cluster_min_d, $cluster_max_d, $cluster_sum_d, $missing_distance_count, $intracluster_far_pair_count) = (10000, -1, 0, 0, 0);
+  my $sum_of_degrees = 0;
+  my $cluster_edge_count = 0;
+  my %id_maxd = map {$_ => -1} @sorted_clusterids;
+  while (my($i, $v) = each @sorted_clusterids) { # loop over every pair of ids in the cluster.
+    my ($minw, $maxw) = (10000, -1);
+    
+    for (my $j=$i+1; $j<scalar @sorted_clusterids; $j++) {
+      my $u = $sorted_clusterids[$j];
+      if ($u eq $v) {
+	warn "# $u $v  Why are they the same?\n";
+	next;
+      }
+      my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
+      my $weight = $edge_weight->{$edge_verts} // -1;
+      if ($weight == -1) {
+	$missing_distance_count++; # just counts pairs in cluster with distance not found
+      } else {
+	$minw = $weight if($weight < $minw);
+	$maxw = $weight if($weight > $maxw);
+	$id_maxd{$v} = max($id_maxd{$v}, $weight);
+	$id_maxd{$u} = max($id_maxd{$u}, $weight);
+	$cluster_sum_d += $weight;
+	$cluster_edge_count++;
+	$intracluster_far_pair_count++ if($weight > $link_max_distance); # count intra-cluster pairs with distance > $link_max_distance
+      }
+    }
+    $cluster_min_d = $minw if($minw < $cluster_min_d);
+    $cluster_max_d = $maxw if($maxw > $cluster_max_d);
+    $output_line_string .= "$v ";
+    my $degree = $graph->degree($v);
+    $sum_of_degrees += $degree;
+    $output_line_string .= "$degree  "; # add number of edges joining cluster member to other cluster members.
+    push @output_id_degree_maxds, [$v, $degree, $id_maxd{$v}]; # $clusterid_dist2consensus->{$v}];
+  }
+  @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
+  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds);
+}
+
+sub cluster_quality2{
+  my $graph = shift;
+  my $thisclustids = shift;	# hash ref, keys ids in this cluster.
+  my $id1_id2ds = shift; # hash ref; key ids; value: array ref of strings with id2, distance12
+  my $max_link_distance = shift;
+  my $near_noncluster_distance = shift; # set to some multiple of $link_max_distance
+
+  my $min_distance_to_noncluster = 1;
+  my $short_cluster_noncluster_edge_count = 0;
+  my %near_noncluster_points = ();
+  my %cluster_pts_near_noncluster_pt = ();
+  my $cluster_size =  scalar keys %$thisclustids;
+  my $sum_of_degrees = 0;
+  my ($min_intracluster_d, $max_intracluster_d, $avg_intracluster_d) = (1000, -1, 0);
+  my $cluster_edge_count = 0;
+  for my $id1 (keys %$thisclustids) { # loop over elements of cluster
+    my $degree = $graph->degree($id1);
+    $sum_of_degrees += $degree;
+    for my $s (@{$id1_id2ds->{$id1}}) { # loop over accessions with smallish distance to id1
+      my ($id2, $d) = @$s;
+      #  print STDERR "#    id2: d(id1, id2):  $id2  $d \n";
+      if ( exists $thisclustids->{$id2} ) { # $id2 is in the cluster
+	$min_intracluster_d = min($d, $min_intracluster_d);
+	$max_intracluster_d = max($d, $max_intracluster_d);
+	$avg_intracluster_d += $d;
+	$cluster_edge_count++;
+      } else {			# $id2 is not in this cluster
+	if ($d < $min_distance_to_noncluster) {
+	  $min_distance_to_noncluster = $d;
+	}
+	#	else{ # @$ is sorted by $d, small to large, so if this $d isn't small enough, we're done with @$s
+	if ($d < $near_noncluster_distance) {
+	  $short_cluster_noncluster_edge_count++;
+	  $near_noncluster_points{$id2}++;
+	  $cluster_pts_near_noncluster_pt{$id1}++;
+	} else {
+	  last;			#
+	}
+      }			     # end id2 not in clustr
+    }			     # end loop over nearish accessions to id1
+  }
+  $avg_intracluster_d /= ($cluster_size*($cluster_size-1));
+  #  print STDERR "#AAA $cluster_size  $min_intracluster_d $avg_intracluster_d $max_intracluster_d   $cluster_edge_count\n";
+  #print STDERR "# $max_d_to_consensus  $far_from_consensus_count \n";
+  my $xxx = ($cluster_size*($cluster_size-1) - $sum_of_degrees)/2;
+  #  print STDERR "cluster size: $cluster_size  $xxx \n";
+  my $nearby_noncluster_points_count = scalar keys %near_noncluster_points;
+  my $cluster_pts_near_noncluster_pt_count = scalar keys %cluster_pts_near_noncluster_pt;
+  #  printf (STDERR "# %8.6f %5d %5d   %8.6f %5d\n", $min_distance_to_noncluster, $nearby_noncluster_points_count,
+  #	  $cluster_pts_near_noncluster_pt_count, $max_d_to_consensus, $far_from_consensus_count);
+  return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count)
+    #	  $max_d_to_consensus, $far_from_consensus_count, \%clusterpt_dist2consensus);
+
+}
+
+################################################################################################################
+################################################################################################################
 
 sub store_dosages{
   my $dosages_filename = shift;
@@ -467,110 +497,7 @@ sub distance{
   return ($denom > 0)? $numer/$denom : $bad_distance;
 }
 
-sub cluster_quality_b{
-  my $accs = shift;		# array ref of ids of cluster members
-  my $edge_weight = shift; # hashref; keys: order id pairs, values: weights (distances)
-  my $graph = shift;
-  my $link_max_distance = shift;
-  my $output_line_string = '';
-  my @output_id_degree_maxds = ();
-  my @sorted_clusterids = sort {$a cmp $b} @$accs; # sort the accession ids in the cluster
-  my ($cluster_min_d, $cluster_max_d, $cluster_sum_d, $missing_distance_count, $intracluster_far_pair_count) = (10000, -1, 0, 0, 0);
-  my $sum_of_degrees = 0;
-  my $cluster_edge_count = 0;
-  my %id_maxd = map {$_ => -1} @sorted_clusterids;
-  while (my($i, $v) = each @sorted_clusterids) { # loop over every pair of ids in the cluster.
-    my ($minw, $maxw) = (10000, -1);
-    
-    for (my $j=$i+1; $j<scalar @sorted_clusterids; $j++) {
-      my $u = $sorted_clusterids[$j];
-      if ($u eq $v) {
-	warn "# $u $v  Why are they the same?\n";
-	next;
-      }
-      my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
-      my $weight = $edge_weight->{$edge_verts} // -1;
-      if ($weight == -1) {
-	$missing_distance_count++; # just counts pairs in cluster with distance not found
-      } else {
-	$minw = $weight if($weight < $minw);
-	$maxw = $weight if($weight > $maxw);
-	$id_maxd{$v} = max($id_maxd{$v}, $weight);
-	$id_maxd{$u} = max($id_maxd{$u}, $weight);
-	$cluster_sum_d += $weight;
-	$cluster_edge_count++;
-	$intracluster_far_pair_count++ if($weight > $link_max_distance); # count intra-cluster pairs with distance > $link_max_distance
-      }
-    }
-    $cluster_min_d = $minw if($minw < $cluster_min_d);
-    $cluster_max_d = $maxw if($maxw > $cluster_max_d);
-    $output_line_string .= "$v ";
-    my $degree = $graph->degree($v);
-    $sum_of_degrees += $degree;
-    $output_line_string .= "$degree  "; # add number of edges joining cluster member to other cluster members.
-    push @output_id_degree_maxds, [$v, $degree, $id_maxd{$v}]; # $clusterid_dist2consensus->{$v}];
-  }
-  @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
-  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds);
-}
-
-sub cluster_quality{
-  my $graph = shift;
-  my $thisclustids = shift;	# hash ref, keys ids in this cluster.
-  my $id1_id2ds = shift; # hash ref; key ids; value: array ref of strings with id2, distance12
-  my $max_link_distance = shift;
-  my $near_noncluster_distance = shift; # set to some multiple of $link_max_distance
-
-  my $min_distance_to_noncluster = 1;
-  my $short_cluster_noncluster_edge_count = 0;
-  my %near_noncluster_points = ();
-  my %cluster_pts_near_noncluster_pt = ();
-  my $cluster_size =  scalar keys %$thisclustids;
-  my $sum_of_degrees = 0;
-  my ($min_intracluster_d, $max_intracluster_d, $avg_intracluster_d) = (1000, -1, 0);
-  my $cluster_edge_count = 0;
-  for my $id1 (keys %$thisclustids) { # loop over elements of cluster
-    my $degree = $graph->degree($id1);
-    $sum_of_degrees += $degree;
-    for my $s (@{$id1_id2ds->{$id1}}) { # loop over accessions with smallish distance to id1
-      my ($id2, $d) = @$s;
-      #  print STDERR "#    id2: d(id1, id2):  $id2  $d \n";
-      if ( exists $thisclustids->{$id2} ) { # $id2 is in the cluster
-	$min_intracluster_d = min($d, $min_intracluster_d);
-	$max_intracluster_d = max($d, $max_intracluster_d);
-	$avg_intracluster_d += $d;
-	$cluster_edge_count++;
-	}else{# $id2 is not in this cluster
-	if ($d < $min_distance_to_noncluster) {
-	  $min_distance_to_noncluster = $d;
-	}
-	#	else{ # @$ is sorted by $d, small to large, so if this $d isn't small enough, we're done with @$s
-	if ($d < $near_noncluster_distance) {
-	  $short_cluster_noncluster_edge_count++;
-	  $near_noncluster_points{$id2}++;
-	  $cluster_pts_near_noncluster_pt{$id1}++;
-	} else {
-	  last;			#
-	}
-      }			     # end id2 not in clustr
-    }			     # end loop over nearish accessions to id1
-  }
-  $avg_intracluster_d /= ($cluster_size*($cluster_size-1));
-#  print STDERR "#AAA $cluster_size  $min_intracluster_d $avg_intracluster_d $max_intracluster_d   $cluster_edge_count\n";
-  #print STDERR "# $max_d_to_consensus  $far_from_consensus_count \n";
-  my $xxx = ($cluster_size*($cluster_size-1) - $sum_of_degrees)/2;
-#  print STDERR "cluster size: $cluster_size  $xxx \n";
-  my $nearby_noncluster_points_count = scalar keys %near_noncluster_points;
-  my $cluster_pts_near_noncluster_pt_count = scalar keys %cluster_pts_near_noncluster_pt;
-  #  printf (STDERR "# %8.6f %5d %5d   %8.6f %5d\n", $min_distance_to_noncluster, $nearby_noncluster_points_count,
-  #	  $cluster_pts_near_noncluster_pt_count, $max_d_to_consensus, $far_from_consensus_count);
-  return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count)
-#	  $max_d_to_consensus, $far_from_consensus_count, \%clusterpt_dist2consensus);
-
-		  }
-
-
-sub quality_metrics{
+sub cluster_quality_consensus{
   my $consensus_dosages = shift;
   my $id_gts = shift;
   my $thisclustids = shift;	# hash ref, keys ids in this cluster.
@@ -620,5 +547,41 @@ sub quality_metrics{
   #	  $cluster_pts_near_noncluster_pt_count, $max_d_to_consensus, $far_from_consensus_count);
   return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count,
 	  $max_d_to_consensus, $far_from_consensus_count, \%clusterpt_dist2consensus);
+}
+
+##################
+
+sub least_noncluster_distance{	# call once for each cluster,
+  # to get least distance from cluster to outside cluster, etc.
+
+  my $thisclustids = shift;	# hash ref, keys ids in this cluster.
+  my $id1_id2ds = shift; # hash ref; key ids; value: array ref of strings with id2, distance12
+  my $near_noncluster_distance = shift; # set to some multiple of $link_max_distance
+  my $short_cluster_noncluster_edge_count = 0; # count number of cluster-noncluster edges < $near_noncluster_distance
+  my %near_noncluster_points = ();
+  my %cluster_pts_near_noncluster_pt = ();
+  my $min_distance_to_noncluster = 1;
+  #print STDERR "# in least... cluster size: ", scalar keys %$thisclustids, "\n";
+  for my $id1 (keys %$thisclustids) { # loop over elements of cluster
+    for my $s (@{$id1_id2ds->{$id1}}) { # loop over accessions with smallish distance to id1
+      my ($id2, $d) = @$s;
+      if ( !exists $thisclustids->{$id2} ) { # $id2 is not in this cluster
+	if ($d < $min_distance_to_noncluster) {
+	  $min_distance_to_noncluster = $d;
+	}
+	#	else{ # @$ is sorted by $d, small to large, so if this $d isn't small enough, we're done with @$s
+	if ($d < $near_noncluster_distance) {
+	  $short_cluster_noncluster_edge_count++;
+	  $near_noncluster_points{$id2}++;
+	  $cluster_pts_near_noncluster_pt{$id1}++;
+	} else {
+	  last;			#
+	}
+      }
+    }
+  }
+  my $nearby_noncluster_points_count = scalar keys %near_noncluster_points;
+  my $cluster_pts_near_noncluster_pt_count = scalar keys %cluster_pts_near_noncluster_pt;
+  return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count);
 }
 
