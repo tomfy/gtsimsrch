@@ -352,7 +352,7 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Chunk size: %ld\n# Max. marker missing data fraction: %5.3lf\n", chunk_size, the_genotypes_set->max_marker_missing_data_fraction);
   
   rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
-  clean_genotypesset(the_genotypes_set);
+  filter_genotypesset(the_genotypes_set);
   store_homozygs(the_genotypes_set);
 
   //  ************************************************
@@ -371,12 +371,12 @@ main(int argc, char *argv[])
   //  }
   long n_chunks_per_pass = n_markers/chunk_size;
   long n_chunks = n_passes*n_chunks_per_pass;
-  fprintf(out_stream, "# Cleaned data has %ld markers.\n", the_genotypes_set->n_markers);
+  fprintf(out_stream, "# Filetered data has %ld markers.\n", the_genotypes_set->n_markers);
   fprintf(stdout, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
-  fprintf(out_stream, "# chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
+  fprintf(out_stream, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
 
   if(1){
-    FILE* fh_gtsout = fopen("cleaned_gtset.out", "w");
+    FILE* fh_gtsout = fopen("filtered_gtset.out", "w");
     print_genotypesset(fh_gtsout, the_genotypes_set);
     fclose(fh_gtsout);
   }
