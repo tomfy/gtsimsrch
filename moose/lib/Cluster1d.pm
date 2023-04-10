@@ -378,12 +378,14 @@ sub jenks_2cluster{ # divide into 2 clusters using jenks natural breaks
 }
 
 # cluster by defining a quality of separation quantity and maximize
-sub two_cluster{
+# or rather find range over which is quantity is > half max, define
+# cluster boundary as some fraction through this
+sub find_cluster_at_left{
   my $self = shift;
   my @txs = @{$self->txs()};	# array ref of transformed values.
   my $Qmin = 2;
   
-  my $n = scalar @txs;
+  my $n_data_pts = scalar @txs;
 
   my $maxQ = -1;
   my $opt_nL = -1;
@@ -391,9 +393,10 @@ sub two_cluster{
   my @nlhqs = ();
   my $start_peak = -1; # when Q goes above 1.5*$Qmin this gets set to $nL
   my $end_peak = -1; # when $start_peak > 0 and Q returns to below $Qmin this gets set to $nL
-  for my $i (8..int($n/4 -1)) {
+    my ($Ledge, $Redge) = (1, -1);
+  for my $i (8..int($n_data_pts/4 -1)) { # loop over different values of the L cluster (which has 4*$i pts)
     my $nL = 4*$i;		# size of L cluster
-    last if($nL >= 0.85*$n);
+    last if($nL >= 0.85*$n_data_pts);
     #last if($nL >= 10000);
     my $Lq1 = 0.5*($txs[$i - 1] + $txs[$i]); # 1st quartile of L cluster
     my $Lq3 = 0.5*($txs[3*$i - 1] + $txs[3*$i]); # 3rd quartile of L cluster
@@ -424,7 +427,7 @@ sub two_cluster{
       $optH = $H;		# 0.5*($txs[$nL -1 ] + $txs[$nL]);
     }
     #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-    #  print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
+      print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
     if ($Q >= $Qmin) {
       push @nlhqs, [$nL, $H, $Q];
       $start_peak = $nL if($Q >= 1.5*$Qmin  and  $start_peak < 0);
@@ -440,14 +443,13 @@ sub two_cluster{
 	}
       }
     }
-
-    #print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
+  #  print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
   } # end of loop over possible L cluster sizes.
 #  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
 #  print "maxQ: $maxQ \n";
 my $H_mid_half_max = -1;
 if (scalar @nlhqs > 0) {
-  my ($Ledge, $Redge) = (1, -1);
+  ($Ledge, $Redge) = (1, -1);
   my ($nLmin, $nLmax) = (undef, undef);
   my $nabove = 0;
   for my $anlhq (@nlhqs) {
@@ -471,7 +473,9 @@ if (scalar @nlhqs > 0) {
   }		     # otherwise leave $H_mid_half_max as -1;
 } else {	     # no pts with $Q > 2 leave $H_mid_half_max as -1;
 }
-return ($optH, $maxQ, $H_mid_half_max);
+  # return $optH value at which $maxQ occurs,
+  # and $Ledge, $Redge, the Left and Right sides of the > half max range.
+return ($optH, $maxQ, $Ledge, $Redge); # $H_mid_half_max);
 }
 
   #########################################################
