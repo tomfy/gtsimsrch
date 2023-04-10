@@ -371,7 +371,7 @@ main(int argc, char *argv[])
   //  }
   long n_chunks_per_pass = n_markers/chunk_size;
   long n_chunks = n_passes*n_chunks_per_pass;
-  fprintf(out_stream, "# Filetered data has %ld markers.\n", the_genotypes_set->n_markers);
+  fprintf(out_stream, "# Filtered data has %ld markers.\n", the_genotypes_set->n_markers);
   fprintf(stdout, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
   fprintf(out_stream, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
 
