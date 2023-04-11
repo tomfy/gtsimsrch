@@ -114,7 +114,7 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   my ($Hopt, $Qmax, $Ledge, $Redge, $H, $Q);
   if ($link_max_distance eq 'auto') {
     ($Hopt, $Qmax, $Ledge, $Redge, $H, $Q) = auto_max_link_distance($edge_weight, $pow, $f);
-    $link_max_distance = ((1-$f)*$Ledge + $f*$Redge);
+   # $link_max_distance = ((1-$f)*$Ledge + $f*$Redge);
     $link_max_distance = $H;
   }
   print "# Max link distance: $link_max_distance; Q: $Q \n";
