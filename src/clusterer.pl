@@ -50,14 +50,14 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   my $link_max_distance = 'auto'; # construct graph with edges between pairs of accessions iff their distance is <= this.
   my $maxD = 1; # just ignore pairs separated by greater distance than this.
   my $output_cluster_filename = "distance_cluster.out";
-  my $pow = 1;			# 'log';
-  my $minx = 0.001;
+  my $pow = 1; # cluster transformed values tx_i = pow(x_i, $pow), or if $pow is 'log' tx_i = log(x_i)
+ #  my $minx = 0.001;
   my $id1_column = 1;
   my $id2_column = 2;
   my $d_column = 6; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
-  my $full_output = 1;
+  my $full_output = 1; # if '-nofull' will not output the cluster ids, etc.
  
   my $min_minextra_maxintra_ratio = -1; # can use this to only output clusters whose
   # ratio ( min distance to extra-cluster accession / max intra-cluster distance )
@@ -65,11 +65,15 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
 
   GetOptions(
 	     'distances_file=s' => \$distances_filename, # file with id1 id2 x xx distance_est distance (duplicatesearch output)
-	     'genotypes_file|gt_file=s' => \$genotypes_filename, 
-	     'output_file=s' => \$output_cluster_filename,
 	     'link_distance|dlink=f' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
+	     'output_file=s' => \$output_cluster_filename,
+
+	     'genotypes_file|gt_file=s' => \$genotypes_filename, 
+
 	     'maxd|dmax=f' => \$maxD,
 	     'pow=s' => \$pow,
+	     'id1col=i' => \$id1_column,
+	     'id2col=i' => \$id2_column,
 	     'dcolumn=i' => \$d_column,
 	     'min_ratio=f' => \$min_minextra_maxintra_ratio,
 	     'full_output!' => \$full_output,
@@ -107,12 +111,13 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   #######################################################################################################
   # if $link_max_distance not specified, attempt to find a reasonable value by looking at the distances
   # found in the distances input file.
-
+  my ($Hopt, $Qmax, $Ledge, $Redge, $H, $Q);
   if ($link_max_distance eq 'auto') {
-    my ($Hopt, $Ledge, $Redge) = auto_max_link_distance($edge_weight, $pow, $minx);
+    ($Hopt, $Qmax, $Ledge, $Redge, $H, $Q) = auto_max_link_distance($edge_weight, $pow, $f);
     $link_max_distance = ((1-$f)*$Ledge + $f*$Redge);
+    $link_max_distance = $H;
   }
-  print "# Max link distance: $link_max_distance \n";
+  print "# Max link distance: $link_max_distance; Q: $Q \n";
   #######################################################################################################
   
 
@@ -199,15 +204,19 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
 
 ##########################################################################################################
 
-sub compare_str{ # sort by cluster size; 1st tiebreaker: avg intra-cluster distance;
-  # 2nd tiebreaker: max distance from consensus, 3rd tiebreaker first accession id. 
+sub compare_str{ # sort by cluster size;
+  # 1st tiebreaker: avg intra-cluster distance;
+  # 2nd tiebreaker: max intra-cluster distance,
+  # 3rd tiebreaker min. cluster-noncluster distance,
+  # 4th tiebreaker: first accession id.
   my $str1 = shift;
   my $str2 = shift;
   my @cols1 = split(" ", $str1);
   my @cols2 = split(" ", $str2);
-  return ($cols1[0] != $cols2[0])? $cols1[0] <=> $cols2[0] : # cluster size.
-    ($cols1[2] <=> $cols2[2])?
-    $cols1[2] <=> $cols2[2] :	# avg. intra-cluster distance.
+  return ($cols1[0] != $cols2[0])? $cols1[0] <=> $cols2[0] : # cluster size, small to large.
+    ($cols1[2] <=> $cols2[2])? $cols1[2] <=> $cols2[2] :	# avg. intra-cluster distance, small to large.
+    ($cols1[3] <=> $cols2[3])? $cols1[3] <=> $cols2[3] : # max. intra-cluster distance, small to large.
+    ($cols2[4] <=> $cols1[4])? $cols2[4] <=> $cols1[4] : # min. cluster-noncluster distance, large to small.
     (defined $cols1[9])? ($cols1[9] cmp $cols2[9]) : 0;	#  id of first accession in cluster.
 }
 
@@ -251,12 +260,12 @@ sub store_distances{
 sub auto_max_link_distance{
   my $edge_weight = shift;
   my $pow = shift;
-  my $minx = shift;
+  my $f = shift;
   my @distances = values %$edge_weight;
-  my $cluster1d_obj = Cluster1d->new({label => '', xs => \@distances, pow => $pow, minx => $minx});
+  my $cluster1d_obj = Cluster1d->new({label => '', xs => \@distances, pow => $pow});
   print  "before two_cluster to choose cluster max distance\n";
-  print  "#  pow: $pow  min: $minx \n";
-  my ($Hopt, $maxQ, $Ledge, $Redge) = $cluster1d_obj->find_cluster_at_left();
+  print  "#  pow: $pow \n";
+  my ($Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Ledge, $Redge) = $cluster1d_obj->find_cluster_at_left($f);
   my $Hmid_half_max = 0.5*($Ledge+$Redge);
   my $H33 = (0.67*$Ledge + 0.33*$Redge);
   # my ($Hoptx, $maxQx) = (0, 0); # $cluster1d_obj->two_cluster_x();
@@ -266,8 +275,8 @@ sub auto_max_link_distance{
   #  my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt, $kde_q) = $cluster1d_obj->one_d_2cluster();
   #  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f   Hopt: %6.4f  maxQ: %6.4f.  Hmhmx: %6.4f \n",
   #       $n_pts, $km_n_L, $km_h_opt, $km_n_R, $q, $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q, $Hopt, $maxQ, $Hmid_half_max);
-  printf(STDERR  "Hopt: %6.4f  maxQ: %6.4f.  Hmhmx: %6.4f H33: %6.4f \n", $Hopt, $maxQ, $Hmid_half_max, $H33);
-  return ($Hopt, $Ledge, $Redge);
+  printf(STDERR  "Hopt: %6.4f  maxQ: %6.4f. Hoptavg maxQavg: %6.4f %6.4f   Hmhmx: %6.4f H33: %6.4f \n", $Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Hmid_half_max, $H33);
+  return ($Hopt, $maxQ, $Ledge, $Redge, $Hopt_avg, $maxQ_avg);
 }
 
 sub construct_graph{
