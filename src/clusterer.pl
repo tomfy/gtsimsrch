@@ -141,11 +141,11 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
     my %thisclusterids = map(($_ => 1), @$accs);
 
     my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds) = cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance);
-    my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt, $d, $e, $clusterid_dist2consensus);
+    my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt);
     if (defined $id_gts) {
       my $consensus_dosages = cluster_consensus_dosages($accs, $id_gts); # array ref holding the consensus dosages for this cluster
-      ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt, $d, $e, $clusterid_dist2consensus) =
-	quality_metrics($consensus_dosages, $id_gts, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
+      ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt, my $d, my $e, my $clusterid_dist2consensus) =
+	cluster_quality_consensus($consensus_dosages, $id_gts, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
     } else {
       ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt) = cluster_quality2($the_graph, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
     }
