@@ -47,7 +47,7 @@ has txs => (			# transformed xs
 has minx => (
 	     isa => 'Maybe[Num]',
 	     is => 'rw',
-	     default => undef,
+	     default => 0.001, # to avoid -inf in case of log transformed values.
 	    );
 
 
@@ -382,6 +382,7 @@ sub jenks_2cluster{ # divide into 2 clusters using jenks natural breaks
 # cluster boundary as some fraction through this
 sub find_cluster_at_left{
   my $self = shift;
+  my $f = shift // 0.5;
   my @txs = @{$self->txs()};	# array ref of transformed values.
   my $Qmin = 2;
   
@@ -430,13 +431,13 @@ sub find_cluster_at_left{
       print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
     if ($Q >= $Qmin) {
       push @nlhqs, [$nL, $H, $Q];
-      $start_peak = $nL if($Q >= 1.5*$Qmin  and  $start_peak < 0);
+      $start_peak = $nL if($start_peak > 0  and  $Q >= 1.5*$Qmin);
     } else {			# $Q < $Qmin
       if ($start_peak > 0) {
 	if ($end_peak < 0) {
 	  $end_peak = $nL;
 	} else {
-	  if ($nL > 2*$end_peak) {
+	  if ($nL > 1.5*$end_peak) {
 	    print "breaking out of loop. $start_peak, $end_peak, $opt_nL, $nL\n";
 	    last;
 	  }
@@ -445,6 +446,7 @@ sub find_cluster_at_left{
     }
   #  print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
   } # end of loop over possible L cluster sizes.
+  print STDERR "# start_peak, end_peak: $start_peak, $end_peak \n";
 #  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
 #  print "maxQ: $maxQ \n";
 my $H_mid_half_max = -1;
@@ -475,7 +477,25 @@ if (scalar @nlhqs > 0) {
 }
   # return $optH value at which $maxQ occurs,
   # and $Ledge, $Redge, the Left and Right sides of the > half max range.
-return ($optH, $maxQ, $Ledge, $Redge); # $H_mid_half_max);
+  my $halfN = 16;
+  my $N = 2*$halfN;
+  my $Qsum = 0;
+  my ($Qsum_opt, $mid_opt) = (-1, undef);
+  for my $i (0..$N){
+$Qsum += $nlhqs[$i]->[2];
+}
+  for(my $i=1; $i+$N < scalar @nlhqs; $i++){
+    $Qsum += $nlhqs[$i+$N]->[2] - $nlhqs[$i-1]->[2];
+    my $mid = $i+$halfN;
+   # print STDERR $mid, "  ", join("  ", @{$nlhqs[$mid]}), "  ", $Qsum/($N+1), "\n";
+    if($Qsum > $Qsum_opt){
+      $Qsum_opt = $Qsum;
+      $mid_opt = $mid;
+    }
+  }
+  my $Qavg_opt = $Qsum_opt/($N+1);
+  print STDERR "### $mid_opt  $Qsum_opt \n";
+  return ($optH, $maxQ, $nlhqs[$mid_opt]->[1], $Qavg_opt, $Ledge, $Redge); # $H_mid_half_max);
 }
 
   #########################################################
