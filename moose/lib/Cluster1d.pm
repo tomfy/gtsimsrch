@@ -428,7 +428,7 @@ sub find_cluster_at_left{
       $optH = $H;		# 0.5*($txs[$nL -1 ] + $txs[$nL]);
     }
     #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-      print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
+  #    print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
     if ($Q >= $Qmin) {
       push @nlhqs, [$nL, $H, $Q];
       $start_peak = $nL if($start_peak > 0  and  $Q >= 1.5*$Qmin);
