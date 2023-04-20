@@ -1,6 +1,9 @@
 #!/usr/bin/perl -w
 use strict;
 
+# read in the duplicatesearch output file and
+# output each id1 with the distance to the nearest other accession
+
 my %id1_mind = ();
 
 while(<>){
