@@ -116,6 +116,9 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
     ($Hopt, $Qmax, $Ledge, $Redge, $H, $Q) = auto_max_link_distance($edge_weight, $pow, $f);
    # $link_max_distance = ((1-$f)*$Ledge + $f*$Redge);
     $link_max_distance = $H;
+    my ($Hoptxx, $Qmaxxx, $Ledgexx, $Redgexx, $Hxx, $Qxx) = auto_max_link_distance_xx($id_closeidds, $pow, $f);
+    print "#  $Hopt  $Qmax  $H  $Q \n";
+    print "## $Hoptxx  $Qmaxxx  $Hxx  $Qxx \n";
   }
   print "# Max link distance: $link_max_distance; Q: $Q \n";
   #######################################################################################################
@@ -262,6 +265,39 @@ sub auto_max_link_distance{
   my $pow = shift;
   my $f = shift;
   my @distances = values %$edge_weight;
+    print STDERR "## numbexr of distances: ", scalar @distances, "\n";
+
+  my $cluster1d_obj = Cluster1d->new({label => '', xs => \@distances, pow => $pow});
+  print  "before two_cluster to choose cluster max distance\n";
+  print  "#  pow: $pow \n";
+  my ($Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Ledge, $Redge) = $cluster1d_obj->find_cluster_at_left($f);
+  my $Hmid_half_max = 0.5*($Ledge+$Redge);
+  my $H33 = (0.67*$Ledge + 0.33*$Redge);
+  # my ($Hoptx, $maxQx) = (0, 0); # $cluster1d_obj->two_cluster_x();
+  # $link_max_distance = $Hmid_half_max;
+  # print "# after two_cluster. Cluster max distance: $link_max_distance \n";
+  #  print "# before k-means/kde clustering \n";
+  #  my ($n_pts, $km_n_L, $km_n_R, $km_h_opt, $q, $kde_n_L, $kde_n_R, $kde_h_opt, $kde_q) = $cluster1d_obj->one_d_2cluster();
+  #  printf( STDERR "# clustering %5d points;  k-means: %5d below  %8.6f and  %5d above; q: %6.4f.  kde: %5d below  %8.6f  and %5d above; kde_q: %6.4f   Hopt: %6.4f  maxQ: %6.4f.  Hmhmx: %6.4f \n",
+  #       $n_pts, $km_n_L, $km_h_opt, $km_n_R, $q, $kde_n_L, $kde_h_opt, $kde_n_R, $kde_q, $Hopt, $maxQ, $Hmid_half_max);
+  printf(STDERR  "Hopt: %6.4f  maxQ: %6.4f. Hoptavg maxQavg: %6.4f %6.4f   Hmhmx: %6.4f H33: %6.4f \n", $Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Hmid_half_max, $H33);
+  return ($Hopt, $maxQ, $Ledge, $Redge, $Hopt_avg, $maxQ_avg);
+}
+
+sub auto_max_link_distance_xx{
+#  my $edge_weight = shift;
+  my $id_closeidds = shift;
+  my $pow = shift;
+  my $f = shift;
+   my @distances = ();
+  while(my($id1, $id2ds) = each %$id_closeidds){
+    push @distances, $id2ds->[0]->[1];
+    # for my $id2d (@$id2ds){
+    #   my ($id2, $d) = @$id2d;
+    #   push @distances, $d;
+    # }
+  }
+  print STDERR "## xx number of distances: ", scalar @distances, "\n";
   my $cluster1d_obj = Cluster1d->new({label => '', xs => \@distances, pow => $pow});
   print  "before two_cluster to choose cluster max distance\n";
   print  "#  pow: $pow \n";
