@@ -23,7 +23,7 @@ my %forest = (); # keys: numerical tree ids; values: (root) node objects.
 #my %accid_nodenumber = (); # keys: accession ids; values: numerical id of the leaf node representing the accession.
 my %leaf = ();
 my $node_number = 1;
-my $factor = 2;
+my $factor = 200;
 
 while(<>){
   next if(/^\s*#/);
@@ -73,7 +73,8 @@ while(@sorted_pairsdists){
       print STDERR "            # join: ", $root1->id(), "  and  ", $root2->id(), "\n";
       my $new_node_id = $root1->id() . ' ' . $root2->id();
     #  my $new_parent_node = CNode->new({id => $new_node_id, node_number => $node_number});
-    my $new_root = $root1->join($root2, $d, $node_number, $max_d); # create a parent node to root1 and root2, it is the root of the joined tree.
+      my $new_root = $root1->join_trees($root2, $d, $node_number, $max_d); # create a parent node to root1 and root2, it is the root of the joined tree.
+      $new_root->n_link_1($root1->n_link_1() + $root2->n_link_1() + $root1->n_link_2() + $root2->n_link_2() + 1);
     $root1->p_distance($d);
     $root2->p_distance($d);
       #
@@ -86,6 +87,9 @@ while(@sorted_pairsdists){
       $root1->p_distance($d);
       $root2->p_distance($d);
     }
+  }else{ # next closest pair are already in same tree ...
+    $root1->n_link_2($root1->n_link_2()+1);
+    push @{$root1->other_distances()}, $d;
   }
     
     # my $forest_size = scalar keys %forest;
@@ -96,7 +100,7 @@ while(@sorted_pairsdists){
 
 while (my($n, $root) = each %forest) {
   if ($root->leaf_count() > 1) {
-    if (1) {
+    if (0) {
       my $child_d = max($root->Lchild()->distance(), $root->Rchild()->distance());
       print $root->leaf_count(), "  ", $root->distance(), "  ",
 	"  $child_d  " , $root->p_distance(), "  ", $root->id(), "\n";
