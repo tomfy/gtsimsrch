@@ -37,7 +37,7 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
 # or rerun duplicatesearch with a larger value of 'max_estimated_distance' (-e option)
 
 # usage example:
-# clusterer.pl -in duplicatesearch.out  -out  distance_clusters  [-cluster_max 0.08]
+# clusterer.pl -in duplicatesearch.out  -out  distance_clusters  [-cluster_distance 0.08]
 
 # runs duplicatesearch, then distance_cluster, and outputs a file
 # with the same format as duplicatesearch input, but now with just one
@@ -64,8 +64,8 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   # is at least this large.
 
   GetOptions(
-	     'distances_file=s' => \$distances_filename, # file with id1 id2 x xx distance_est distance (duplicatesearch output)
-	     'link_distance|dlink=f' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
+	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 x xx distance_est distance (duplicatesearch output)
+	     'cluster_distance|link_distance|dlink=f' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
 	     'output_file=s' => \$output_cluster_filename,
 
 	     'genotypes_file|gt_file=s' => \$genotypes_filename, 
@@ -169,12 +169,12 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
       my @iddegds = map( sprintf("%s %1d %7.5f", $_->[0], $_->[1], $_->[2]), @$out_iddegds);
       $output_line_string = join("  ", @iddegds);
     }
-    $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d %4d %4d   %2d   %s\n ",
+    $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d %4d %4d   %s\n ",
 				  $cluster_size, $cluster_min_d, $cluster_avg_d, $cluster_max_d, $cluster_noncluster_gap,
 				  $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt,
 				  $intracluster_far_pair_count, $missing_distance_count,
 				  #  $d, $e,
-				  $cluster_q_category,
+			#	  $cluster_q_category,
 				  $output_line_string);
     if ($cluster_noncluster_gap/$cluster_max_d >= $min_minextra_maxintra_ratio) {
       push @output_lines, $output_line_string;
