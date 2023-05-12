@@ -187,14 +187,33 @@ Vchar* copy_vchar(Vchar* avchar){
 
 // ***** append a string to vchar after enlarging capacity with realloc if needed *****
 Vchar* append_str_to_vchar(Vchar* the_vchar, char* str){
-  long str_len = (long)strlen(str);
+  long old_length = the_vchar->length;
+  long str_length = (long)strlen(str); // strlen gives length not including terminal null char.
   long cap = the_vchar->capacity;
-  long new_size = the_vchar->length + str_len + 1; // includes term. null; new cap must be >= new_size.
+  long new_size = old_length + str_length + 1; // includes term. null; new cap must be >= new_size.
   if(new_size > cap){
     long new_cap = (2*cap > new_size)? 2*cap : new_size;
     the_vchar->a = (char*)realloc(the_vchar->a, new_cap*sizeof(char));
   }
-  the_vchar->a = strcat(the_vchar->a, str);   
+  for(long i=0; i <= str_length; i++){
+    the_vchar->a[old_length+i] = str[i];
+  }
+    //the_vchar->a = strcat(the_vchar->a, str);
+  the_vchar->length += str_length;
+  //  fprintf(stderr, "lengths: %ld %ld \n", (long)strlen(the_vchar->a), the_vchar->length); 
+  return the_vchar;
+}
+
+Vchar* append_char_to_vchar(Vchar* the_vchar, char c){
+  long new_length = the_vchar->length + 1;
+  long cap = the_vchar->capacity;
+  if(new_length >= cap){
+    long new_cap = (2*cap > (new_length+1))? 2*cap : new_length+1;
+    the_vchar->a = (char*)realloc(the_vchar->a, new_cap*sizeof(char));
+  }
+  the_vchar->a[new_length-1] = c;
+  the_vchar->a[new_length] = '\0';
+  the_vchar->length = new_length;
   return the_vchar;
 }
 void print_vchar(FILE* fh, Vchar* the_vchar){
