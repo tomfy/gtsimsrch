@@ -19,6 +19,9 @@ OBJ2 = $(patsubst %,$(ODIR)/%,$(_OBJ2))
 _OBJ3 = vect.o  gtset.o pedigree.o find_parents.o
 OBJ3 = $(patsubst %,$(ODIR)/%,$(_OBJ3))
 
+_OBJ4 = vect.o  vcf_to_gts.o various.o
+OBJ4 = $(patsubst %,$(ODIR)/%,$(_OBJ4))
+
 
 $(ODIR)/%.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
@@ -32,9 +35,12 @@ pedigree_test: $(OBJ2)
 find_parents: $(OBJ3)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
+vcf_to_gts: $(OBJ4)
+	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
+
 .PHONY: all
 
-all: duplicatesearch pedigree_test find_parents
+all: duplicatesearch pedigree_test find_parents vcf_to_gts
 
 .PHONY: clean
 
