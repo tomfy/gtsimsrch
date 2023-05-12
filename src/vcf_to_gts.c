@@ -146,12 +146,12 @@ int main(int argc, char *argv[]){
 
       char genotype = token_to_genotype(token, format, 0, GPidx, minGP); // i.e. GT:DS:GP
       if(1){
-      char s[3] = "  "; // genotype is one char (will need to do something more for plink)
-      s[0] = genotype;
-      append_str_to_vchar(accession_genotypes[acc_index], s);
+	char s[3] = "  "; // genotype is one char (will need to do something more for plink)
+	s[0] = genotype;
+	append_str_to_vchar(accession_genotypes[acc_index], s);
       }else{
-      append_char_to_vchar(accession_genotypes[acc_index], genotype);
-         append_char_to_vchar(accession_genotypes[acc_index], ' ');
+	append_char_to_vchar(accession_genotypes[acc_index], genotype);
+	append_char_to_vchar(accession_genotypes[acc_index], ' ');
       }
       //     fprintf(stderr, "%ld  [%s]\n", accession_genotypes[acc_index]->length, accession_genotypes[acc_index]->a);
       accession_count++;
@@ -184,6 +184,7 @@ int main(int argc, char *argv[]){
 char token_to_genotype(char* token, char* format, long gtidx, long gpidx, double minGP){
   char result;
   char* saveptr;
+  bool quality_ok = (gpidx >= 0  &&  minGP > 0)? false : true;
   long idx = 0;
   //  fprintf(stderr, "%s   ", token);
   assert(format[0] == 'G' && format[1] == 'T');
@@ -191,31 +192,49 @@ char token_to_genotype(char* token, char* format, long gtidx, long gpidx, double
   // fprintf(stderr, "A %s | %s | %s\n", token, tkn, saveptr);
   if(idx == gtidx){ // tkn should be e.g. 0|1 or 0/1 or 1/1
     result = GTstr_to_dosage(tkn);
+  }else if(idx == gpidx){
+    if(minGP > 0){ // filter on genotype probability
+      double p0, p1, p2;
+      if(sscanf(tkn, "%f,%f,%f", &p0, &p1, &p2) == 3){
+	quality_ok = (p0 >= minGP  ||  p1 >= minGP  || p2 >= minGP);
+      }
+    }
   }
   idx++; 
   while(1){ // read genotypes from one line, i.e. one marker
-      tkn = strtok_r(NULL, "\t \n\r", &saveptr);
-      if(tkn == NULL)	break; // end of line has been reached.
-  }   
-   
+    tkn = strtok_r(NULL, "\t \n\r", &saveptr);
+    if(tkn == NULL)	break; // end of line has been reached.
+    if(idx == gtidx){ // tkn should be e.g. 0|1 or 0/1 or 1/1
+      result = GTstr_to_dosage(tkn);
+    }else if(idx == gpidx){
+      if(minGP > 0){ // filter on genotype probability
+	double p0, p1, p2;
+	if(sscanf(tkn, "%f,%f,%f", &p0, &p1, &p2) == 3){
+	  quality_ok = (p0 >= minGP  ||  p1 >= minGP  || p2 >= minGP);
+	}
+      }
+    }
+    idx++; 
+    if(! quality_ok) result = '0';
+  }    
   return result;
 }
 
 char GTstr_to_dosage(char* tkn){
   long d = 0;
-    char a1 = tkn[0];
-    char a2 = tkn[2];
-    if(a1 == '1'){
-      d++;
-    }else if(a1 == '.'){
-      return 'X';
-    }
-    if(a2 == '1'){
-      d++;
-    }else if(a2 == '.'){
-      return 'X';
-    }
-    return (char)(d + 48);
+  char a1 = tkn[0];
+  char a2 = tkn[2];
+  if(a1 == '1'){
+    d++;
+  }else if(a1 == '.'){
+    return 'X';
+  }
+  if(a2 == '1'){
+    d++;
+  }else if(a2 == '.'){
+    return 'X';
+  }
+  return (char)(d + 48);
 }
 
 void get_GQ_GP_indices(char* format, long* GQp, long* GPp){
@@ -224,20 +243,20 @@ void get_GQ_GP_indices(char* format, long* GQp, long* GPp){
   //fprintf(stderr, "# # # %ld %ld \n", *GQp, *GPp);
   long index = 0;
   char* saveptr = format;
-    char* token = strtok_r(format, ":", &saveptr);
-    //fprintf(stderr, "#A ## ## %s\n", token);
+  char* token = strtok_r(format, ":", &saveptr);
+  //fprintf(stderr, "#A ## ## %s\n", token);
+  if(strcmp(token, "GQ") == 0) *GQp = index;
+  if(strcmp(token, "GP") == 0) *GPp = index;
+  while(1){ // read in cols 1 through 8 "POS ID REF ..."
+    index++;
+    token = strtok_r(NULL, ":", &saveptr);
+    if(token == NULL) break; 
+    //fprintf(stderr, "#B ## ## %s\n", token);
     if(strcmp(token, "GQ") == 0) *GQp = index;
     if(strcmp(token, "GP") == 0) *GPp = index;
-    while(1){ // read in cols 1 through 8 "POS ID REF ..."
-      index++;
-	token = strtok_r(NULL, ":", &saveptr);
-		if(token == NULL) break; 
-		//fprintf(stderr, "#B ## ## %s\n", token);
-	if(strcmp(token, "GQ") == 0) *GQp = index;
-	if(strcmp(token, "GP") == 0) *GPp = index;
-	//fprintf(stderr, "ZZZZZZZZZZZZ: %ld %ld \n", *GQp, *GPp);
+    //fprintf(stderr, "ZZZZZZZZZZZZ: %ld %ld \n", *GQp, *GPp);
 
-    }
-    //fprintf(stderr, "ZZZ: %ld %ld \n", *GQp, *GPp);
-    return;
+  }
+  //fprintf(stderr, "ZZZ: %ld %ld \n", *GQp, *GPp);
+  return;
 }
