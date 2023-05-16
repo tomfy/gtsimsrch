@@ -24,7 +24,7 @@ OBJ4 = $(patsubst %,$(ODIR)/%,$(_OBJ4))
 
 
 $(ODIR)/%.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c -O3 -o $@ $< $(CFLAGS)
 
 duplicatesearch: $(OBJ1)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
