@@ -21,8 +21,10 @@ Vchar* token_to_plink_genotype(char* token, /*char* format,*/ Vchar** alleles, l
 char GTstr_to_dosage(char* tkn);
 void get_GT_GQ_GP_indices(char* format, long* GTidx, long* GQidx, long* GPidx);
 
+extern int errno; 
 
 int main(int argc, char *argv[]){
+  errno = 0;
   double t_start = hi_res_time();
   
   double minGQ = 0;
@@ -30,13 +32,15 @@ int main(int argc, char *argv[]){
 
   char* input_filename = NULL;
   FILE *in_stream = NULL;
-  char* output_filename = "vcftogts.out";
+  char* output_filename = "vcftogts";
+  char* marker_ids_filename;
   FILE* out_stream = NULL;
 
   bool plink = false;
+  bool use_alt_marker_id = false;
     
   int c;
-  while((c = getopt(argc, argv, "i:o:p:k")) != -1){
+  while((c = getopt(argc, argv, "i:o:p:ka")) != -1){
     // i: input file name (required).
     // o: output file name. Default: "duplicatesearch.out"
   
@@ -53,12 +57,28 @@ int main(int argc, char *argv[]){
     case 'o':
       output_filename = optarg;
       break;
-  case 'p' :
-    minGP = atof(optarg);
-    break;
-  case 'k' :
-    plink = true;
+    case 'p' :
+      if(sscanf(optarg, "%lf ", &minGP) != 1  ||  errno != 0){
+	fprintf(stderr, "# conversion of argument %s to double (minGP) failed.\n", optarg);
+	exit(EXIT_FAILURE);
+      }else if(minGP > 1){
+	fprintf(stderr, "# minGP was set to %8.4lf , must be <= 1\n", minGP);
+	exit(EXIT_FAILURE);
+      }
+      fprintf(stderr, "# minGP set to: %8.5lf\n", minGP);
+      break;
+    case 'k' :
+      plink = true;
+      break;
+    case 'a' :
+      use_alt_marker_id = true;
+      break;
+      
+    }
   }
+  if(plink){
+  }else{
+
   }
 
   out_stream = fopen(output_filename, "w");
@@ -70,8 +90,11 @@ int main(int argc, char *argv[]){
   char* line = NULL;
   size_t len = 0;
   ssize_t nread;
-
+  
+  // ****************************************************
   // *****   Read first line; store accession ids.  *****
+  // ****************************************************
+  
   long accid_count = 0;
   Vstr* accession_ids = construct_vstr(1000);
   char* saveptr = NULL;
@@ -102,43 +125,42 @@ int main(int argc, char *argv[]){
   }
 
   // Vchar** accession_genotypes = (Vchar**)malloc(accid_count * sizeof(Vchar*));
-  Vchar* accession_genotypes[accid_count];
-  // initialize the Vstr's:
+
+
+  // *********************************************************
+  // *****   Read the rest of the lines, one per marker  *****
+  // *****   Each line has genotypes for all accessions  *****
+  // *********************************************************
+
+  Vchar* accession_genotypes[accid_count]; // We know how many accession ids (and therefore how many accessions) already.
   for(long i = 0; i < accid_count; i++){
-    accession_genotypes[i] = construct_vchar(INIT_NMARKERS);
-    // fprintf(stderr, "%ld  %ld %ld \n", i, accession_genotypes[i]->capacity, accession_genotypes[i]->length);
-  }
-  
-  /* fprintf(stderr, "MARKER"); */
-  /* for(long i=0; i<accession_ids->size; i++){ */
-  /*   fprintf(stderr, " %s", accession_ids->a[i]); */
-  /* } */
-  /* fprintf(stderr, "\n"); */
+    accession_genotypes[i] = construct_vchar(2*INIT_NMARKERS); 
+  }  
   
   Vstr* marker_ids = construct_vstr(1000);
-  // Read in the rest of the lines (markers)
   long marker_count = 0;
   Vchar* alleles[2]; // an array of 2 Vchar*s
-  //  alleles[0] = construct_vchar(20);
-  //  alleles[1] = construct_vchar(20);
+
   while((nread = getline(&line, &len, in_stream)) != -1){ // 
     saveptr = line;
     
-    char* token = strtok_r(line, "\t \n\r", &saveptr);
-    char* chromosome = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
-    token =  strtok_r(NULL, "\t \n\r", &saveptr);
-    char* position = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token); // might want to construct a marker id from chromosome and position    
-    token =  strtok_r(NULL, "\t \n\r", &saveptr);
-    
+    char* chromosome = strtok_r(line, "\t \n\r", &saveptr); // first token found is the chromosome number
+    char* position =  strtok_r(NULL, "\t \n\r", &saveptr); // next token is position within chromosome
+    Vchar* alt_marker_id = construct_vchar_from_str(chromosome);
+    append_char_to_vchar(alt_marker_id, '_');
+    append_str_to_vchar(alt_marker_id, position);
+   
+    char* token =  strtok_r(NULL, "\t \n\r", &saveptr);    
     char* marker_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
-    push_to_vstr(marker_ids, marker_id);
-       
-    token =  strtok_r(NULL, "\t \n\r", &saveptr);
-    char* ref_allele = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token); // needed for plink format
-    token =  strtok_r(NULL, "\t \n\r", &saveptr);
-    char* alt_allele = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token); // needed for plink format
- 
+    if(use_alt_marker_id){
+      push_to_vstr(marker_ids, alt_marker_id->a);
+    }else{
+      push_to_vstr(marker_ids, marker_id);
+    }
+    
+    char* ref_allele =  strtok_r(NULL, "\t \n\r", &saveptr);
     alleles[0] = construct_vchar_from_str(ref_allele);
+    char* alt_allele =  strtok_r(NULL, "\t \n\r", &saveptr);
     alleles[1] = construct_vchar_from_str(alt_allele);
     
 
@@ -150,12 +172,7 @@ int main(int argc, char *argv[]){
     char* format = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token); // format string, e.g. GT:DS:GP
     long GTidx, GQidx, GPidx;
     get_GT_GQ_GP_indices(format, &GTidx, &GQidx, &GPidx);
-
-    //  fprintf(stderr, "%ld %s %s %s %s %s %s \n", marker_count, chromosome, position, marker_id, ref_allele, alt_allele, format);
-    long accession_count = 0;
-    //  long marker_missing_data_count = 0;
-  
-
+    
     long acc_index = 0;
     while(1){ // read genotypes from one line, i.e. one marker
       
@@ -180,30 +197,11 @@ int main(int argc, char *argv[]){
 	  append_char_to_vchar(accession_genotypes[acc_index], ' ');
 	}
       }
-
-      /* char genotype = token_to_genotype(token, format, 0, GPidx, minGP); // i.e. GT:DS:GP */
-      /* if(1){ */
-      /* 	char s[3] = "  "; // genotype is one char (will need to do something more for plink) */
-      /* 	s[0] = genotype; */
-      /* 	append_str_to_vchar(accession_genotypes[acc_index], s); */
-      /* }else{ */
-      /* 	append_char_to_vchar(accession_genotypes[acc_index], genotype); */
-      /* 	append_char_to_vchar(accession_genotypes[acc_index], ' '); */
-      /* } */
-      //     fprintf(stderr, "%ld  [%s]\n", accession_genotypes[acc_index]->length, accession_genotypes[acc_index]->a);
-      accession_count++;
-      //  fprintf(stderr, "mrkr, accession counts: %ld %ld\n", marker_count, accession_count);
-      acc_index++;
-   
+     acc_index++;   
     } // done reading genotypes for all accessions of this marker
-    // free(line);
-      free(chromosome);
-      free(position);
-      free(ref_allele);
-      free(alt_allele);
-         free_vchar(alleles[0]);
+    free_vchar(alleles[0]);
     free_vchar(alleles[1]);
-      free(format);
+    free(format);
     
     marker_count++;
     if(marker_count % 200 == 0) fprintf(stderr, "markers read: %ld %10.4f\n", marker_count, hi_res_time() - t_start);
@@ -214,7 +212,7 @@ int main(int argc, char *argv[]){
   fprintf(stderr, "# Done reading all %ld markers x %ld accessions\n", marker_count, accid_count);
 
   if(plink){
-     for(long i=0; i<accid_count; i++){
+    for(long i=0; i<accid_count; i++){
       // fprintf(out_stream, "# %ld \n", i);
       char* s = accession_genotypes[i]->a;
       //  fprintf(stderr, "%ld  %ld  \n", i, accession_genotypes[i]->length);
@@ -243,26 +241,12 @@ int main(int argc, char *argv[]){
     free_vchar(accession_genotypes[i]);
   }
   free_vstr(marker_ids);
-  getchar();
-  
-  /* fprintf(out_stream, "MARKER"); */
-  /* for(long i=0; i<marker_ids->size; i++){ */
-  /*   fprintf(out_stream, " %s", marker_ids->a[i]); */
-  /* }fprintf(out_stream, "\n"); */
-  /* //  fprintf(stderr, "### %ld %ld  %s\n", accid_count, accession_ids->size, accession_ids->a[0]); */
-  /* for(long i=0; i<accid_count; i++){ */
-  /*   // fprintf(out_stream, "# %ld \n", i); */
-  /*   char* s = accession_genotypes[i]->a; */
-  /*   //  fprintf(stderr, "%ld  %ld  \n", i, accession_genotypes[i]->length); */
-  /*   // s[50] = '\0'; */
-  /*   fprintf(out_stream , "%s %s\n", accession_ids->a[i], s); */
-  /* } */
-  /* fclose(in_stream); */
-  /* fclose(out_stream); */
-} // end of main
+ 
+  } // end of main
+
 
 //////////////////////////////////////////////////
-// subroutine defintions
+//         subroutine defintions                //  
 //////////////////////////////////////////////////
 
 char token_to_genotype(char* token,
@@ -305,7 +289,7 @@ char token_to_genotype(char* token,
     }
     idx++;   
   }
-   if(! quality_ok) result = 'X';
+  if(! quality_ok) result = 'X';
   return result;
 }
 
@@ -372,7 +356,7 @@ void get_GT_GQ_GP_indices(char* format, long* GTp, long* GQp, long* GPp){
   char* saveptr = format;
   char* token = strtok_r(format, ":", &saveptr);
   //fprintf(stderr, "#A ## ## %s\n", token);
-   if(strcmp(token, "GT") == 0) *GTp = index;
+  if(strcmp(token, "GT") == 0) *GTp = index;
   if(strcmp(token, "GQ") == 0) *GQp = index;
   if(strcmp(token, "GP") == 0) *GPp = index;
   while(1){ // read in cols 1 through 8 "POS ID REF ..."
@@ -380,7 +364,7 @@ void get_GT_GQ_GP_indices(char* format, long* GTp, long* GQp, long* GPp){
     token = strtok_r(NULL, ":", &saveptr);
     if(token == NULL) break; 
     //fprintf(stderr, "#B ## ## %s\n", token);
-      if(strcmp(token, "GT") == 0) *GTp = index;
+    if(strcmp(token, "GT") == 0) *GTp = index;
     if(strcmp(token, "GQ") == 0) *GQp = index;
     if(strcmp(token, "GP") == 0) *GPp = index;
     //fprintf(stderr, "ZZZZZZZZZZZZ: %ld %ld \n", *GQp, *GPp);
