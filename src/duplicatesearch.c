@@ -132,7 +132,7 @@ main(int argc, char *argv[])
   // long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
   unsigned rand_seed = (unsigned)time(0);
   double max_marker_missing_data_fraction = -1; // default: set to 2.0/chunk_size after chunk_size is set.
-  double max_accession_missing_data_fraction = 0.5;
+  double max_accession_missing_data_fraction = 1;
   double min_minor_allele_frequency = 0.0; //
   double max_est_agmr = 0.2;
   long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
@@ -757,7 +757,7 @@ ND distance(Accession* acc1, Accession* acc2){
     if(a1 != MISSING_DATA_CHAR){
       if(a2 != MISSING_DATA_CHAR){
 	denom++;
-	if(a1 != a2) numer += abs(a1 - a2);
+	if(a1 != a2) numer++; // numer += abs(a1 - a2);
       }
     }
   }
@@ -1105,9 +1105,9 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       //  Agmri* the_agmri = get_ith_agmri_from_vagmri(the_mci->agmrs, -1); // get last element;
       //   double agmr = (the_agmri->d >0)? the_agmri->n/(double)the_agmri->d : -1;
       if(output_format == 1){
-	fprintf(ostream, "%26s  %26s  %7.5f\n", q_acc->id->a, m_acc->id->a, the_mci->agmr);
+	fprintf(ostream, "%s  %s  %8.6f\n", q_acc->id->a, m_acc->id->a, the_mci->agmr);
       }else{
-	fprintf(ostream, "%26s  %26s  %7.5f  %5.2f %3ld %6.4f\n", q_acc->id->a, m_acc->id->a, the_mci->agmr,
+	fprintf(ostream, "%s  %s  %8.6f  %5.2f %3ld %6.4f\n", q_acc->id->a, m_acc->id->a, the_mci->agmr,
 		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_agmr);
       }
       true_agmr_count++;

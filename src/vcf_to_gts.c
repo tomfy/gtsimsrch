@@ -31,6 +31,7 @@ int main(int argc, char *argv[]){
   
   double minGQ = 0;
   double minGP = 0;
+  // double max_marker_md_fraction = 0.25;
 
   char* input_filename = NULL;
   FILE *in_stream = NULL;
@@ -46,6 +47,7 @@ int main(int argc, char *argv[]){
     // i: input file name (required).
     // o: output file name. Default: "vcftogts"
     // p: minGP, there must be an gt with est. genotype prob. >= minGP, or it is considered missing data
+    //   // x: max_marker_md_fraction. If a marker has > this proportion of missing data, omit from output. 
     // k: -k gives output suitable for plink input, default is output suitable for input to duplicatesearch
     // a: -a to use marker ids constructed from separate chromosome and position entries in vcf file.
     switch(c){
@@ -72,6 +74,16 @@ int main(int argc, char *argv[]){
       }
       fprintf(stderr, "# minGP set to: %8.5lf\n", minGP);
       break;
+    /* case 'x': */
+    /*    if(sscanf(optarg, "%lf ", &max_marker_md_fraction) != 1  ||  errno != 0){ */
+    /* 	fprintf(stderr, "# conversion of argument %s to double (max_marker_md_fraction) failed.\n", optarg); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   }else if(max_marker_md_fraction <= 0){ */
+    /* 	fprintf(stderr, "# max_marker_md_fraction was set to %8.4lf , must be > 0\n", max_marker_md_fraction); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   } */
+    /*   fprintf(stderr, "# max_marker_md_fraction set to: %8.5lf\n", max_marker_md_fraction); */
+    /*   break; */
     case 'k' :
       plink = true;
       break;
@@ -146,12 +158,15 @@ int main(int argc, char *argv[]){
   Vstr* marker_ids = construct_vstr(1000);
   Vstr* chromosome_ids = construct_vstr(1000);
   Vstr* positions = construct_vstr(1000);
+  Vlong* marker_md_counts = construct_vlong(1000);
+  long marker_md_count = 0;
   long marker_count = 0;
   Vchar* alleles[2]; // an array of 2 Vchar*s
 
   while((nread = getline(&line, &len, in_stream)) != -1){ // 
     saveptr = line;
-    
+
+    marker_md_count = 0;
     Vchar* chromosome = construct_vchar_from_str(strtok_r(line, "\t \n\r", &saveptr)); // first token found is the chromosome number
     push_to_vstr(chromosome_ids, chromosome->a);
     Vchar* position =  construct_vchar_from_str(strtok_r(NULL, "\t \n\r", &saveptr)); // next token is position within chromosome
@@ -195,30 +210,36 @@ int main(int argc, char *argv[]){
 
       if(plink){ // gt will be something like "\tA\tC", but alleles can be multi-character
 	Vchar* plink_gt = token_to_plink_genotype(token, /*format,*/ alleles, 0, GPidx, minGP);
+	//	if(strcmp(plink_gt->a, "0") == 0) marker_md_count++;
 	//	fprintf(stderr, "# # # : %s\n", plink_gt);
 	append_str_to_vchar(accession_genotypes[acc_index], plink_gt->a);
 	free_vchar(plink_gt);
       }else{ //
 	//	fprintf(stderr, "#AAA: %ld %lf\n", GPidx, minGP);
 	char genotype = token_to_genotype(token, /*format,*/ GTidx, GPidx, minGP); // i.e. GT:DS:GP
-	if(1){
+	//	if(genotype == 'X') marker_md_count++;
+	   //	if(1){
 	  char s[3] = "  "; // genotype is one char
 	  s[1] = genotype;
 	  append_str_to_vchar(accession_genotypes[acc_index], s);
-	}else{
-	  append_char_to_vchar(accession_genotypes[acc_index], ' '); // quicker to add spaces here, rather than when printing.
-	    append_char_to_vchar(accession_genotypes[acc_index], genotype);
+	/* }else{ */
+	/*   append_char_to_vchar(accession_genotypes[acc_index], ' '); // quicker to add spaces here, rather than when printing. */
+	/*     append_char_to_vchar(accession_genotypes[acc_index], genotype); */
 	
-	}
+	/* } */
       }
      acc_index++;   
     } // done reading genotypes for all accessions of this marker
+    if(acc_index != accession_ids->size) exit(EXIT_FAILURE);
+    // push_to_vlong(marker_md_counts, marker_md_count);
+    // fprintf(stderr, "# %ld  %ld \n", marker_md_counts->size, marker_md_count);
+
     free_vchar(alleles[0]);
     free_vchar(alleles[1]);
     free(format);
     
     marker_count++;
-    if(marker_count % 200 == 0) fprintf(stderr, "markers read: %ld %10.4f\n", marker_count, hi_res_time() - t_start);
+    if(marker_count % 500 == 0) fprintf(stderr, "markers read: %ld %10.4f\n", marker_count, hi_res_time() - t_start);
  
   } // done reading all lines (markers)
   free(line);
@@ -229,6 +250,7 @@ int main(int argc, char *argv[]){
   //////////////////////////////////////////////////
   //                 output                       //
   //////////////////////////////////////////////////
+  //  long max_marker_md_count = (long)(max_marker_md_fraction * accession_ids->size + 0.5);
   if(plink){
      for(long i=0; i<accid_count; i++){
       char* s = accession_genotypes[i]->a;
@@ -244,7 +266,8 @@ int main(int argc, char *argv[]){
   }else{
     fprintf(out_stream, "MARKER");
     for(long i=0; i<marker_ids->size; i++){
-      fprintf(out_stream, " %s", marker_ids->a[i]);
+      // if(marker_md_counts[i] > max_marker_md_count)
+	fprintf(out_stream, " %s", marker_ids->a[i]);
     }fprintf(out_stream, "\n");
     //  fprintf(stderr, "### %ld %ld  %s\n", accid_count, accession_ids->size, accession_ids->a[0]);
     for(long i=0; i<accid_count; i++){
