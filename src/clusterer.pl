@@ -54,7 +54,7 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
  #  my $minx = 0.001;
   my $id1_column = 1;
   my $id2_column = 2;
-  my $d_column = 6; # the distances to use for clustering are found in this column (unit-based)
+  my $d_column = 3; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
   my $full_output = 1; # if '-nofull' will not output the cluster ids, etc.
@@ -65,7 +65,7 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
 
   GetOptions(
 	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 x xx distance_est distance (duplicatesearch output)
-	     'cluster_distance|link_distance|dlink=f' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
+	     'cluster_distance|link_distance|dlink=s' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
 	     'output_file=s' => \$output_cluster_filename,
 
 	     'genotypes_file|gt_file=s' => \$genotypes_filename, 
@@ -93,6 +93,7 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
   # $edge_weight : keys are ordered pairs of accession ids representing graph edges, values are distances
   # $id_closeidds : keys are ids, values array ref of array refs of ids and distances of other accessions.
 
+  #print STDERR "$distances_filename $id1_column $id2_column $d_column $maxD\n";
   my ($edge_weight, $id_closeidds) = store_distances($distances_filename, $id1_column, $id2_column, $d_column, $maxD);
   #######################################################################################################
   # get array of edges order by weight (distance), small to large.
@@ -116,9 +117,9 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
     ($Hopt, $Qmax, $Ledge, $Redge, $H, $Q) = auto_max_link_distance($edge_weight, $pow, $f);
    # $link_max_distance = ((1-$f)*$Ledge + $f*$Redge);
     $link_max_distance = $H;
-    my ($Hoptxx, $Qmaxxx, $Ledgexx, $Redgexx, $Hxx, $Qxx) = auto_max_link_distance_xx($id_closeidds, $pow, $f);
+  #  my ($Hoptxx, $Qmaxxx, $Ledgexx, $Redgexx, $Hxx, $Qxx) = auto_max_link_distance_xx($id_closeidds, $pow, $f);
     print "#  $Hopt  $Qmax  $H  $Q \n";
-    print "## $Hoptxx  $Qmaxxx  $Hxx  $Qxx \n";
+  #  print "## $Hoptxx  $Qmaxxx  $Hxx  $Qxx \n";
   }
   print "# Max link distance: $link_max_distance; Q: $Q \n";
   #######################################################################################################
@@ -249,6 +250,7 @@ sub store_distances{
       # , $usable_chunks, $match_chunks, $est_distance) =
       @cols[$id1_col, $id2_col];
     my $distance = $cols[$d_column];
+ #   print STDERR "$id1 $id2  $distance  $maxD\n";
     next if($distance > $maxD);
     my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
     if (!exists $id_closeidds{$id1}) {
@@ -272,7 +274,7 @@ sub auto_max_link_distance{
   my $pow = shift;
   my $f = shift;
   my @distances = values %$edge_weight;
-    print STDERR "## numbexr of distances: ", scalar @distances, "\n";
+    print STDERR "## number of distances: ", scalar @distances, "\n";
 
   my $cluster1d_obj = Cluster1d->new({label => '', xs => \@distances, pow => $pow});
   print  "before two_cluster to choose cluster max distance\n";
