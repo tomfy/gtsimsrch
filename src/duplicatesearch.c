@@ -757,7 +757,7 @@ ND distance(Accession* acc1, Accession* acc2){
     if(a1 != MISSING_DATA_CHAR){
       if(a2 != MISSING_DATA_CHAR){
 	denom++;
-	if(a1 != a2) numer += abs(a1 - a2);
+	if(a1 != a2) numer++; // numer += abs(a1 - a2);
       }
     }
   }
