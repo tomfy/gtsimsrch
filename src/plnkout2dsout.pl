@@ -41,7 +41,7 @@ while(my $line = <$fhdist>){
       my $distance = $distances[$i];
       if($distance <= $max_distance){
 	my $id2 = $ids[$i];
-	print $fhout "$id1  $id2  $distance\n";
+	printf($fhout "%s  %s  %8.6f\n",$id1, $id2, $distance);
       }
     }
   $line_number++;
