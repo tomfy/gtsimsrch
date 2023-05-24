@@ -35,7 +35,7 @@ int main(int argc, char *argv[]){
   char* input_filename = NULL;
   FILE *in_stream = NULL;
   Vchar* output_filename = construct_vchar_from_str("vcftogts");
-  Vchar* marker_ids_filename;
+  Vchar* marker_ids_filename = construct_vchar_from_str(""); 
   FILE* out_stream = NULL;
 
   bool plink = false;
@@ -59,6 +59,7 @@ int main(int argc, char *argv[]){
       //   fclose(in_stream);
       break;
     case 'o':
+      free_vchar(output_filename);
       output_filename = construct_vchar_from_str(optarg);
       break;
     case 'p' :
@@ -81,8 +82,8 @@ int main(int argc, char *argv[]){
     }
   }
   if(plink){ // construct the two filenames with extensions .ped and .map
-    marker_ids_filename = construct_vchar_from_str(output_filename->a);
-    append_str_to_vchar(output_filename, ".ped");
+    append_str_to_vchar(marker_ids_filename, output_filename->a);
+    append_str_to_vchar(output_filename, ".ped");    
     append_str_to_vchar(marker_ids_filename, ".map");    
   }else{
     // leave it alone
@@ -259,7 +260,12 @@ int main(int argc, char *argv[]){
   for(long i=0; i<accid_count; i++){
     free_vchar(accession_genotypes[i]);
   }
-  free_vstr(marker_ids); 
+  free_vstr(marker_ids);
+  free_vstr(chromosome_ids);
+  free_vstr(positions);
+  free_vchar(output_filename);
+  free_vchar(marker_ids_filename);
+  
   } // end of main
 
 
