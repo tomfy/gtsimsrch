@@ -102,20 +102,32 @@ void free_accession_innards(Accession* the_accession){ // doesn't free the_acces
 // *****  Vaccession implementation  *****
 Vaccession* construct_vaccession(long cap){ // construct Vaccession with capacity of cap, but empty.
   Vaccession* the_vacc = (Vaccession*)malloc(sizeof(Vaccession));
+  //  fprintf(stderr, "zzz: cap %ld\n", cap);
   the_vacc->capacity = cap;
+  //  fprintf(stderr, "zzzz: capacity %ld \n", the_vacc->capacity);
   the_vacc->size = 0;
   the_vacc->a = (Accession**)malloc(cap*sizeof(Accession*));
+  return the_vacc;
 }
 
 void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc){
+  // fprintf(stderr, "# A\n");
   long cap = the_vacc->capacity;
+  //  fprintf(stderr, "# B\n");
+
   long n = the_vacc->size;
+  //  fprintf(stderr, "# C\n");
+
   if(n == cap){   // if necessary, resize w realloc
     cap *= 2;
     the_vacc->a = (Accession**)realloc(the_vacc->a, cap*sizeof(Accession*));
     the_vacc->capacity = cap;
   }
+  //  fprintf(stderr, "# D\n");
+
   the_vacc->a[n] = the_acc;
+  //  fprintf(stderr, "# E\n");
+
   the_vacc->size++;
 }
 
@@ -172,6 +184,8 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
   the_gtsset->marker_alt_allele_counts = NULL; // md_counts;
   the_gtsset->mafs = NULL;
   the_gtsset->marker_dose_counts = NULL;
+  // fprintf(stderr, "# XXXXXXXXXXXXXXXXXXXXXXx %d\n", INIT_VACC_CAPACITY);
+  // fprintf(stderr, "# cap: %ld \n", the_gtsset->accessions->capacity); //the_gtsset->accessions->size);
   return the_gtsset;
 }
 
@@ -253,6 +267,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     saveptr = line;
     char* token = strtok_r(line, "\t \n\r", &saveptr);
     char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
+    // fprintf(stderr, "# accession id: %s \n", acc_id);
     long marker_count = 0;
     long accession_missing_data_count = 0;
     char* genotypes = (char*)calloc((markerid_count+1), sizeof(char));    
@@ -273,22 +288,25 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       }
       
       marker_count++;
+      // fprintf(stderr, "# marker count: %ld \n", marker_count);
     } // done reading dosages for all markers of this accession
-    // fprintf(stderr, "# read all dosages for this accession. %ld %ld \n", marker_count, markerid_count);
+    //  fprintf(stderr, "# read all dosages for this accession. %ld %ld \n", marker_count, markerid_count);
     if(marker_count != markerid_count) exit(EXIT_FAILURE);
     Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
     free(acc_id); // or cut out the middleman (acc_id)?
     free(genotypes);
     //  the_accession->missing_data_count = accession_missing_data_count;
+    //  fprintf(stderr, "# acc md count: %ld \n", accession_missing_data_count);
     if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
       push_to_vaccession(the_genotypes_set->accessions, the_accession);
+      // fprintf(stderr, "# after push_to_vaccession\n");
       accession_count++;
     }else{
       fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
 	      the_accession->id->a, accession_missing_data_count, the_genotypes_set->marker_ids->size);
       the_genotypes_set->n_bad_accessions++;
     }
-    // fprintf(stderr, "# bottom of row loop\n");
+    //  fprintf(stderr, "# bottom of row loop\n");
   } // done reading all lines
   fclose(g_stream);
   fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
@@ -622,7 +640,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
     //   fprintf(stderr, "xx: %ld %s\n", the_accession->index, the_accession->id->a);
   }
   free_vlong(md_ok);
-
+  
   free_vaccession(the_gtsset->accessions);
   the_gtsset->accessions = the_accessions;
   free_vstr(the_gtsset->marker_ids);
