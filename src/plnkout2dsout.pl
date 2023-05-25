@@ -34,14 +34,14 @@ open my $fhdist, "<", "$dist_filename";
 open my $fhout, ">", "$filename_out";
 my $line_number = 0;
 while(my $line = <$fhdist>){
-  next if($line =~ /^\s*#/);
+  # next if($line =~ /^\s*#/);
   my $id1 = $ids[$line_number];
   my @distances = split(" ", $line);
   for(my $i = 0; $i < $line_number; $i++){
       my $distance = $distances[$i];
       if($distance <= $max_distance){
-	my $id2 = $ids[$i];
-	printf($fhout "%s  %s  %8.6f\n",$id1, $id2, $distance);
+#	my $id2 = $ids[$i];
+	printf($fhout "%s  %s  %8.6f\n",$id1, $ids[$i], $distance);
       }
     }
   $line_number++;
