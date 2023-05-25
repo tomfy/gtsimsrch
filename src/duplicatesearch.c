@@ -7,9 +7,15 @@
 #include <ctype.h>
 #include <unistd.h> // needed for getopt
 #include <assert.h>
+#include <stdbool.h>
 
 #include "gtset.h"
 //#include "various.h"
+
+// defaults
+#define DEFAULT_DIPLOID_CHUNK_SIZE 6
+#define DEFAULT_MAX_DISTANCE 0.15
+#define DEFAULT_MAX_ACC_MD 0.5
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -127,7 +133,7 @@ main(int argc, char *argv[])
   double start0 = hi_res_time();
   
   long ploidy = 2; //
-  long chunk_size = -1; // default: choose automatically based on ploidy, etc.
+  long chunk_size = -1; // default: 6 - good for diploid. choose automatically based on ploidy, etc.
   long n_passes = 1; // n_chunks = n_passes*(int)(n_markers/chunk_size)
   // long n_chunks = 1000000; // default number of chunks (large number -> use all markers)
   unsigned rand_seed = (unsigned)time(0);
@@ -138,6 +144,7 @@ main(int argc, char *argv[])
   long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
   char default_output_filename[] = "duplicatesearch.out";
   long n_maf_categories = 1;
+  bool print_filtered_gtset = false;
 
   char* rparam_buf;
   size_t rparam_len;
@@ -308,7 +315,8 @@ main(int argc, char *argv[])
   }else{
     fprintf(rparam_stream, "# Max. marker missing data fraction will be set to 2.0/chunk_size.\n");
   }
-  fprintf(rparam_stream, "# Max. estimated agmr: %5.3lf\n", max_est_agmr);
+  fprintf(rparam_stream, "# Max. accession missing data fraction: %5.3lf\n", max_accession_missing_data_fraction);
+  fprintf(rparam_stream, "# Max. estimated distance: %5.3lf\n", max_est_agmr);
   fclose(rparam_stream);
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
@@ -325,7 +333,6 @@ main(int argc, char *argv[])
 
   double t_start = hi_res_time();
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
-  fprintf(stderr, "# XX %ld %ld\n", the_genotypes_set->accessions->capacity, the_genotypes_set->accessions->size);
   Vaccession* the_accessions; 
   if(reference_set_filename != NULL){ // load the reference set, if one was specified.
    
@@ -335,57 +342,48 @@ main(int argc, char *argv[])
     fprintf(stdout, "# Done reading reference data set dosages from file %s. %ld accessions and %ld markers.\n",
 	    reference_set_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   }
-  fprintf(stderr, "# before reading genotypes. %s %8.5lf\n", input_filename, max_accession_missing_data_fraction);
   add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
   fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
   fprintf(stdout, "# Time to load dosage data: %6.3lf sec.\n", hi_res_time() - t_start);
 
   ploidy = the_genotypes_set->ploidy;
+  fprintf(stderr, "# ploidy of %ld detected.\n", ploidy);
   //  find  chunk_size  if not specified on command line; 
-  if(chunk_size <= 0){ // with MAX_PATTERNS of 10000, chunk_size is 8 for diploid, 5 for tetraploid, 4 for hexaploid.
-    chunk_size = (ploidy == 2)? 7 :(long)(log(MAX_PATTERNS)/log((double)ploidy+1.0));
+  if(chunk_size <= 0){ // with MAX_PATTERNS of 10000, chunk_size is DEFAULT_DIPLOID_CHUNK_SIZE for diploid, 5 for tetraploid, 4 for hexaploid.
+    if(ploidy == 2){
+      chunk_size = DEFAULT_DIPLOID_CHUNK_SIZE;
+    }else if(ploidy > 2){
+      chunk_size = (long)(log(MAX_PATTERNS)/log((double)ploidy+1.0));    
+    }
   }
   the_genotypes_set->max_marker_missing_data_fraction = (max_marker_missing_data_fraction <= 0)? 2.0/chunk_size : max_marker_missing_data_fraction;
   fprintf(out_stream, "# Chunk size: %ld\n# Max. marker missing data fraction: %5.3lf\n", chunk_size, the_genotypes_set->max_marker_missing_data_fraction);
   fprintf(stdout, "# Chunk size: %ld\n# Max. marker missing data fraction: %5.3lf\n", chunk_size, the_genotypes_set->max_marker_missing_data_fraction);
   
-  rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage more common, so afterward 0 more common that 2 for all markers.
+  rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common that 2 for all markers.
   filter_genotypesset(the_genotypes_set);
   store_homozygs(the_genotypes_set);
 
-  //  ************************************************
-  // Vlong** maf_category_marker_indices = get_maf_cat_marker_indices(the_genotypes_set, n_maf_categories);
-  // get_maf_cat_marker_indices_x(the_genotypes_set);
-  // n_maf_categories = 5;
-  //  ************************************************			   
-  // fprintf(stderr, "after get_maf...indices.\n");
-  the_accessions = the_genotypes_set->accessions;
-   
+  the_accessions = the_genotypes_set->accessions;   
   n_markers = the_genotypes_set->n_markers;
 
-  //  if(n_chunks*chunk_size > n_markers){
-  //    n_chunks = n_markers/chunk_size;
-  //  }
   long n_chunks_per_pass = n_markers/chunk_size;
   long n_chunks = n_passes*n_chunks_per_pass;
   fprintf(out_stream, "# Filtered data has %ld markers.\n", the_genotypes_set->n_markers);
   fprintf(stdout, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
   fprintf(out_stream, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
 
-  if(1){
+  if(print_filtered_gtset){
     FILE* fh_gtsout = fopen("filtered_gtset.out", "w");
     print_genotypesset(fh_gtsout, the_genotypes_set);
     fclose(fh_gtsout);
   }
   // *****  done reading and storing input  **********
   
- 
-  //  fprintf(stderr, "# n_markers: %ld\n", n_markers);
   Vlong* marker_indices = construct_vlong_whole_numbers(n_markers);
   shuffle_vlong(marker_indices);
   marker_indices->size = n_chunks_per_pass*chunk_size; //
-  fprintf(stderr, "i: 0  marker_indices->size: %ld \n", marker_indices->size);
   for(long i=1; i<n_passes; i++){
     Vlong* more_marker_indices = construct_vlong_whole_numbers(n_markers);
     shuffle_vlong(more_marker_indices);
@@ -402,7 +400,6 @@ main(int argc, char *argv[])
 
   
   t_start = hi_res_time(); 
-  // Vmci** query_vmcis = find_matches(n_ref_accessions, the_accessions, the_cpi, max_est_agmr);
   Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, max_est_agmr); //, n_maf_categories, maf_category_marker_indices);
   long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# Time to find candidate matches and %ld true agmrs: %6.3f\n", true_agmr_count, hi_res_time() - t_start);
@@ -431,8 +428,8 @@ main(int argc, char *argv[])
 
 
 // *******************  function definitions  ***************************************************
-// *****  Vaccession  ***********************************************************
 
+// *****  Vaccession  ***********************************************************
 
 void populate_chunk_pattern_ids_from_vaccession(Vaccession* the_accessions, Chunk_pattern_ids* the_cpi){
   long n_patterns = the_cpi->n_patterns;
@@ -747,7 +744,7 @@ ND distance(Accession* acc1, Accession* acc2){
   char* gts1 = acc1->genotypes->a;
   char* gts2 = acc2->genotypes->a;
   if(DO_ASSERT) assert(acc1->genotypes->length == acc2->genotypes->length);
- long denom = 0;
+  long denom = 0;
   long numer = 0;
   for(long i=0; ;i++){
     char a1 = gts1[i];
