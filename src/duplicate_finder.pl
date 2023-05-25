@@ -36,11 +36,13 @@ my $minGQ = 0;			# if GQ present, must be >= this.
 my $minGP = 0.0; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $min_marker_avg_pref_gt_prob = -1.0; # default is negative (meaning don't filter on this)
 my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
+my $max_accession_missing_data_fraction = 0.5;
 my $min_marker_maf = 0;
 my $max_distance = 0.15;
 my $info_string = "# command: " . join(" ", @ARGV) . "\n";
 my $plink = 0;
 my $use_alt_marker_ids = 0;
+my $chunk_size = 6; # relevant only to duplicatesearch
 
 my $cluster_distance = 'auto'; # clusterer will attempt to choose a reasonable value.
 
@@ -54,6 +56,7 @@ GetOptions(
 	   #	   'min_read_depth=f' => \$min_read_depth,
 	   'cluster_distance=f' => \$cluster_distance,
 	   'dmax=f' => \$max_distance,
+	   'chunk_size|k=i' => \$chunk_size,
 
 	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
 	   'min_maf|maf_min=f' => \$min_marker_maf,
@@ -92,7 +95,7 @@ if ($plink) {		      #            *** analyze using plink ***
   print STDERR "plink_out_filename: $plink_out_filename \n"; #exit(0);
   my $plink_command1 = "plink1.9 --file $genotypes_filename --out $plink_out_filename --double-id --allow-extra-chr --make-bed "; # --maf $min_marker_maf ";
   $plink_command1 .= " --maf $min_marker_maf " if($min_marker_maf > 0);
-  $plink_command1 .= " --geno $max_marker_missing_data_fraction ";
+  $plink_command1 .= " --geno $max_marker_missing_data_fraction  --mind $max_accession_missing_data_fraction ";
   print STDERR "# plink command 1: $plink_command1\n";
 
   system "$plink_command1"; # produces 3 files ending in .bed , .bin , and .fam
@@ -117,6 +120,7 @@ if ($plink) {		      #            *** analyze using plink ***
   my $ds_distances_filename = $genotypes_filename . ".dists";
   my $ds_command = "duplicatesearch -i $genotypes_filename -a $min_marker_maf -e $max_distance -o $ds_distances_filename";
   $ds_command .= " -x $max_marker_missing_data_fraction ";
+  $ds_command .= " -k $chunk_size -f $max_accession_missing_data_fraction ";
   print STDERR "duplicatesearch command: $ds_command\n";
   system "$ds_command";
 
