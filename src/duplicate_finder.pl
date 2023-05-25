@@ -4,67 +4,73 @@ use Getopt::Long;
 use List::Util qw(min max sum);
 use File::Spec 'splitpath';
 
-# vcf file should have one of :
-# dosage DS,
-# genotype GT, e.g. 0/1 , 0/0/0/1  or  0|0|0|1
-# allele depth AD, e.g. 21,19
-# and if it has GP (genotype prob., e.g. 0.9,0.16,0.04) or GQ (genotype quality, e.g. 98) 
-# we can also reject entries (i.e. regard as missing data) if these are not good enough
+# read in a vcf file, and process using either duplicatesearch (default) or plink ( -plink );
+# first run vcf_to_gts to convert vcf to format required by duplicatesearch or plink;
+# then run either duplicatesearch or plink;
+# then run clusterer to find clusters of accessions with near-identical genotype sets.
 
-# usage:  vcf2dosage.pl -i <input vcf file>  -o <output file>
+# vcf file should have :
+# genotype GT, e.g. 0/1 , 0|0. (Diploid only)
+# and can filter on GP (genotype prob., e.g. 0.9,0.16,0.04) ( e.g.  -GP 0.9 )
+# would be nice to filter on GQ (genotype quality, e.g. 98) but not implemented yet. 
 
+# usage:  duplicate_finder.pl -in <input vcf file>  -out <output file>
 
-#my $transpose = 1; # default is to transpose; use -notrans to output untransposed.
-# (duplicatesearch, find_parents require transposed)
-# vcf: columns correspond to accessions, rows to markers
+# duplicate_finder.pl  calls:
+# vcf_to_gts
+# duplicatesearch (default) or ( -plink ) plink, plnkout2dsout
+# clusterer
 
-# if we don't believe can reliably resolve various heterozygous genotypes in polyploid case
-# we can just lump together all heterozygous genotypes, map to just 3 genotypes:
-my $map_to_012 = 0; # dosage = ploidy -> 2, 0 < dosage < ploidy -> 1, 0 -> 0, X -> X
-my $field_to_use = 'GT'; # default GT. If requested field is not present exit (or ???)
-# recognized choices are  GT (genotype e.g. '/1/0' ), DS (alternative allele dosage e.g. 2), AD (allele depths, e.g.'136:25' ).
-### could add another option: GP, i.e. choose whichever gt has est. greatest probability.
-my $ploidy = 2; # need to specify if ploidy > 2, will die if finds dosages greater than specified ploidy.-
-my $inferred_ploidy = -1; # infer from data; die if > specified $ploidy
-my $delta = 0.1; # if not $map_to_012, round to integer if within +- $delta
-                 # if map_to_012 [0, $delta ->0], [1-$delta, $ploidy-1+$delta] -> 1, [$ploidy-$delta, $ploidy] -> 2
-my $min_read_depth = 1;
+my $field_to_use = 'GT'; # Presently GT is only option, must be present in vcf file.
+# unimplemented alternatives: DS (alternative allele dosage e.g. 2), AD (allele depths, e.g.'136:25' ).
+
 my $vcf_filename = undef;
 my $genotypes_filename = undef; # default: construct from input filename
-my $missing_data_string = 'X';
-my $minGQ = 0;			# if GQ present, must be >= this.
-my $minGP = 0.0; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
-my $min_marker_avg_pref_gt_prob = -1.0; # default is negative (meaning don't filter on this)
-my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
-my $max_accession_missing_data_fraction = 0.5;
-my $min_marker_maf = 0;
-my $max_distance = 0.15;
-my $info_string = "# command: " . join(" ", @ARGV) . "\n";
-my $plink = 0;
-my $use_alt_marker_ids = 0;
-my $chunk_size = 6; # relevant only to duplicatesearch
 
-my $cluster_distance = 'auto'; # clusterer will attempt to choose a reasonable value.
+my $minGP = 0.0; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
+my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -alt to construct marker ids from cols 1 and 2.
+# my $minGQ = 0;	 # if GQ present, must be >= this. Not implemented.
+# my $delta = 0.1; # if DS present, must be within $delta of an integer. Not implemented
+
+my $plink = 0;
+
+my $chunk_size = 6; # relevant only to duplicatesearch
+my $rng_seed = -1; # default duplicatesearch will get seed from clock
+my $max_distance = 0.15; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance
+my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
+my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
+my $min_marker_maf = 0;
+# plink calculates all distances, and then we output only those <= $max_distance.
+my $info_string = "# command: " . join(" ", @ARGV) . "\n";
+
+
+# $cluster_distance defines how close accessions must be to put in same cluster.
+my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to choose a reasonable value.
 
 GetOptions(
 	   'input_file|vcf=s' => \$vcf_filename,
 	   'output_file=s' => \$genotypes_filename,
-	   #	   'GQmin=f' => \$minGQ,	# min genotype quality.
-	   'GPmin=f' => \$minGP, # 
-	   #	   'field=s' => \$field_to_use, # not implemented - just uses GT, so GT must be present in vcf file!
-	   #	   'delta=f' => \$delta, 
-	   #	   'min_read_depth=f' => \$min_read_depth,
-	   'cluster_distance=f' => \$cluster_distance,
-	   'dmax=f' => \$max_distance,
-	   'chunk_size|k=i' => \$chunk_size,
 
-	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
-	   'min_maf|maf_min=f' => \$min_marker_maf,
-	   'plink!' => \$plink,
+	   # used by vcf_to_gts:
+	   'GPmin=f' => \$minGP, 
 	   'alt_marker_ids!' => \$use_alt_marker_ids,
+	   #	   'GQmin=f' => \$minGQ,      # min genotype quality. Not implemented.
+	   #       'delta=f' => \$delta,      # if
 
-	   'ploidy=f' => \$ploidy,
-	   'map_to_012!' => \$map_to_012,
+	   # to choose duplicatesearch or plink:
+	   'plink!' => \$plink,
+
+	   # used by duplicatesearch/plink:
+	   'chunk_size|k=i' => \$chunk_size, # (duplicatesearch only)
+	    'seed|rand=i' => \$rng_seed, # (duplicatesearch only)
+	   'dmax=f' => \$max_distance,
+	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
+	   'max_accession_md_fraction|max_accession_md_fraction=f' => \$max_accession_missing_data_fraction,
+	   'min_maf|maf_min=f' => \$min_marker_maf,
+	  
+
+	   # used by clusterer:
+	    'cluster_distance=f' => \$cluster_distance,
 	  );
 
 
@@ -73,22 +79,19 @@ if (!defined $genotypes_filename) {
   (my $vol, my $dir, $genotypes_filename) = File::Spec->splitpath($vcf_filename);
   if ($genotypes_filename =~ /vcf$/) {
     $genotypes_filename =~ s/vcf$//; # remove vcf if present
-    print STDERR "A: $genotypes_filename\n";
     $genotypes_filename =~ s/[.]$//; # remove final . if present
-    print STDERR "B: $genotypes_filename\n";
   }
   $genotypes_filename .= "_gts";
 }
-print STDERR "genotypes_filename: $genotypes_filename \n";
-my $vcf2gts_command = "vcf_to_gts -i $vcf_filename -p $minGP "; # for now uses GT field
+# print STDERR "# genotypes_filename: $genotypes_filename \n";
+print STDERR "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
+my $vcf2gts_command = "vcf_to_gts -i $vcf_filename -p $minGP "; # for now uses GT field, can filter on GP
 $vcf2gts_command .= " -a " if($use_alt_marker_ids);
-# "vcf2gts  -in $vcf_filename  -GQ $minGQ  -GP $minGP  -field $field_to_use ";
-
 
 if ($plink) {		      #            *** analyze using plink ***
-  $vcf2gts_command .= " -o $genotypes_filename ";
-  print STDERR "vcf2gts command: $vcf2gts_command \n";
-  system "$vcf2gts_command  -k";
+  $vcf2gts_command .= " -o $genotypes_filename -k ";
+  print STDERR "vcf conversion command: $vcf2gts_command \n";
+  system "$vcf2gts_command";
 
   # get distances using plink
   my $plink_out_filename = $genotypes_filename . "_bin";
@@ -109,23 +112,30 @@ if ($plink) {		      #            *** analyze using plink ***
   system "plnkout2dsout $plink_out_filename $cluster_filename_in $max_distance ";
 
   my $cluster_filename_out = $genotypes_filename . "_clusters";
-  my $cluster_command = "clusterer -in $cluster_filename_in -out $cluster_filename_out -dcolumn 3 ";
+  my $cluster_command = "clusterer -in $cluster_filename_in -out $cluster_filename_out -dcolumn 3 -cluster_d $cluster_distance ";
   system "$cluster_command";
 
 } else {       #                *** analyze using duplicate_search ***
   $vcf2gts_command .= " -o $genotypes_filename ";
-  print STDERR "vcf_to_gts command: $vcf2gts_command \n";
+  print STDERR "# vcf_to_gts command: $vcf2gts_command \n";
+  print STDERR "######### running vcf_to_gts ##########\n";
   system "$vcf2gts_command";
+  print STDERR "#########   vcf_to_gts done  ##########\n\n";
 
   my $ds_distances_filename = $genotypes_filename . ".dists";
   my $ds_command = "duplicatesearch -i $genotypes_filename -a $min_marker_maf -e $max_distance -o $ds_distances_filename";
   $ds_command .= " -x $max_marker_missing_data_fraction ";
   $ds_command .= " -k $chunk_size -f $max_accession_missing_data_fraction ";
-  print STDERR "duplicatesearch command: $ds_command\n";
+  $ds_command .= " -s $rng_seed " if($rng_seed > 0);
+  print STDERR "# duplicatesearch command: $ds_command\n";
+  print STDERR "######### running duplicatesearch ##########\n";
   system "$ds_command";
-
+  print STDERR "#########  duplicatesearch done  ##########\n\n";
   my $cluster_filename = $genotypes_filename . "_clusters";
-  my $cluster_command = "clusterer -in $ds_distances_filename  -out $cluster_filename  -cluster_d $cluster_distance ";
-  print STDERR "clusterer command: $cluster_command\n";
+  my $cluster_command = "clusterer -in $ds_distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
+
+  print STDERR "######### running clusterer ##########\n";
+  print STDERR "# clusterer command: $cluster_command\n";
   system "$cluster_command";
+  print STDERR "#########  clusterer done  ##########\n\n";
 }
