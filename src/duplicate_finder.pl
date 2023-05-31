@@ -25,7 +25,7 @@ my $field_to_use = 'GT'; # Presently GT is only option, must be present in vcf f
 # unimplemented alternatives: DS (alternative allele dosage e.g. 2), AD (allele depths, e.g.'136:25' ).
 
 my $vcf_filename = undef;
-my $genotypes_filename = undef; # default: construct from input filename
+#my $genotypes_filename = undef; # default: construct from input filename
 
 my $minGP = 0.0; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -alt to construct marker ids from cols 1 and 2.
@@ -42,14 +42,16 @@ my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data 
 my $min_marker_maf = 0;
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $info_string = "# command: " . join(" ", @ARGV) . "\n";
+my $filename_stem;
 
+my $oldway = 0;
 
 # $cluster_distance defines how close accessions must be to put in same cluster.
 my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to choose a reasonable value.
 
 GetOptions(
 	   'input_file|vcf=s' => \$vcf_filename,
-	   'output_file=s' => \$genotypes_filename,
+	   'output_file=s' => \$filename_stem,
 
 	   # used by vcf_to_gts:
 	   'GPmin=f' => \$minGP, 
@@ -75,26 +77,28 @@ GetOptions(
 
 
 my $clusterer_input_filename;
-if (!defined $genotypes_filename) {
-  (my $vol, my $dir, $genotypes_filename) = File::Spec->splitpath($vcf_filename);
-  if ($genotypes_filename =~ /vcf$/) {
-    $genotypes_filename =~ s/vcf$//; # remove vcf if present
-    $genotypes_filename =~ s/[.]$//; # remove final . if present
+if (!defined $filename_stem) {
+  (my $vol, my $dir, $filename_stem) = File::Spec->splitpath($vcf_filename);
+  if ($filename_stem =~ /vcf$/) {
+    $filename_stem =~ s/vcf$//; # remove vcf if present
+    $filename_stem =~ s/[.]$//; # remove final . if present
   }
-  $genotypes_filename .= "_gts";
 }
+my $genotypes_filename = $filename_stem . "_gts";
 # print STDERR "# genotypes_filename: $genotypes_filename \n";
 print STDERR "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
 my $vcf2gts_command = "vcf_to_gts -i $vcf_filename -p $minGP "; # for now uses GT field, can filter on GP
 $vcf2gts_command .= " -a " if($use_alt_marker_ids);
 
 if ($plink) {		      #            *** analyze using plink ***
+    my $plink_out_filename = $genotypes_filename . "_bin";
+  if($oldway){
   $vcf2gts_command .= " -o $genotypes_filename -k ";
   print STDERR "vcf conversion command: $vcf2gts_command \n";
   system "$vcf2gts_command";
 
   # get distances using plink
-  my $plink_out_filename = $genotypes_filename . "_bin";
+
   print STDERR "plink_out_filename: $plink_out_filename \n"; #exit(0);
   my $plink_command1 = "plink1.9 --file $genotypes_filename --out $plink_out_filename --double-id --allow-extra-chr --make-bed "; # --maf $min_marker_maf ";
   $plink_command1 .= " --maf $min_marker_maf " if($min_marker_maf > 0);
@@ -114,6 +118,23 @@ if ($plink) {		      #            *** analyze using plink ***
   my $cluster_filename_out = $genotypes_filename . "_clusters";
   my $cluster_command = "clusterer -in $cluster_filename_in -out $cluster_filename_out -dcolumn 3 -cluster_d $cluster_distance ";
   system "$cluster_command";
+}else{ # new way, using plink to process vcf file
+  my $plink_command1 = "plink1.9 --vcf $vcf_filename --double-id --out $filename_stem --vcf-min-gp $minGP ";
+  print STDERR "# plink command 1: $plink_command1\n";
+  system "$plink_command1"; # produces 3 files ending in .bed , .bin , and .fam
+  my $plink_command2 = "plink1.9 --bfile $filename_stem --out $filename_stem --distance-matrix ";
+  $plink_command2 .= " --maf $min_marker_maf --geno $max_marker_missing_data_fraction --mind $max_accession_missing_data_fraction ";
+
+  print STDERR "# plink command 2: $plink_command2\n";
+  system "$plink_command2"; # produces files with endings .mdist (distance matrix), and .mdist.id (marker ids)
+
+  my $cluster_filename_in = $filename_stem . ".dists";
+  system "plnkout2dsout $filename_stem  $cluster_filename_in $max_distance ";
+
+  my $cluster_filename_out = $filename_stem . "_clusters";
+  my $cluster_command = "clusterer -in $cluster_filename_in -out $cluster_filename_out -dcolumn 3 -cluster_d $cluster_distance ";
+  system "$cluster_command";
+}
 
 } else {       #                *** analyze using duplicate_search ***
   $vcf2gts_command .= " -o $genotypes_filename ";
@@ -122,7 +143,7 @@ if ($plink) {		      #            *** analyze using plink ***
   system "$vcf2gts_command";
   print STDERR "#########   vcf_to_gts done  ##########\n\n";
 
-  my $ds_distances_filename = $genotypes_filename . ".dists";
+  my $ds_distances_filename = $filename_stem . ".dists";
   my $ds_command = "duplicatesearch -i $genotypes_filename -a $min_marker_maf -e $max_distance -o $ds_distances_filename";
   $ds_command .= " -x $max_marker_missing_data_fraction ";
   $ds_command .= " -k $chunk_size -f $max_accession_missing_data_fraction ";
@@ -131,10 +152,10 @@ if ($plink) {		      #            *** analyze using plink ***
   print STDERR "######### running duplicatesearch ##########\n";
   system "$ds_command";
   print STDERR "#########  duplicatesearch done  ##########\n\n";
-  my $cluster_filename = $genotypes_filename . "_clusters";
-  my $cluster_command = "clusterer -in $ds_distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
 
   print STDERR "######### running clusterer ##########\n";
+  my $cluster_filename = $filename_stem . "_clusters";
+  my $cluster_command = "clusterer -in $ds_distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
   print STDERR "# clusterer command: $cluster_command\n";
   system "$cluster_command";
   print STDERR "#########  clusterer done  ##########\n\n";
