@@ -22,6 +22,7 @@ char GTstr_to_dosage(char* tkn);
 void get_GT_GQ_GP_indices(char* format, long* GTidx, long* GQidx, long* GPidx);
 Vchar* GT_to_plnkgt(char* token, Vchar** alleles);
 bool GP_to_quality_ok(char* token, double minGP);
+bool GP_to_quality_ok_xxx(char* token, double minGP);
 
 extern int errno; 
 
@@ -258,7 +259,7 @@ int main(int argc, char *argv[]){
 
 
 //////////////////////////////////////////////////
-//         subroutine defintions                //  
+//         subroutine definitions               //  
 //////////////////////////////////////////////////
 
 char token_to_genotype(char* token, long gtidx, long gpidx, double minGP){
@@ -270,7 +271,9 @@ char token_to_genotype(char* token, long gtidx, long gpidx, double minGP){
   if(idx == gtidx){ // tkn should be e.g. 0|1 or 0/1 or 1/1
     result = GTstr_to_dosage(tkn); // return result;
   }else if(idx == gpidx){
-    quality_ok = GP_to_quality_ok(tkn, minGP);
+    quality_ok =
+       GP_to_quality_ok(tkn, minGP);
+    //  GP_to_quality_ok_xxx(tkn, minGP);
   }
   idx++;
   
@@ -280,7 +283,10 @@ char token_to_genotype(char* token, long gtidx, long gpidx, double minGP){
     if(idx == gtidx){ // tkn should be e.g. 0|1 or 0/1 or 1/1
       result = GTstr_to_dosage(tkn);
     }else if(idx == gpidx){
-      quality_ok = GP_to_quality_ok(tkn, minGP);
+      quality_ok =
+	GP_to_quality_ok(tkn, minGP);
+      // GP_to_quality_ok_xxx(tkn, minGP);
+
     }
     idx++;   
   }
@@ -350,6 +356,21 @@ bool GP_to_quality_ok(char* token, double minGP){
     return quality_ok;
   }else{
     return true; 
+  }
+}
+
+bool GP_to_quality_ok_xxx(char* token, double minGP){
+  if(minGP > 0.0){
+    char* saveptr;
+    char* tkn = strtok_r(token, ",", &saveptr);
+    if(atof(tkn) >= minGP) return true;
+    tkn = strtok_r(NULL, ",", &saveptr);
+    if(atof(tkn) >= minGP) return true;
+    tkn = strtok_r(NULL, ",", &saveptr);
+    if(atof(tkn) >= minGP) return true;
+    return false;
+  }else{
+    return true;
   }
 }
 
