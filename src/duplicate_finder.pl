@@ -69,7 +69,6 @@ GetOptions(
 	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
 	   'max_accession_md_fraction|max_accession_md_fraction=f' => \$max_accession_missing_data_fraction,
 	   'min_maf|maf_min=f' => \$min_marker_maf,
-	  
 
 	   # used by clusterer:
 	    'cluster_distance=f' => \$cluster_distance,
