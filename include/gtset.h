@@ -7,7 +7,7 @@
 #include "vect.h"
 //#include "pedigree.h"
 
-#define DO_ASSERT 1
+#define DO_ASSERT 0
 #define UNKNOWN -1
 #define DOSAGES 0
 #define GENOTYPES 1

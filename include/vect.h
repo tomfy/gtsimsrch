@@ -2,7 +2,7 @@
 // ********  and (some of them) allow adding elements (a la 'push')
 // ********  with realloc to increase capacity if necessary.
 
-#define DBUG 1
+#define DBUG 0
 
 // *********  typedefs  ********
 
