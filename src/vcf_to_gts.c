@@ -194,7 +194,8 @@ int main(int argc, char *argv[]){
     long acc_index = 0;
     while(1){ // read genotypes from one line, i.e. one marker
       
-      token = strtok_r(NULL, "\t \n\r", &saveptr);     
+      token = strtok_r(NULL, "\t \n\r", &saveptr);
+      // token = strtok_r(NULL, "\t", &saveptr); 
       if(token == NULL)	break; // end of line has been reached.
 
       if(plink){ // gt will be something like "\tA\tC" or "\tAGC\tA"; alleles can be multi-character
