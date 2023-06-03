@@ -5,9 +5,9 @@ CFLAGS=-I$(IDIR)
 ODIR=obj
 LDIR =../lib
 
-LIBS=-lm
+LIBS=-lm -lpthread
 
-_DEPS = vect.h gtset.h pedigree.h
+_DEPS = vect.h gtset.h pedigree.h various.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
 _OBJ1 = vect.o duplicatesearch.o gtset.o pedigree.o various.o
@@ -21,6 +21,9 @@ OBJ3 = $(patsubst %,$(ODIR)/%,$(_OBJ3))
 
 _OBJ4 = vect.o  vcf_to_gts.o various.o
 OBJ4 = $(patsubst %,$(ODIR)/%,$(_OBJ4))
+
+_OBJ5 = vect.o  pthread_test.o various.o
+OBJ5 = $(patsubst %,$(ODIR)/%,$(_OBJ5))
 
 
 $(ODIR)/%.o: %.c $(DEPS)
@@ -38,9 +41,12 @@ find_parents: $(OBJ3)
 vcf_to_gts: $(OBJ4)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
+pthread_test: $(OBJ5)
+	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
+
 .PHONY: all
 
-all: duplicatesearch pedigree_test find_parents vcf_to_gts
+all: duplicatesearch pedigree_test find_parents vcf_to_gts pthread_test
 
 .PHONY: clean
 
