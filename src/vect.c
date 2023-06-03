@@ -231,6 +231,7 @@ Vdouble* construct_vdouble(long cap){ // construct empty Vdouble with capacity c
   the_vdouble->capacity = cap;
   the_vdouble->size = 0;
   the_vdouble->a = (double*)malloc(cap*sizeof(double));
+  return the_vdouble;
 }
 
 Vdouble* construct_vdouble_from_array(long size, double* array){ // intialize with array of known size
@@ -258,6 +259,7 @@ Vdouble* copy_vdouble(Vdouble* the_vdouble){
 Vdouble* push_to_vdouble(Vdouble* the_vdouble, double x){
   long cap = the_vdouble->capacity;
   long n = the_vdouble->size;
+  //  fprintf(stderr, "# in push_to_vdouble. cap: %ld  size: %ld\n", cap, n);
   if(n == cap){   // if necessary, resize w realloc
     cap *= 2;
     the_vdouble->a = (double*)realloc(the_vdouble->a, cap*sizeof(double));
