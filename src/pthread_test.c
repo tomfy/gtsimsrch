@@ -5,6 +5,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <unistd.h> // needed for getopt
+#include <sys/sysinfo.h>
 #include <pthread.h>
 //#include <assert.h>
 //#include <stdbool.h>
@@ -34,15 +35,17 @@ void* all_distances(void* x);
 int
 main(int argc, char *argv[])
 {
-  clockid_t clkid = CLOCK_MONOTONIC;
+
+  long nprocs = (long)get_nprocs();
+  long Nthreads = (nprocs >= 3)? nprocs-2 : 1;
+  
+  clockid_t the_clock = CLOCK_MONOTONIC;
   struct timespec tspec;
-  if(clock_getres(clkid, &tspec) == 0){
-    fprintf(stderr, "# clock resolution: %ld %ld \n", (long)tspec.tv_sec, (long)tspec.tv_nsec);
+  if(clock_getres(the_clock, &tspec) == 0){
+    fprintf(stderr, "# clock resolution: %ld sec,  %ld nsec \n", (long)tspec.tv_sec, (long)tspec.tv_nsec);
   }else{
     exit(1);
   }
-
-  long Nthreads = 6;
   
   long Nelem = 10000; // number of doubles in each vector
   long Nvectors = 1000; // number of vectors
@@ -66,14 +69,11 @@ main(int argc, char *argv[])
     }
     number_vectors[i] = nv;
   }
-
-  
  
- 
-  
-  if(0){
+  if(Nthreads == 1){ // no pthreads
+    fprintf(stderr, "# not using pthreads.\n");
     struct timespec tsp1;
-    clock_gettime(clkid, &tsp1);
+    clock_gettime(the_clock, &tsp1);
     double starttime = tsp1.tv_sec + 1.0e-9*tsp1.tv_nsec;
 
      Nvds nvds1;
@@ -85,19 +85,20 @@ main(int argc, char *argv[])
     all_distances((void*) &nvds1);
    
      struct timespec tsp2;
-    clock_gettime(clkid, &tsp2);
+    clock_gettime(the_clock, &tsp2);
     double endtime = tsp2.tv_sec + 1.0e-9*tsp2.tv_nsec;
     fprintf(stdout, "# time for dist calcs %12.6lf seconds.\n", endtime-starttime);
     
     for(long i=0; i<nvds1.dists->size; i++){
       fprintf(stdout, "d1: %8.3f\n", nvds1.dists->a[i]);
     }
-  }else{
+  }else{ // using Nthreads pthreads
+    fprintf(stderr, "# will use %ld pthreads.\n", Nthreads);
     int iret = 0;
     Nvds* vdses = (Nvds*)malloc(Nthreads*sizeof(Nvds));
     pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
     struct timespec tsp1;
-    clock_gettime(clkid, &tsp1);
+    clock_gettime(the_clock, &tsp1);
     double starttime = tsp1.tv_sec + 1.0e-9*tsp1.tv_nsec;
     
     for(long i=0; i<Nthreads; i++){
@@ -123,12 +124,9 @@ main(int argc, char *argv[])
     
 
     struct timespec tsp2;
-    clock_gettime(clkid, &tsp2);
+    clock_gettime(the_clock, &tsp2);
     double endtime = tsp2.tv_sec + 1.0e-9*tsp2.tv_nsec;
     fprintf(stdout, "# time for dist calcs %12.6lf\n", endtime-starttime);
-    
-    // fprintf(stdout, "# nvds1.dists->size: %ld \n", nvds1.dists->size);
-    // fprintf(stdout, "# nvds2.dists->size: %ld \n", nvds2.dists->size);
     for(long ii=0; ii<Nthreads; ii++){
       fprintf(stderr, "# N vectors analyzed by thread %ld, is: %ld\n", ii, vdses[ii].dists->size);
     for(long i=0; i<vdses[ii].dists->size; i++){
