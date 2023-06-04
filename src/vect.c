@@ -104,7 +104,7 @@ Vstr* construct_vstr_copy(Vstr* the_vstr){
   return the_copy;
 }
 
-void push_to_vstr(Vstr* the_vstr, char* str){ // doesn't alloc new memory for string and copy str
+void push_to_vstr(Vstr* the_vstr, char* str){ // doesn't copy str into newly allocated memory
   long cap = the_vstr->capacity;
   long n = the_vstr->size;
   if(n == cap){   // if necessary, resize w realloc
