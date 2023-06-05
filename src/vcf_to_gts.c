@@ -30,17 +30,14 @@ typedef struct{
   double minGP;
  
   Vstr* marker_ids;
-  Vchar** genotypes; // genotypes[i]->a[j] is genotypes of ith marker, jth accession
+  Vchar** genotypes; // genotypes[i]->a[2*j+1] is genotype of ith accession, jth marker
 } TD; // thread data
 
 void* process_marker_range(void* x);
 
-
 char token_to_genotype(char* token, long gtidx, long gpidx, double minGP);
-// Vchar* token_to_plink_genotype(char* token, Vchar** alleles, long gtidx, long gpidx, double minGP);
 char GTstr_to_dosage(char* tkn);
 void get_GT_GQ_GP_indices(char* format, long* GTidx, long* GQidx, long* GPidx);
-// Vchar* GT_to_plnkgt(char* token, Vchar** alleles);
 bool GP_to_quality_ok(char* token, double minGP);
 bool GP_to_quality_ok_xxx(char* token, double minGP);
 
@@ -52,7 +49,6 @@ int main(int argc, char *argv[]){
   
   double minGQ = 0;
   double minGP = 0;
-  // double max_marker_md_fraction = 0.25;
 
   char* input_filename = NULL;
   FILE *in_stream = NULL;
@@ -60,11 +56,10 @@ int main(int argc, char *argv[]){
   Vchar* marker_ids_filename = construct_vchar_from_str(""); 
   FILE* out_stream = NULL;
 
-  //  bool plink = false;
   bool use_alt_marker_id = false;
 
   long nprocs = (long)get_nprocs();
-  long Nthreads = (nprocs >= 3)? nprocs-2 : 1;
+  long Nthreads = (nprocs > 2)? nprocs/2 : 1;
 
   bool oldway = false; // true;
     
@@ -116,13 +111,6 @@ int main(int argc, char *argv[]){
       break;
     }
   }
-    /* if(plink){ // construct the two filenames with extensions .ped and .map */
-    /*   append_str_to_vchar(marker_ids_filename, output_filename->a); */
-    /*   append_str_to_vchar(output_filename, ".ped");     */
-    /*   append_str_to_vchar(marker_ids_filename, ".map");     */
-    /* }else{ // duplicatesearch */
-    /*   // leave it alone */
-    /* } */
 
     out_stream = fopen(output_filename->a, "w");
     if(out_stream == NULL){
@@ -291,26 +279,14 @@ int main(int argc, char *argv[]){
     Vstr* marker_ids = td->marker_ids;
     Vchar** genotypes = td->genotypes;
 
-    //  fprintf(stderr, "# in pmr. A\n");
-    // Vstr* chromosome_ids = construct_vstr(1000);
-    // Vstr* positions = construct_vstr(1000);
-    // Vlong* marker_md_counts = construct_vlong(1000);
-    // long marker_md_count = 0;
     long marker_count = 0;
-    //Vchar* alleles[2]; // an array of 2 Vchar*s
-
-    //while((nread = getline(&line, &len, in_stream)) != -1){ //
-    //fprintf(stderr, "# first, last markers: %ld %ld\n", first_marker, last_marker);
     char* line;
     for(long i_marker=first_marker; i_marker<=last_marker; i_marker++){
       line = marker_lines->a[i_marker];
       
       char* saveptr = line;
-      // marker_md_count = 0;
       Vchar* chromosome = construct_vchar_from_str(strtok_r(line, "\t \n\r", &saveptr)); // first token found is the chromosome number
-      // push_to_vstr(chromosome_ids, chromosome->a);
       Vchar* position =  construct_vchar_from_str(strtok_r(NULL, "\t \n\r", &saveptr)); // next token is position within chromosome
-      // push_to_vstr(positions, position->a);
       Vchar* marker_id;
       char* token =  strtok_r(NULL, "\t \n\r", &saveptr);    
       if(td->use_alt_marker_id){  
@@ -319,22 +295,14 @@ int main(int argc, char *argv[]){
 	append_str_to_vchar(marker_id, position->a);
       }else{
 	marker_id = construct_vchar_from_str(token); // strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
-      }
-
-      // fprintf(stderr, "marker count, id: %ld %s \n", marker_count, marker_id->a);
-      // push_to_vstr(marker_ids, marker_id->a);
-      //  fprintf(stderr, "#marker id:  %s\n", marker_id->a); 
+      } 
       marker_ids->a[i_marker] = marker_id->a; 
-      //   fprintf(stderr, "# in pmr. B\n");
 
       free(marker_id); // free marker_id struct, but not its array of chars.
       free(chromosome);
       free(position);
       char* ref_allele =  strtok_r(NULL, "\t \n\r", &saveptr);
-      //   alleles[0] = construct_vchar_from_str(ref_allele);
-      char* alt_allele =  strtok_r(NULL, "\t \n\r", &saveptr);
-      //   alleles[1] = construct_vchar_from_str(alt_allele);
-    
+      char* alt_allele =  strtok_r(NULL, "\t \n\r", &saveptr);    
 
       for(long i = 1; i <= 3; i++){ // read the next 3 cols -
 	token =  strtok_r(NULL, "\t \n\r", &saveptr);
@@ -347,56 +315,20 @@ int main(int argc, char *argv[]){
 
       long acc_index = 0;
       while(1){ // read genotypes from one line, i.e. one marker
-	//  fprintf(stderr, "# in pmr. C %ld\n", acc_index);
-
 	token = strtok_r(NULL, "\t \n\r", &saveptr);
-	// token = strtok_r(NULL, "\t", &saveptr); 
 	if(token == NULL)	break; // end of line has been reached.
-
-	/* if(plink){ // gt will be something like "\tA\tC" or "\tAGC\tA"; alleles can be multi-character */
-	/* 	Vchar* plink_gt = token_to_plink_genotype(token, /\*format,*\/ alleles, 0, GPidx, minGP); */
-	/* 	append_str_to_vchar(accession_genotypes[acc_index], plink_gt->a); */
-	/* 	free_vchar(plink_gt); */
-	/* }else{ // */
-	char genotype = token_to_genotype(token, /*format,*/ GTidx, GPidx, td->minGP); // i.e. GT:DS:GP
-	//	char s[3] = "  "; // genotype is one char, 0, 1, 2, or X
-	//	s[1] = genotype;
-	
-	// append_str_to_vchar(accession_genotypes[acc_index], s);
-	//   genotypes[acc_index]->a[2*i_marker] = ' ';
+	char genotype = token_to_genotype(token, GTidx, GPidx, td->minGP);
 	genotypes[acc_index]->a[2*i_marker+1] = genotype;
-	//  }
 	acc_index++;   
       } // done reading genotypes for all accessions of this marker
       assert(acc_index == td->n_accessions);
-      // fprintf(stderr, "# n accessions: %ld %ld \n", acc_index, genotypes[i_marker]->capacity);
-      /* if(acc_index == (genotypes[i_marker]->capacity-1)){ */
-      /*         genotypes[i_marker]->length = genotypes[i_marker]->capacity; */
-      /* }else{ */
-      /*         exit(EXIT_FAILURE); */
-      /* } */
-      //  free_vchar(alleles[0]);
-      //  free_vchar(alleles[1]);
       free(format);
       marker_count++;
-      // if(marker_count % 500 == 0) fprintf(stderr, "# markers read so far: %ld %ld\n", marker_count, hi_res_time() - t_start);
     } // done reading all lines (markers)
-    // fprintf(stderr, "### %ld %ld \n", marker_count, marker_ids->capacity);
-    /* if(marker_count == marker_ids->capacity){ */
-    /*   marker_ids->size = marker_count; */
-    /* }else{ */
-    /*   exit(EXIT_FAILURE); */
-    /* } */
-    // fprintf(stderr, "# in pmr. D\n"); //getchar();
-
     free(line);
-    //fclose(in_stream);
     fprintf(stderr, "# A thread is done reading marker %ld through %ld; %ld markers x %ld accessions\n",
 	    first_marker, last_marker, marker_count, td->n_accessions);
-
   }
-
-
 
   char token_to_genotype(char* token, long gtidx, long gpidx, double minGP){
     char result;
