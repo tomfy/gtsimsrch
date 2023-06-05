@@ -219,20 +219,10 @@ int main(int argc, char *argv[]){
  
     }else{ // 1 or more pthreads   
       td = (TD*)malloc(Nthreads*sizeof(TD));
-   
-      td[0].n_accessions = n_accessions;
-      td[0].marker_lines = marker_lines;
-      td[0].first_marker = 0;
-      td[0].last_marker = (long)((double)n_markers/Nthreads - 1);
-      td[0].use_alt_marker_id = use_alt_marker_id;
-      td[0].minGP = minGP;
-      td[0].marker_ids = marker_ids;
-      td[0].genotypes = genotypes;
-    
-      for(long i_thread = 1; i_thread<Nthreads; i_thread++){
+      for(long i_thread = 0; i_thread<Nthreads; i_thread++){
 	td[i_thread].n_accessions = n_accessions;
 	td[i_thread].marker_lines = marker_lines;
-	td[i_thread].first_marker = td[i_thread-1].last_marker + 1;
+	td[i_thread].first_marker = (i_thread == 0)? 0 : td[i_thread-1].last_marker + 1;
 	td[i_thread].last_marker = (long)((double)(i_thread+1)*n_markers/Nthreads - 1);
 	td[i_thread].use_alt_marker_id = use_alt_marker_id;
 	td[i_thread].minGP = minGP;
@@ -345,8 +335,8 @@ int main(int argc, char *argv[]){
       assert(acc_index == td->n_accessions); // check that this line has number of accessions = number of accession ids.
       marker_count++;
     } // done reading all lines (markers)
-    /* fprintf(stderr, "# A thread is done reading markers %ld through %ld; %ld markers x %ld accessions\n", */
-    /* 	    first_marker, last_marker, marker_count, td->n_accessions); */
+    fprintf(stderr, "# A thread is done processing markers %ld through %ld; %ld markers x %ld accessions\n",
+	    first_marker, last_marker, marker_count, td->n_accessions);
   }
 
   char token_to_genotype(char* token, long gtidx, long gpidx, double minGP){
