@@ -1,23 +1,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <math.h>
 #include <string.h>
 #include <time.h>
-#include <ctype.h>
 #include <unistd.h> // needed for getopt
-#include <sys/sysinfo.h>
+#include <sys/sysinfo.h> // needed for get_nprocs
 #include <pthread.h>
-
 #include <assert.h>
 #include <errno.h>
-#include <limits.h>
 #include <stdbool.h>
+
+// #include <math.h>
+// #include <ctype.h>
+// #include <limits.h>
 
 #include "vect.h"
 #include "various.h"
 
-#define INIT_NMARKERS 6000
+#define INIT_N_ACCESSIONS 10000
+#define INIT_N_MARKERS 10000
 
 // There will be one of these structs for each thread,
 // each thread which will process the markers in the range from first_marker to last_marker
@@ -39,37 +40,39 @@ char token_to_genotype(char* token, long gtidx, long gpidx, double minGP);
 char GTstr_to_dosage(char* tkn);
 void get_GT_GQ_GP_indices(char* format, long* GTidx, long* GQidx, long* GPidx);
 bool GP_to_quality_ok(char* token, double minGP);
-bool GP_to_quality_ok_xxx(char* token, double minGP);
+
+double clock_time(clockid_t the_clock){
+  struct timespec tspec;
+  clock_gettime(the_clock, &tspec);
+  return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
+}
 
 extern int errno; 
 
 int main(int argc, char *argv[]){
   errno = 0;
-  double t_start = hi_res_time();
   
-  double minGQ = 0;
+  // double minGQ = 0; // not implemented, but should be.
   double minGP = 0;
 
   char* input_filename = NULL;
   FILE *in_stream = NULL;
   Vchar* output_filename = construct_vchar_from_str("vcftogts");
-  Vchar* marker_ids_filename = construct_vchar_from_str(""); 
   FILE* out_stream = NULL;
 
-  bool use_alt_marker_id = false;
+  long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
+  long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
 
-  long nprocs = (long)get_nprocs();
-  long Nthreads = (nprocs > 2)? nprocs/2 : 1;
-
-  bool oldway = false; // true;
+  bool use_alt_marker_id = false; // default is to use marker ids in col 3 of vcf file.
+  // (but if these are absent you can construct and use alternative marker ids from cols 1 and 2.)
     
   int c;
-  while((c = getopt(argc, argv, "i:o:p:kaut:")) != -1){
+  while((c = getopt(argc, argv, "i:o:p:t:a")) != -1){
     // i: input file name (required).
     // o: output file name. Default: "vcftogts"
     // p: minGP, there must be an gt with est. genotype prob. >= minGP, or it is considered missing data
-    // a: -a to use marker ids constructed from separate chromosome and position entries in vcf file.
-    // t: number of threads to use.
+    // t: number of threads to use (default is half the value returned by get_nprocs(). 
+    // a: -a (alternate marker ids) to use marker ids constructed from separate chromosome and position entries in vcf file.
     switch(c){
     case 'i':
       input_filename = optarg;
@@ -78,7 +81,6 @@ int main(int argc, char *argv[]){
 	fprintf(stderr, "Failed to open %s for reading.\n", input_filename);
 	exit(EXIT_FAILURE);
       }
-      //   fclose(in_stream);
       break;
     case 'o':
       free_vchar(output_filename);
@@ -101,7 +103,7 @@ int main(int argc, char *argv[]){
       }else if(Nthreads > nprocs){
 	fprintf(stderr, "# Setting Nthreads to max allowed value of %ld.\n", nprocs);
 	Nthreads = nprocs;
-      }else if(Nthreads < 1){
+      }else if(Nthreads < 0){
 	fprintf(stderr, "# Setting Nthreads to min allowed value of 1.\n");
 	Nthreads = 1;
       }
@@ -117,33 +119,40 @@ int main(int argc, char *argv[]){
       fprintf(stderr, "Failed to open %s for writing.\n", output_filename->a);
       exit(EXIT_FAILURE);
     }
-  
-    char* line = NULL;
-    size_t len = 0;
-    ssize_t nread;
+
+    clockid_t the_clock = CLOCK_MONOTONIC;
+    struct timespec tspec;
+    if(clock_getres(the_clock, &tspec) == 0){
+      double t_resolution = tspec.tv_sec + 1.0e-9 * tspec.tv_nsec;
+      if(t_resolution > 1.0e-3) fprintf(stderr, "# timing resolution is %8.5lf\n", t_resolution);
+    }else{
+      exit(EXIT_FAILURE);
+    }
+    double t0 = clock_time(the_clock);
+
   
     // ****************************************************
     // *****   Read first line; store accession ids.  *****
     // ****************************************************
+
+    char* line = NULL;
+    size_t len = 0;
+    ssize_t nread;
   
     long accid_count = 0;
-    Vstr* accession_ids = construct_vstr(1000);
-    char* saveptr = NULL;
+    Vstr* accession_ids = construct_vstr(INIT_N_ACCESSIONS);
     while((nread = getline(&line, &len, in_stream)) != -1){
-      saveptr = line;
+      char* saveptr = NULL;
       char* token = strtok_r(line, "\t \n\r", &saveptr);
     
-      if((token == NULL) || (token[0] == '#' && token[1] == '#')) continue; // skip comments (starting with ##) and empty lines
-      //  fprintf(stderr, "%s  ", token);
+      if((token == NULL) || (token[0] == '#' && token[1] == '#')) continue; // skip comments (starting with ##) and any empty lines
       if(token[0] == '#'){ // this the line with accession ids
 	for(long ii = 1; ii <= 8; ii++){ // read in cols 1 through 8 "POS ID REF ..." but don't store them.
 	  token = strtok_r(NULL, "\t \n\r", &saveptr);
-	  //	fprintf(stderr, "%s ", token);
-	}// fprintf(stderr, "\n");
+	}
 	while(1){
 	  token = strtok_r(NULL, "\t \n\r", &saveptr);
 	  if(token == NULL) break;
-	  // fprintf(stderr, "%s\n", token); // getchar();
 	  char* acc_id = (char*)malloc((strlen(token)+1)*sizeof(char));
 	  push_to_vstr(accession_ids, strcpy(acc_id, token)); // store
 	  accid_count++;
@@ -154,53 +163,48 @@ int main(int argc, char *argv[]){
 	exit(EXIT_FAILURE);
       }
     }
+    long n_accessions = accid_count;
 
     // *********************************************************
     // *****   Read the rest of the lines, one per marker  *****
     // *****   Each line has genotypes for all accessions  *****
     // *********************************************************
  
-    Vstr* marker_lines = construct_vstr(1000);
+    Vstr* marker_lines = construct_vstr(INIT_N_MARKERS);
     while((nread = getline(&line, &len, in_stream)) != -1){
       char* line_copy = (char*)malloc((nread+1)*sizeof(char));
       push_to_vstr(marker_lines, strcpy(line_copy, line));
     }
-
-    
-    long n_accessions = accid_count;
     long n_markers = marker_lines->size;
+    free(line);
+    fclose(in_stream);
 
-    clockid_t the_clock = CLOCK_MONOTONIC;
-    struct timespec tspec;
-    if(clock_getres(the_clock, &tspec) == 0){
-      fprintf(stderr, "# clock resolution: %ld sec,  %ld nsec \n", (long)tspec.tv_sec, (long)tspec.tv_nsec);
-    }else{
-      exit(1);
-    }
-
-    TD* td;
-    Vstr* marker_ids = construct_vstr(n_markers);
-    marker_ids->size = n_markers;
-    //fprintf(stderr, "#### %ld \n", n_markers); // getchar();
+    double t1 = clock_time(the_clock);
+    fprintf(stderr, "# input done\n");
+   
+    // ********************************************************
+    // *****  Extract genotypes, and quality information  *****
+    // *****  Filter if requested and store genotypes     *****
+    // ********************************************************
+  
+    Vstr* marker_ids = construct_vstr_empties(n_markers);
 
     char* str_of_spaces = (char*)malloc((2*n_markers + 1)*sizeof(char));
     for(long i=0; i<2*n_markers; i++){
       str_of_spaces[i] = ' ';
     }
-    str_of_spaces[2*n_markers] = '\0'; // now a null terminated string, 2*n_markers spaces, followed by null.
-    
+    str_of_spaces[2*n_markers] = '\0'; // now a null terminated string, 2*n_markers spaces, followed by null.    
     Vchar** genotypes = (Vchar**)malloc(n_accessions*sizeof(Vchar*));
     for(long i=0; i<n_accessions; i++){
-      // genotypes[i] = construct_vchar(2*n_markers+1); // make cap 1 larger to accomodate terminating \0
       genotypes[i] = construct_vchar_from_str(str_of_spaces);
     }
+    free(str_of_spaces);
 
-    struct timespec tsp1;
-    clock_gettime(the_clock, &tsp1);
-    double starttime = tsp1.tv_sec + 1.0e-9*tsp1.tv_nsec;
-  
-    if(Nthreads == 0){    
+    TD* td;   
+    
+    if(Nthreads == 0){ // process without creating any new threads
       td = (TD*)malloc(sizeof(TD));
+      fprintf(stderr, "# sizeof TD: %ld \n", (long)sizeof(TD));
       td->n_accessions = n_accessions;
       td->marker_lines = marker_lines;
       td->first_marker = 0;
@@ -211,6 +215,7 @@ int main(int argc, char *argv[]){
       td->genotypes = genotypes;
 
       process_marker_range((void*)td);
+      free(td);
  
     }else{ // 1 or more pthreads   
       td = (TD*)malloc(Nthreads*sizeof(TD));
@@ -236,32 +241,48 @@ int main(int argc, char *argv[]){
       }
       td[Nthreads-1].last_marker = n_markers-1;
     
-      int iret = 0;
       pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
       for(long i=0; i<Nthreads; i++){
-	iret += pthread_create( thrids+i, NULL, process_marker_range, (void*) (td+i));
+	int iret = pthread_create( thrids+i, NULL, process_marker_range, (void*) (td+i));
+	if(iret > 0) fprintf(stderr, "# warning. pthread_create returned non-zero value. Thread %ld \n", (long)thrids[i]);
       }
-      fprintf(stderr, "# iret: %d\n", iret);
 
       for(long i_thread=0; i_thread<Nthreads; i_thread++){
 	pthread_join(thrids[i_thread], NULL);
       }
+     free(td);
+     free(thrids);
     }
-    struct timespec tsp2;
-    clock_gettime(the_clock, &tsp2);
-    double endtime = tsp2.tv_sec + 1.0e-9*tsp2.tv_nsec;
-    fprintf(stderr, "# time for threads to run %12.6lf\n", endtime-starttime); 
-  
-    //  *****  output  *****
+
+    double t2 = clock_time(the_clock);
+    fprintf(stderr, "# time for threads to run %8.4lf\n", t2 - t1);
+
+
+    // **********************
+    // *****  output  *******
+    // **********************
     fprintf(out_stream, "MARKER");
-    for(long i_marker=0; i_marker<td->marker_ids->size; i_marker++){
-      fprintf(out_stream, " %s", td->marker_ids->a[i_marker]);
+    for(long i_marker=0; i_marker<marker_ids->size; i_marker++){
+      fprintf(out_stream, " %s", marker_ids->a[i_marker]);
     }fprintf(out_stream, "\n");
-    //  fprintf(stderr, "# # # n_accessions: %ld %ld \n", accid_count, n_accessions);
     for(long i_accession=0; i_accession<accid_count; i_accession++){      
       fprintf(out_stream , "%s%s\n", accession_ids->a[i_accession], genotypes[i_accession]->a);
     }
-  
+    fclose(out_stream);
+
+    double t3 = clock_time(the_clock);
+    fprintf(stderr, "# Done. Times for input: %8.4lf, processing: %8.4lf, output: %8.4lf, total: %8.4lf\n",
+	    t1-t0, t2-t1, t3-t2, t3-t0);
+
+    // *****  cleanup  *****
+    free_vchar(output_filename);
+    free_vstr(marker_ids);
+    free_vstr(accession_ids);
+    free_vstr(marker_lines);
+    for(long i=0; i<n_accessions; i++){
+      free_vchar(genotypes[i]);
+    }
+    free(genotypes);
 } // end of main
 
 
@@ -295,12 +316,12 @@ int main(int argc, char *argv[]){
 	append_str_to_vchar(marker_id, position->a);
       }else{
 	marker_id = construct_vchar_from_str(token); // strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
-      } 
+      }
       marker_ids->a[i_marker] = marker_id->a; 
 
-      free(marker_id); // free marker_id struct, but not its array of chars.
-      free(chromosome);
-      free(position);
+      free(marker_id); // free marker_id struct, but not its array of chars, which are now pointed to by marker_ids->a[i_marker]
+      free_vchar(chromosome);
+      free_vchar(position);
       char* ref_allele =  strtok_r(NULL, "\t \n\r", &saveptr);
       char* alt_allele =  strtok_r(NULL, "\t \n\r", &saveptr);    
 
@@ -312,7 +333,7 @@ int main(int argc, char *argv[]){
       char* format = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token); // format string, e.g. GT:DS:GP
       long GTidx, GQidx, GPidx;
       get_GT_GQ_GP_indices(format, &GTidx, &GQidx, &GPidx);
-
+      free(format);
       long acc_index = 0;
       while(1){ // read genotypes from one line, i.e. one marker
 	token = strtok_r(NULL, "\t \n\r", &saveptr);
@@ -321,13 +342,11 @@ int main(int argc, char *argv[]){
 	genotypes[acc_index]->a[2*i_marker+1] = genotype;
 	acc_index++;   
       } // done reading genotypes for all accessions of this marker
-      assert(acc_index == td->n_accessions);
-      free(format);
+      assert(acc_index == td->n_accessions); // check that this line has number of accessions = number of accession ids.
       marker_count++;
     } // done reading all lines (markers)
-    free(line);
-    fprintf(stderr, "# A thread is done reading marker %ld through %ld; %ld markers x %ld accessions\n",
-	    first_marker, last_marker, marker_count, td->n_accessions);
+    /* fprintf(stderr, "# A thread is done reading markers %ld through %ld; %ld markers x %ld accessions\n", */
+    /* 	    first_marker, last_marker, marker_count, td->n_accessions); */
   }
 
   char token_to_genotype(char* token, long gtidx, long gpidx, double minGP){
@@ -341,7 +360,6 @@ int main(int argc, char *argv[]){
     }else if(idx == gpidx){
       quality_ok =
 	GP_to_quality_ok(tkn, minGP);
-      //  GP_to_quality_ok_xxx(tkn, minGP);
     }
     idx++;
   
@@ -353,8 +371,6 @@ int main(int argc, char *argv[]){
       }else if(idx == gpidx){
 	quality_ok =
 	  GP_to_quality_ok(tkn, minGP);
-	// GP_to_quality_ok_xxx(tkn, minGP);
-
       }
       idx++;   
     }
@@ -373,21 +389,6 @@ int main(int argc, char *argv[]){
       return quality_ok;
     }else{
       return true; 
-    }
-  }
-
-  bool GP_to_quality_ok_xxx(char* token, double minGP){
-    if(minGP > 0.0){
-      char* saveptr;
-      char* tkn = strtok_r(token, ",", &saveptr);
-      if(atof(tkn) >= minGP) return true;
-      tkn = strtok_r(NULL, ",", &saveptr);
-      if(atof(tkn) >= minGP) return true;
-      tkn = strtok_r(NULL, ",", &saveptr);
-      if(atof(tkn) >= minGP) return true;
-      return false;
-    }else{
-      return true;
     }
   }
 
@@ -430,6 +431,21 @@ int main(int argc, char *argv[]){
 
 
 // unused
+
+ /* bool GP_to_quality_ok_xxx(char* token, double minGP){ */
+ /*    if(minGP > 0.0){ */
+ /*      char* saveptr; */
+ /*      char* tkn = strtok_r(token, ",", &saveptr); */
+ /*      if(atof(tkn) >= minGP) return true; */
+ /*      tkn = strtok_r(NULL, ",", &saveptr); */
+ /*      if(atof(tkn) >= minGP) return true; */
+ /*      tkn = strtok_r(NULL, ",", &saveptr); */
+ /*      if(atof(tkn) >= minGP) return true; */
+ /*      return false; */
+ /*    }else{ */
+ /*      return true; */
+ /*    } */
+ /*  } */
 
   /* Vchar* token_to_plink_genotype(char* token, Vchar** alleles, long gtidx, long gpidx, double minGP){ */
   /*   Vchar* plnkgt; */
