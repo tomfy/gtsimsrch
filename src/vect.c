@@ -89,6 +89,17 @@ Vstr* construct_vstr(long cap){
   return the_vstr;
 }
 
+Vstr* construct_vstr_empties(long size){ // size empty strings
+  Vstr* the_vstr = (Vstr*)malloc(1*sizeof(Vstr));
+  the_vstr->capacity = size;
+  the_vstr->size = size;
+  the_vstr->a = (char**)malloc(size*sizeof(char*));
+  for(long i=0; i<size; i++){
+    the_vstr->a[i] = "";
+  }
+  return the_vstr;
+}
+
 Vstr* construct_vstr_copy(Vstr* the_vstr){
   Vstr* the_copy = (Vstr*)malloc(1*sizeof(Vstr));
   the_copy->capacity = the_vstr->capacity;

@@ -56,6 +56,7 @@ void free_vlong(const Vlong* the_vlong); // free memory
 
 // *****  Vstr  *****************************************************************************
 Vstr* construct_vstr(long cap); // set capacity = cap, size = 0
+Vstr* construct_vstr_empties(long size); // size empty strings
 Vstr* construct_vstr_copy(Vstr* the_vstr);
 void push_to_vstr(Vstr* the_vstr, char* str); // push, realloc if necessary
 char* ith_str_from_vstr(Vstr* the_vstr, long i); // perl-like: index -1 -> last element, etc.
