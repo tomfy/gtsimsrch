@@ -20,15 +20,12 @@
 typedef struct{
   Vchar* id;
   long index; // the index in the accessions array of GenotypesSet
-  // long n_markers;
   Vchar* genotypes;
   Vlong* chunk_patterns;
   long md_chunk_count;
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
-  // Vlong* heterozygs;
   Vlong* alt_homozygs; //
-  //  Vlong* high_dosages; // indices of the markers for which this acc has dosage > ploidy/2
 }Accession;
 
 typedef struct{
