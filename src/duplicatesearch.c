@@ -731,7 +731,7 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
       td[0].max_est_dist = max_est_dist;
       td[0].first_query_idx = n_ref_accessions;
       td[0].last_query_idx = n_ref_accessions + n_queries-1;
-      fprintf(stderr, "# last query indices: %ld %ld\n", td[0].first_query_idx, td[0].last_query_idx);
+      fprintf(stderr, "# first & last query indices: %ld %ld\n", td[0].first_query_idx, td[0].last_query_idx);
 
       td[0].query_vmcis = query_vmcis;
       process_query_range((void*) td);
