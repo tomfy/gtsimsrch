@@ -33,7 +33,7 @@ typedef struct{
   long size; // number of chunks
   long chunk_size; // number of chunks used.
   long n_patterns; // (ploidy+1)^chunk_size
-  Pattern_ids** a; // array of Pattern_ids, one element for each chunk5
+  Pattern_ids** a; // array of Pattern_ids, one element for each chunk
 } Chunk_pattern_ids;
 
 
@@ -42,8 +42,8 @@ typedef struct{
   long match_index;
   double usable_chunks; // estimate or actual count
   long n_matching_chunks;
-  double est_agmr;
-  double agmr;
+  double est_dist;
+  double dist;
 } Mci; // 'Mci = Matching chunk info'
 
 typedef struct{
@@ -55,9 +55,10 @@ typedef struct{
 typedef struct{
   const GenotypesSet* the_genotypes_set;
   const Chunk_pattern_ids* the_cpi;
-  double max_est_agmr;
+  double max_est_dist;
   long first_query_idx;
   long last_query_idx;
+  long thread_number;
 
   Vmci** query_vmcis; // results stored here
   long n_matches_checked;
@@ -69,18 +70,17 @@ int  do_checks = 0;
 void print_usage_info(FILE* ostream);
 char* ipat_to_strpat(long len, long ipat); // unused
 long strpat_to_ipat(long len, char* strpat); // unused
-double agmr(Accession* gts1, Accession* gts2);
 ND distance(Accession* acc1, Accession* acc2);
 
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
-		   double est_agmr, double agmr); //, Vagmri* agmrs); //, double nhagmr); //, double d1,double hgmr);
+		   double est_dist, double dist);
 // *****  Vmci  *********************************************************************************
 Vmci* construct_vmci(long init_size);
 void push_to_vmci(Vmci* the_vmci, Mci* the_mci);
-void sort_vmci_by_agmr(Vmci* the_vmci); // sort Vmci by agmr
+void sort_vmci_by_dist(Vmci* the_vmci); // sort Vmci by distance
 void sort_vmci_by_index(Vmci* the_vmci); // sort Vmci by index
 int cmpmci_a(const void* v1, const void* v2);
 int cmpmci_i(const void* v1, const void* v2);
@@ -101,16 +101,16 @@ void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi);
 // *****  Gts and Chunk_pattern_ids  ***********
 Vlong* find_chunk_match_counts(const Accession* the_gts, const Chunk_pattern_ids* the_cpi);
 Vmci** find_matches(const GenotypesSet* the_genotypes_set,
-		    const Chunk_pattern_ids* the_cpi, long Nthreads, double max_est_agmr);
+		    const Chunk_pattern_ids* the_cpi, long Nthreads, double max_est_dist);
 
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 void print_command_line(FILE* ostream, int argc, char** argv);
 // *****  function to pass to pthread_create  ********
 void* process_query_range(void* x);
 
-double clock_time(clockid_t the_clock){
+double clock_time(clockid_t a_clock){
   struct timespec tspec;
-  clock_gettime(the_clock, &tspec);
+  clock_gettime(a_clock, &tspec);
   return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
 }
 
@@ -133,8 +133,8 @@ main(int argc, char *argv[])
   double max_marker_missing_data_fraction = -1; // default: set to 2.0/chunk_size after chunk_size is set.
   double max_accession_missing_data_fraction = 1;
   double min_minor_allele_frequency = 0.0; //
-  double max_est_agmr = 0.2;
-  long output_format = 1; // 1 ->  acc_id1 acc_id2  n_usable_chunks n_matching_chunks est_agmr agmr
+  double max_est_dist = 0.2;
+  long output_format = 1; // 1 ->  acc_id1 acc_id2 distance; otherwise add 3 more columns: usable_chunks matching_chunks est_distance
   char default_output_filename[] = "duplicatesearch.out";
   bool print_filtered_gtset = false;
 
@@ -168,7 +168,7 @@ main(int argc, char *argv[])
     // f: accession max missing data fraction. Default: 0.5
     // a: min minor allele frequency. Default: 0
     // k: chunk size (number of markers per chunk). Defaults: diploid: 8, tetraploid: 5, hexaploid: 4.
-    // e: max agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value; output match only if agmr < this value.)
+    // e: max distance. Default: DEFAULT_MAX_DISTANCE (Calculate distance only if quick est. is < this value; output match only if distance < this value.)
     // n: use n*n_markers/chunk_size chunks. (i.e. each marker gets used in ~n chunks). Default: 1
     // t: number of threads to use. Default is nprocs/2 (nprocs from get_nprocs()
     // v: verbosity. Default: 1, 2 gives slightly more output.
@@ -212,9 +212,9 @@ main(int argc, char *argv[])
       }
       break; 
     case 'e': 
-      max_est_agmr = (double)atof(optarg);
-      if(max_est_agmr <= 0  || max_est_agmr > 1.0){
-	fprintf(stderr, "option e (max_est_agmr) requires a numerical argument 0<x<=1 \n");
+      max_est_dist = (double)atof(optarg);
+      if(max_est_dist <= 0  || max_est_dist > 1.0){
+	fprintf(stderr, "option e (max_est_dist) requires a numerical argument 0<x<=1 \n");
 	exit(EXIT_FAILURE);
       }
       break;
@@ -312,41 +312,35 @@ main(int argc, char *argv[])
     fprintf(rparam_stream, "# Max. marker missing data fraction will be set to 2.0/chunk_size.\n");
   }
   fprintf(rparam_stream, "# Max. accession missing data fraction: %5.3lf\n", max_accession_missing_data_fraction);
-  fprintf(rparam_stream, "# Max. estimated distance: %5.3lf\n", max_est_agmr);
+  fprintf(rparam_stream, "# Max. estimated distance: %5.3lf\n", max_est_dist);
   fclose(rparam_stream);
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
   free(rparam_buf);
 
   // *****  done processing command line  *****************************************
-  clockid_t the_clock = CLOCK_MONOTONIC;
+  clockid_t clock1 = CLOCK_MONOTONIC;
   struct timespec tspec;
-  if(clock_getres(the_clock, &tspec) == 0){
+  if(clock_getres(clock1, &tspec) == 0){
     double t_resolution = tspec.tv_sec + 1.0e-9 * tspec.tv_nsec;
     if(t_resolution > 1.0e-3) fprintf(stderr, "# timing resolution is %8.5lf\n", t_resolution);
   }else{
     exit(EXIT_FAILURE);
   }
-  double t_start = clock_time(the_clock);
+  double t_start = clock_time(clock1);
 
   fprintf(stderr, "# max_marker_missing_data_fraction: %8.5f\n", max_marker_missing_data_fraction);
 
-  long n_ref_accessions = 0;
-  long n_accessions = 0;
-  long n_markers = 0;
-
   // *****  read in genotype data (including optionally a reference data set) and create a genotypesset object.
 
-  //  double t_start = clock_time(the_clock);
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
   Vaccession* the_accessions; 
   if(reference_set_filename != NULL){ // load the reference set, if one was specified.
     fprintf(stderr, "# loading ref set.\n");
     add_accessions_to_genotypesset_from_file(reference_set_filename, the_genotypes_set, max_accession_missing_data_fraction);
-    n_ref_accessions = the_genotypes_set->accessions->size;
-    the_genotypes_set->n_ref_accessions = n_ref_accessions;
+    the_genotypes_set->n_ref_accessions = the_genotypes_set->accessions->size;
     fprintf(stdout, "# Done reading reference data set dosages from file %s. %ld accessions and %ld markers.\n",
-	    reference_set_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
+	    reference_set_filename, the_genotypes_set->n_ref_accessions, the_genotypes_set->n_markers);
   }
   add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
    fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
@@ -371,7 +365,7 @@ main(int argc, char *argv[])
   store_homozygs(the_genotypes_set);
 
   the_accessions = the_genotypes_set->accessions;   
-  n_markers = the_genotypes_set->n_markers;
+  long n_markers = the_genotypes_set->n_markers;
 
   long n_chunks_per_pass = n_markers/chunk_size;
   long n_chunks = n_passes*n_chunks_per_pass;
@@ -385,7 +379,7 @@ main(int argc, char *argv[])
     fclose(fh_gtsout);
   }
 
-  double t_after_input = clock_time(the_clock);
+  double t_after_input = clock_time(clock1);
   fprintf(stdout, "# Time to load & filter dosage data: %6.3lf sec.\n", t_after_input - t_start);
   // *****  done reading and storing input  **********
   
@@ -398,21 +392,19 @@ main(int argc, char *argv[])
     more_marker_indices->size = n_chunks_per_pass*chunk_size;
     append_vlong_to_vlong(marker_indices, more_marker_indices);
   }
-  double t1 = clock_time(the_clock);
   set_vaccession_chunk_patterns(the_accessions, marker_indices, n_chunks, chunk_size, ploidy);
-  double t2 = clock_time(the_clock);
   Chunk_pattern_ids* the_cpi = construct_chunk_pattern_ids(n_chunks, chunk_size, ploidy);
   populate_chunk_pattern_ids_from_vaccession(the_accessions, the_cpi);
-  double t_after_cpi = clock_time(the_clock);
+  double t_after_cpi = clock_time(clock1);
   fprintf(stdout, "# Time to construct & populate chunk_pattern_ids: %6.3f\n", t_after_cpi - t_after_input);
 
-  Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, Nthreads, max_est_agmr); //, n_maf_categories, maf_category_marker_indices);
-  double t_after_find_matches = clock_time(the_clock);
-      fprintf(stdout, "# Time to find candidate matches and true agmrs: %6.3f\n", t_after_find_matches - t_after_cpi);
-  long true_agmr_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
-  double t_after_output = clock_time(the_clock);
-    fprintf(stdout, "# Time to output %ld true agmrs: %6.3f\n",
-	    true_agmr_count, t_after_output - t_after_find_matches);
+  Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, Nthreads, max_est_dist); //, n_maf_categories, maf_category_marker_indices);
+  double t_after_find_matches = clock_time(clock1);
+      fprintf(stdout, "# Time to find candidate matches and distances: %6.3f\n", t_after_find_matches - t_after_cpi);
+  long distances_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
+  double t_after_output = clock_time(clock1);
+    fprintf(stdout, "# Time to output %ld distances: %6.3f\n",
+	    distances_count, t_after_output - t_after_find_matches);
   fclose(out_stream);
 
   long cume_s = 0;
@@ -420,15 +412,13 @@ main(int argc, char *argv[])
   for(long i=0; i< the_accessions->size; i++){
     long s = query_vmcis[i]->size;
     cume_s += s;
-    //  fprintf(stderr, "# i, size of query_vmcis[i]: %ld  %ld \n", i, s);
     free_vmci(query_vmcis[i]);
   }
-  // fprintf(stderr, "# mcis freed: %ld\n", cume_s);
   free(query_vmcis);
   free_genotypesset(the_genotypes_set); 
   free_vlong(marker_indices);
   free_chunk_pattern_ids(the_cpi);
-  fprintf(stdout, "# total duplicatesearch run time: %9.3f\n", clock_time(the_clock) - t_start);
+  fprintf(stdout, "# total duplicatesearch run time: %9.3f\n", clock_time(clock1) - t_start);
   exit(EXIT_SUCCESS);
 }
 
@@ -545,18 +535,20 @@ Vlong* find_chunk_match_counts(const Accession* the_accession, const Chunk_patte
   long n_patterns = the_cpi->n_patterns;
   Vlong* chunk_patterns = the_accession->chunk_patterns; // chunk patterns for Accession the_accession (i.e. the query accession)
   Vlong* accidx_matchcounts = construct_vlong_zeroes(the_accession->index);
- 
+
   for(long i_chunk=0; i_chunk < chunk_patterns->size; i_chunk++){
     long the_pattern = chunk_patterns->a[i_chunk];  
-    Vlong* chunk_match_idxs = the_cpi->a[i_chunk]->a[the_pattern]; // array of indices of the matches to this chunk & pat
+  Vlong* chunk_match_idxs = the_cpi->a[i_chunk]->a[the_pattern]; // array of indices of the matches to this chunk & pat
 
     // assert(the_pattern >= 0  &&  the_pattern <= n_patterns);
     // (patterns 0..n_patterns-1 are good, n_patterns=3^chunk_size is the pattern for missing data )
     if(the_pattern == n_patterns){ // missing data in this chunk 
     }else{ // the_pattern = 0..n_patterns-1 (good data)   
       // just get the counts for matches with index < index of the_accession
+      
       // since those are the only ones used in find_matches. (slightly faster)
-      for(long i=0; i<chunk_match_idxs->size; i++){	  
+      for(long i=0; i<chunk_match_idxs->size; i++){
+	//for(long i=chunk_match_idxs->size-1; i>=0; i--){
 	long accidx = chunk_match_idxs->a[i]; // index of one of the accessions matching on this chunk
 	if(accidx >= the_accession->index) break;
 	accidx_matchcounts->a[accidx]++; // accidx here is < the_accession->index
@@ -570,17 +562,14 @@ Vlong* find_chunk_match_counts(const Accession* the_accession, const Chunk_patte
 
 Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_chunks,
 		   // double est_matching_chunk_fraction, double matching_chunk_fraction){
-		   double est_agmr, double agmr){ //, Vagmri* agmrs){ //, double nhagmr){ //, double d1, double hgmr){
+		   double est_dist, double dist){
   Mci* the_mci = (Mci*)calloc(1,sizeof(Mci));
   the_mci->query_index = qidx;
   the_mci->match_index = midx;
   the_mci->usable_chunks = usable_chunks;
   the_mci->n_matching_chunks = n_matching_chunks;
-  the_mci->est_agmr = est_agmr;
-  //  the_mci->nhagmr = get_ith_double_from_vdouble(agmrs, -1);
-  the_mci->agmr = agmr; // get_ith_double_from_vdouble(agmrs, -2);
-  //  the_mci->agmrs = agmrs;
-  //  fprintf(stderr, "size of agmrs: %ld %ld \n", the_mci->agmrs->size, agmrs->size); getchar();
+  the_mci->est_dist = est_dist;
+  the_mci->dist = dist;
   return the_mci;
 }
 
@@ -597,8 +586,7 @@ Vmci* construct_vmci(long init_cap){
 void push_to_vmci(Vmci* the_vmci, Mci* mci){
   long cap = the_vmci->capacity;
   long n = the_vmci->size;
-  // if necessary, resize w realloc
-  if(n == cap){
+  if(n == cap){   // if necessary, resize w realloc
     cap *= 2;
     the_vmci->a = (Mci**)realloc(the_vmci->a, cap*sizeof(Mci*));
     the_vmci->capacity = cap;
@@ -617,7 +605,7 @@ void free_vmci(Vmci* the_vmci){
 }
 
 
-int cmpmci_i(const void* v1, const void* v2){  // sort by query index, agmr is tie breaker
+int cmpmci_i(const void* v1, const void* v2){  // sort by query; distance is tie breaker
   const Mci** s1 = (const Mci**)v1;
   const Mci** s2 = (const Mci**)v2;
 
@@ -629,8 +617,8 @@ int cmpmci_i(const void* v1, const void* v2){  // sort by query index, agmr is t
   }else if(idx1 < idx2){
     return -1;
   }else{
-    double a1 = (*s1)->agmr;
-    double a2 = (*s2)->agmr;
+    double a1 = (*s1)->dist;
+    double a2 = (*s2)->dist;
     if(a1 > a2){
       return 1;
     }else if(a1 < a2){
@@ -641,11 +629,11 @@ int cmpmci_i(const void* v1, const void* v2){  // sort by query index, agmr is t
   }
 }
 
-int cmpmci_a(const void* v1, const void* v2){ // sort by agmr, query index is tie breaker
+int cmpmci_a(const void* v1, const void* v2){ // sort by distance, query index is tie breaker
   const Mci** s1 = (const Mci**)v1;
   const Mci** s2 = (const Mci**)v2;
-  double a1 = (*s1)->agmr;
-  double a2 = (*s2)->agmr;
+  double a1 = (*s1)->dist;
+  double a2 = (*s2)->dist;
 
   if(a1 > a2){
     return 1;
@@ -664,36 +652,16 @@ int cmpmci_a(const void* v1, const void* v2){ // sort by agmr, query index is ti
   }
 }
 
-void sort_vmci_by_agmr(Vmci* the_vmci){ // sort by agmr (low to high), query index as tie-breaker
+void sort_vmci_by_dist(Vmci* the_vmci){ // sort by distance (low to high), query index as tie-breaker
   qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_a);
 }
 
-void sort_vmci_by_index(Vmci* the_vmci){ // sort by agmr (low to high), query index as tie-breaker
+void sort_vmci_by_index(Vmci* the_vmci){ // sort by query index
   qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_i);
 }
 
 // *********************************************
 // *********************************************
-
-double agmr(Accession* gtset1, Accession* gtset2){
-  char* gts1 = gtset1->genotypes->a;
-  char* gts2 = gtset2->genotypes->a;
-  long usable_pair_count = 0; // = agmr_denom
-  long mismatches = 0; // = agmr_numerator
-  for(long i=0; ;i++){
-    char a1 = gts1[i];
-    if(a1 == '\0') break; // end of 
-    char a2 = gts2[i];
-    if(DO_ASSERT) assert(a2 != '\0');
-    if(a1 != MISSING_DATA_CHAR){
-      if(a2 != MISSING_DATA_CHAR){
-	usable_pair_count++;
-	if(a1 != a2) mismatches++;
-      }
-    }
-  }
-  return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1;
-}
 
 ND distance(Accession* acc1, Accession* acc2){
   char* gts1 = acc1->genotypes->a;
@@ -740,14 +708,8 @@ Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset){
 Vmci** find_matches(const GenotypesSet* the_genotypes_set,
 		    const Chunk_pattern_ids* the_cpi,
 		    long Nthreads,
-		    double max_est_agmr)
+		    double max_est_dist)
 {
-  bool oldway = false; // true;
-  
-  clock_t start = clock();
-  clock_t fcmc_ticks = 0;
-  clock_t ticks_in_distance = 0;
- 
   Vaccession* the_accessions = the_genotypes_set->accessions;
   long n_ref_accessions = the_genotypes_set->n_ref_accessions;
   long n_queries = the_accessions->size - n_ref_accessions;
@@ -755,58 +717,35 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
   long n_chunks = the_cpi->size;
   long chunk_size = the_cpi->chunk_size;
 
-  double min_matching_chunk_fraction = pow(1.0 - 2*max_est_agmr, chunk_size);
+  double min_matching_chunk_fraction = pow(1.0 - 2*max_est_dist, chunk_size);
   Vmci** query_vmcis = (Vmci**)malloc(the_accessions->size * sizeof(Vmci*)); //
   for(long i = 0; i<the_accessions->size; i++){
     query_vmcis[i] = construct_vmci(4);
   }
 
-  if(oldway){ // i.e. no pthreads
+  if(Nthreads == 0){ // i.e. no pthreads
+   TD* td = (TD*)malloc(1*sizeof(TD));
+  td[0].thread_number = 0;
+      td[0].the_genotypes_set = the_genotypes_set;
+      td[0].the_cpi = the_cpi;
+      td[0].max_est_dist = max_est_dist;
+      td[0].first_query_idx = n_ref_accessions;
+      td[0].last_query_idx = n_ref_accessions + n_queries-1;
+      fprintf(stderr, "# last query indices: %ld %ld\n", td[0].first_query_idx, td[0].last_query_idx);
 
-    for(long i_query=n_ref_accessions; i_query< the_accessions->size; i_query++){ // queries have indices starting at n_ref_accessions. 
-  
-      Accession* q_gts = the_accessions->a[i_query];
-      long q_md_chunk_count = q_gts->md_chunk_count;
-      clock_t ticks_before_fcmc = clock();
-      Vlong* chunk_match_counts = find_chunk_match_counts(q_gts, the_cpi);
-      fcmc_ticks += clock() - ticks_before_fcmc;
-    
-      for (long i_match = 0; i_match < i_query; i_match++){
-	long matching_chunk_count = chunk_match_counts->a[i_match];
-	long match_md_chunk_count = the_accessions->a[i_match]->md_chunk_count;
-	double usable_chunk_count = (double)((n_chunks-q_md_chunk_count)*(n_chunks-match_md_chunk_count))/(double)n_chunks; // estimate
-      
-	if( matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count ){
-	
-	  clock_t ticks_before_distance = clock();
-	  ND d_nd = distance(q_gts, the_accessions->a[i_match]);
-	  ticks_in_distance += clock() - ticks_before_distance;
-
-	  double true_agmr = (d_nd.d > 0)? 0.5*(double)d_nd.n/(double)d_nd.d : -1;
-	  if(true_agmr <= max_est_agmr){
-	    double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
-	    double est_agmr = 0.5*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size));
-	    push_to_vmci(query_vmcis[i_query],
-			 construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr));
-	
-	  } // end if(true_agmr < max_est_agmr)
-	} // end if(enough matching chunks) - i.e. est dist is small enough
-      } // end loop over potential matches to query
-      free_vlong(chunk_match_counts);
-    } // end loop over queries.
-    clock_t find_matches_ticks = clock() - start; 
-    fprintf(stderr, "# time in: find_chunk_match_count: %8.3lf; rest of find_matches: %8.3lf; find_matches total: %8.3lf\n", 
-	    clock_ticks_to_seconds(fcmc_ticks), clock_ticks_to_seconds(find_matches_ticks - fcmc_ticks), clock_ticks_to_seconds(find_matches_ticks));
-    fprintf(stderr, "# time in 'distance' function: %8.3lf \n", clock_ticks_to_seconds(ticks_in_distance));
-  }else{ // use pthreads
+      td[0].query_vmcis = query_vmcis;
+      process_query_range((void*) td);
+      free(td);
+      // }
+  }else{ // use one or more pthreads
 
     fprintf(stderr, "### pthreads branch. Nthreads = %ld\n", Nthreads);
     TD* td = (TD*)malloc(Nthreads*sizeof(TD));
-
     for(long i_thread = 0; i_thread < Nthreads; i_thread++){
+      td[i_thread].thread_number = i_thread;
       td[i_thread].the_genotypes_set = the_genotypes_set;
       td[i_thread].the_cpi = the_cpi;
-      td[i_thread].max_est_agmr = max_est_agmr;
+      td[i_thread].max_est_dist = max_est_dist;
       td[i_thread].first_query_idx = (i_thread == 0)? n_ref_accessions : (td[i_thread-1].last_query_idx + 1);     
       td[i_thread].last_query_idx = sqrt(pow(n_ref_accessions, 2.0) + 2.0*(i_thread+1)*n_queries*(n_ref_accessions + 0.5*n_queries)/Nthreads);
       fprintf(stderr, "# thread, first, last query indices: %ld %ld %ld\n", i_thread, td[i_thread].first_query_idx, td[i_thread].last_query_idx);
@@ -814,7 +753,6 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
       td[i_thread].query_vmcis = query_vmcis;
     }
     td[Nthreads-1].last_query_idx = n_ref_accessions + n_queries-1;
-    fprintf(stderr, "# nref, nq, last 1: %ld %ld %ld\n", n_ref_accessions, n_queries,  td[Nthreads-1].last_query_idx);
 
     pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
 
@@ -828,12 +766,6 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
       fprintf(stderr, "# Thread %ld; queries: %ld; matches checked: %ld\n",
 	      i_thread, td[i_thread].last_query_idx - td[i_thread].first_query_idx + 1, td[i_thread].n_matches_checked);
     }
-
-     for(long i_thread=0; i_thread<Nthreads; i_thread++){
-       // pthread_join(thrids[i_thread], NULL);
-      fprintf(stderr, "# Thread %ld; queries: %ld; matches checked: %ld\n",
-	      i_thread, td[i_thread].last_query_idx - td[i_thread].first_query_idx + 1, td[i_thread].n_matches_checked);
-    }
     free(td);
     free(thrids);
   }
@@ -841,10 +773,11 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
 }
 
 void* process_query_range(void* x){
+  
   TD* td = (TD*)x;
   const GenotypesSet* the_genotypes_set = td->the_genotypes_set;
   const Chunk_pattern_ids* the_cpi = td->the_cpi;
-  double max_est_agmr = td->max_est_agmr;
+  double max_est_dist = td->max_est_dist;
   long first_query_idx = td->first_query_idx;
   long last_query_idx  = td->last_query_idx;
   
@@ -852,18 +785,16 @@ void* process_query_range(void* x){
 
   Vaccession* the_accessions = the_genotypes_set->accessions;
   long n_chunks = the_cpi->size;
- long chunk_size = the_cpi->chunk_size;
-  double min_matching_chunk_fraction = pow(1.0 - 2*max_est_agmr, chunk_size);
+  long chunk_size = the_cpi->chunk_size;
+  double min_matching_chunk_fraction = pow(1.0 - 2*max_est_dist, chunk_size);
 
   long n_matches_checked = 0;
   
- for(long i_query = first_query_idx; i_query < last_query_idx; i_query++){ // queries have indices starting at n_ref_accessions. 
+ for(long i_query = first_query_idx; i_query <= last_query_idx; i_query++){ // queries have indices starting at n_ref_accessions. 
   
     Accession* q_gts = the_accessions->a[i_query];
     long q_md_chunk_count = q_gts->md_chunk_count;
-    clock_t ticks_before_fcmc = clock();
     Vlong* chunk_match_counts = find_chunk_match_counts(q_gts, the_cpi);
-    //  fcmc_ticks += clock() - ticks_before_fcmc;
     
     for (long i_match = 0; i_match < i_query; i_match++){
       long matching_chunk_count = chunk_match_counts->a[i_match];
@@ -872,66 +803,52 @@ void* process_query_range(void* x){
       
       if( matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count ){
 	
-	clock_t ticks_before_distance = clock();
 	ND d_nd = distance(q_gts, the_accessions->a[i_match]);
-	//	ticks_in_distance += clock() - ticks_before_distance;
 
-	double true_agmr = (d_nd.d > 0)? 0.5*(double)d_nd.n/(double)d_nd.d : -1;
-	if(true_agmr <= max_est_agmr){
+	double true_dist = (d_nd.d > 0)? 0.5*(double)d_nd.n/(double)d_nd.d : -1;
+	if(true_dist <= max_est_dist){
 	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
-	  double est_agmr = 0.5*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size));
+	  double est_dist = 0.5*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size));
 	  push_to_vmci(query_vmcis[i_query],
-		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_agmr, true_agmr));
+		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, true_dist));
 	
-	} // end if(true_agmr < max_est_agmr)
+	} // end if(true_dist < max_est_dist)
       } // end if(enough matching chunks) - i.e. est dist is small enough
     } // end loop over potential matches to query
+  
     n_matches_checked += i_query;
     free_vlong(chunk_match_counts);
   } // end loop over queries.
  // fprintf(stderr, "# A thread checked %ld query-match pairs.\n", n_matches_checked);
  td->n_matches_checked = n_matches_checked;
-  /* clock_t find_matches_ticks = clock() - start;  */
-  /* fprintf(stderr, "# time in: find_chunk_match_count: %8.3lf; rest of find_matches: %8.3lf; find_matches total: %8.3lf\n",  */
-  /* 	  clock_ticks_to_seconds(fcmc_ticks), clock_ticks_to_seconds(find_matches_ticks - fcmc_ticks), clock_ticks_to_seconds(find_matches_ticks)); */
-  /* fprintf(stderr, "# time in 'distance' function: %8.3lf \n", clock_ticks_to_seconds(ticks_in_distance)); */
-  
 }
 
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){
-  long true_agmr_count = 0;
+  long distance_count = 0;
   for(long i_q=0; i_q<the_accessions->size; i_q++){
     Vmci* the_vmci = query_vmcis[i_q];
-    sort_vmci_by_agmr(the_vmci);
+    sort_vmci_by_dist(the_vmci);
     for(long i_m=0; i_m < the_vmci->size; i_m++){
-      Mci* the_mci = the_vmci->a[i_m];
-      //  long match_idx = the_mci->match_index; //(the_mci->query_index == i_q)? the_mci->match_index : the_mci->query_index;
-      
+      Mci* the_mci = the_vmci->a[i_m];      
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
-      if(0 && strcmp(q_acc->id->a, m_acc->id->a) >= 0) continue;
-      //    the_mci->nhagmr = pop_from_vdouble(the_mci->agmrs);
-      //    the_mci->agmr = pop_from_vdouble(the_mci->agmrs);
-      //  fprintf(stderr, "%s %s  %ld \n", q_acc->id->a, m_acc->id->a, the_mci->agmrs->size);
-      //  Agmri* the_agmri = get_ith_agmri_from_vagmri(the_mci->agmrs, -1); // get last element;
-      //   double agmr = (the_agmri->d >0)? the_agmri->n/(double)the_agmri->d : -1;
       if(output_format == 1){
-	fprintf(ostream, "%s  %s  %8.6f\n", q_acc->id->a, m_acc->id->a, the_mci->agmr);
+	fprintf(ostream, "%s  %s  %8.6f\n", q_acc->id->a, m_acc->id->a, the_mci->dist);
       }else{
-	fprintf(ostream, "%s  %s  %8.6f  %5.2f %3ld %6.4f\n", q_acc->id->a, m_acc->id->a, the_mci->agmr,
-		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_agmr);
+	fprintf(ostream, "%s  %s  %8.6f  %5.2f %3ld %6.4f\n", q_acc->id->a, m_acc->id->a, the_mci->dist,
+		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist);
       }
-      true_agmr_count++;
+      distance_count++;
     } // end of loop over matches to query
   } // end of loop over queries
-  return true_agmr_count;
+  return distance_count;
 }
 
 void print_usage_info(FILE* ostream){
   // i: input file name (required).
   // r: reference set file name.
   // o: output file name. Default: duplicatesearch.out
-  // e: max estimated agmr. Default: 0.2 (Calculate agmr only if quick est. is < this value.) 
+  // e: max estimated distance. default: DEFAULT_MAX_DISTANCE (Calculate distance only if quick est. is < this value.) 
   // x: marker max missing data fraction
   // a: min minor allele frequency
   // k: chunk size (number of markers per chunk). Default: 8
@@ -943,7 +860,7 @@ void print_usage_info(FILE* ostream){
   fprintf(ostream, "  -i \t input file name (required).\n");
   fprintf(ostream, "  -r \t file name of reference data set (optional).\n");
   fprintf(ostream, "  -o \t output file name. Default: duplicatesearch.out\n");
-  fprintf(ostream, "  -e \t maximum agmr; calculate agmr only if est. agmr is < this value. Default: 0.2\n");
+  fprintf(ostream, "  -e \t maximum distance; calculate distance only if estimated distance is < this value. Default: %5.3f\n", DEFAULT_MAX_DISTANCE);
   fprintf(ostream, "  -x \t maximum marker missing data fraction. Default: 2.0/chunk_size \n");
   fprintf(ostream, "  -a \t minimum minor allele frequency. Default: 0 \n");
   fprintf(ostream, "  -k \t chunk_size (number of markers per chunk). Default: set automatically depending on ploidy:\n");
@@ -1116,7 +1033,7 @@ void print_command_line(FILE* ostream, int argc, char** argv){
 /*     fprintf(ostream, "%4ld  %30s  %30s  %5.2f  %3ld  %5.3f  %5.3f", */
 /* 	    the_mci->query_index,  q_acc->id->a,   m_acc->id->a,   */
 /* 	    the_mci->usable_chunks,  the_mci->n_matching_chunks, */
-/* 	    the_mci->est_agmr,  the_mci->agmr); */
+/* 	    the_mci->est_dist,  the_mci->agmr); */
 /*     if (output_format == 1){ */
 /*       // leave as is */
 /*     }else if(output_format == 2){ // add a bit more info */
@@ -1434,6 +1351,27 @@ void print_command_line(FILE* ostream, int argc, char** argv){
 /*   } */
 /*   free(the_vagmri->a); */
 /*   free(the_vagmri); */
+/* } */
+
+
+/* double agmr(Accession* gtset1, Accession* gtset2){ */
+/*   char* gts1 = gtset1->genotypes->a; */
+/*   char* gts2 = gtset2->genotypes->a; */
+/*   long usable_pair_count = 0; // = agmr_denom */
+/*   long mismatches = 0; // = agmr_numerator */
+/*   for(long i=0; ;i++){ */
+/*     char a1 = gts1[i]; */
+/*     if(a1 == '\0') break; // end of  */
+/*     char a2 = gts2[i]; */
+/*     if(DO_ASSERT) assert(a2 != '\0'); */
+/*     if(a1 != MISSING_DATA_CHAR){ */
+/*       if(a2 != MISSING_DATA_CHAR){ */
+/* 	usable_pair_count++; */
+/* 	if(a1 != a2) mismatches++; */
+/*       } */
+/*     } */
+/*   } */
+/*   return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1; */
 /* } */
 
 
