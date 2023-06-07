@@ -25,6 +25,7 @@ my $field_to_use = 'GT'; # Presently GT is only option, must be present in vcf f
 # unimplemented alternatives: DS (alternative allele dosage e.g. 2), AD (allele depths, e.g.'136:25' ).
 
 my $vcf_filename = undef;
+my $ref_filename = undef;
 #my $genotypes_filename = undef; # default: construct from input filename
 
 my $minGP = 0.0; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
@@ -39,7 +40,7 @@ my $rng_seed = -1; # default duplicatesearch will get seed from clock
 my $max_distance = 0.15; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance
 my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
 my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
-my $min_marker_maf = 0;
+my $min_marker_maf = 0.01;
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $info_string = "# command: " . join(" ", @ARGV) . "\n";
 my $filename_stem;
@@ -52,6 +53,7 @@ my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to ch
 GetOptions(
 	   'input_file|vcf=s' => \$vcf_filename,
 	   'output_file=s' => \$filename_stem,
+	   'ref_filename|reference_filename=s' => \$ref_filename,
 
 	   # used by vcf_to_gts:
 	   'GPmin=f' => \$minGP, 
@@ -144,6 +146,7 @@ if ($plink) {		      #            *** analyze using plink ***
 
   my $ds_distances_filename = $filename_stem . ".dists";
   my $ds_command = "duplicatesearch -i $genotypes_filename -a $min_marker_maf -e $max_distance -o $ds_distances_filename";
+  $ds_command .= " -r $ref_filename " if(defined $ref_filename);
   $ds_command .= " -x $max_marker_missing_data_fraction ";
   $ds_command .= " -k $chunk_size -f $max_accession_missing_data_fraction ";
   $ds_command .= " -s $rng_seed " if($rng_seed > 0);
