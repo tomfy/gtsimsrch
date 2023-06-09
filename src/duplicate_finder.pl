@@ -88,13 +88,13 @@ if (!defined $filename_stem) {
 my $genotypes_filename = $filename_stem . "_gts";
 # print STDERR "# genotypes_filename: $genotypes_filename \n";
 print STDERR "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
-my $vcf2gts_command = "vcf_to_gts -i $vcf_filename -p $minGP "; # for now uses GT field, can filter on GP
-$vcf2gts_command .= " -a " if($use_alt_marker_ids);
+my $vcf2gts_command = "vcf_to_gts -input $vcf_filename -pmin $minGP "; # for now uses GT field, can filter on GP
+$vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
 
 if ($plink) {		      #            *** analyze using plink ***
     my $plink_out_filename = $genotypes_filename . "_bin";
   if($oldway){
-  $vcf2gts_command .= " -o $genotypes_filename -k ";
+  $vcf2gts_command .= " -output $genotypes_filename -k ";
   print STDERR "vcf conversion command: $vcf2gts_command \n";
   system "$vcf2gts_command";
 
@@ -138,18 +138,18 @@ if ($plink) {		      #            *** analyze using plink ***
 }
 
 } else {       #                *** analyze using duplicate_search ***
-  $vcf2gts_command .= " -o $genotypes_filename ";
+  $vcf2gts_command .= " -output $genotypes_filename ";
   print STDERR "# vcf_to_gts command: $vcf2gts_command \n";
   print STDERR "######### running vcf_to_gts ##########\n";
   system "$vcf2gts_command";
   print STDERR "#########   vcf_to_gts done  ##########\n\n";
 
   my $ds_distances_filename = $filename_stem . ".dists";
-  my $ds_command = "duplicatesearch -i $genotypes_filename -a $min_marker_maf -e $max_distance -o $ds_distances_filename";
-  $ds_command .= " -r $ref_filename " if(defined $ref_filename);
-  $ds_command .= " -x $max_marker_missing_data_fraction ";
-  $ds_command .= " -k $chunk_size -f $max_accession_missing_data_fraction ";
-  $ds_command .= " -s $rng_seed " if($rng_seed > 0);
+  my $ds_command = "duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -max_dist $max_distance -output $ds_distances_filename";
+  $ds_command .= " -ref $ref_filename " if(defined $ref_filename);
+  $ds_command .= " -marker_max_missing_data $max_marker_missing_data_fraction ";
+  $ds_command .= " -chunk_size $chunk_size -accession_max_missing_data $max_accession_missing_data_fraction ";
+  $ds_command .= " -seed $rng_seed " if($rng_seed > 0);
   print STDERR "# duplicatesearch command: $ds_command\n";
   print STDERR "######### running duplicatesearch ##########\n";
   system "$ds_command";
