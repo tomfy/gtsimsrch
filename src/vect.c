@@ -37,7 +37,7 @@ Vlong* construct_vlong_whole_numbers(long size){ // initialize to 0,1,2,3,...siz
   Vlong* the_vlong = (Vlong*)malloc(1*sizeof(Vlong));
   the_vlong->capacity = size;
   the_vlong->size = size;
-  the_vlong->a = (long*)malloc(size*sizeof(char*));
+  the_vlong->a = (long*)malloc(size*sizeof(long*));
   for(int i=0; i<size; i++){
     the_vlong->a[i] = i;
   }
