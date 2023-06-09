@@ -72,6 +72,7 @@ void free_accession_innards(Accession* the_accession);
 // *****  Vaccession  *****
 Vaccession* construct_vaccession(long cap);
 void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc);
+void shuffle_order_of_accessions(GenotypesSet* the_genotypes_set);
 void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy);
 void print_vaccession(Vaccession* the_accessions, FILE* ostream);
 void check_accession_indices(Vaccession* the_accessions);

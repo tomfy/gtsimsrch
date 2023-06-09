@@ -119,6 +119,27 @@ void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc){
    the_vacc->size++;
 }
 
+
+void shuffle_order_of_accessions(GenotypesSet* the_genotypes_set){
+  long n_ref = the_genotypes_set->n_ref_accessions;
+  long n_new = the_genotypes_set->accessions->size - n_ref;
+  Vaccession* shuffled_accessions = construct_vaccession(n_ref + n_new);
+
+  Vlong* ref_permutation = construct_vlong_whole_numbers(n_ref);
+  shuffle_vlong(ref_permutation);
+  for(long i=0; i<n_ref; i++){
+    shuffled_accessions->a[i] = the_genotypes_set->accessions->a[ref_permutation->a[i]];
+  }
+  Vlong* permutation = construct_vlong_whole_numbers(n_new);
+  shuffle_vlong(permutation);
+  for(long i=0; i<n_new; i++){
+    shuffled_accessions->a[i+n_ref] = the_genotypes_set->accessions->a[permutation->a[i] + n_ref];
+  }
+  the_genotypes_set->accessions = shuffled_accessions;
+  free_vlong(ref_permutation);
+  free_vlong(permutation);
+}
+
 void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy){
   long total_mdchunk_count = 0;
   for(long i=0; i < the_accessions->size; i++){
@@ -299,7 +320,6 @@ long str_to_long(char* str){ // using strtol and checking for various problems.
   }
   return sl;
 }
-  
 
 char token_to_dosage(char* token, long* ploidy){
   if(strcmp(token, "X") == 0){ // missing data
