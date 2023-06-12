@@ -91,12 +91,13 @@ void free_accession(Accession* the_accession){
   free_vlong(the_accession->ref_homozygs);
   free(the_accession);
 }
-void free_accession_innards(Accession* the_accession){ // doesn't free the_accession itself
-  // use to free each element of an array of Accession (not an array of Accession*)
-  if(the_accession == NULL) return;
-  free_vchar(the_accession->id);
-  free_vchar(the_accession->genotypes);
-}
+
+/* void free_accession_innards(Accession* the_accession){ // doesn't free the_accession itself */
+/*   // use to free each element of an array of Accession (not an array of Accession*) */
+/*   if(the_accession == NULL) return; */
+/*   free_vchar(the_accession->id); */
+/*   free_vchar(the_accession->genotypes); */
+/* } */
 
 // *****  Vaccession implementation  *****
 Vaccession* construct_vaccession(long cap){ // construct Vaccession with capacity of cap, but empty.
@@ -123,21 +124,30 @@ void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc){
 void shuffle_order_of_accessions(GenotypesSet* the_genotypes_set){
   long n_ref = the_genotypes_set->n_ref_accessions;
   long n_new = the_genotypes_set->accessions->size - n_ref;
-  Vaccession* shuffled_accessions = construct_vaccession(n_ref + n_new);
+  Vaccession* accessions = the_genotypes_set->accessions; // construct_vaccession(n_ref + n_new);
 
-  Vlong* ref_permutation = construct_vlong_whole_numbers(n_ref);
-  shuffle_vlong(ref_permutation);
-  for(long i=0; i<n_ref; i++){
-    shuffled_accessions->a[i] = the_genotypes_set->accessions->a[ref_permutation->a[i]];
+  Accession* temp_acc;
+   for(long i=0; i<n_ref-1; i++){
+    long j = i+1 + (long)((n_ref-1-i)*(double)rand()/RAND_MAX); // get an integer in the range [i+1,n_ref-1]
+    temp_acc = accessions->a[j];
+    accessions->a[j] = accessions->a[i];
+    //   accessions->a[j]->index = j;
+    accessions->a[i] = temp_acc;
+    //   accessions->a[i]->index = i;
   }
-  Vlong* permutation = construct_vlong_whole_numbers(n_new);
-  shuffle_vlong(permutation);
-  for(long i=0; i<n_new; i++){
-    shuffled_accessions->a[i+n_ref] = the_genotypes_set->accessions->a[permutation->a[i] + n_ref];
+
+  for(long i=0; i<n_new-1; i++){
+    long j = i+1 + (long)((n_new-1-i)*(double)rand()/RAND_MAX); // get an integer in the range [i+1,n_new-1]
+    temp_acc = accessions->a[j + n_ref];
+    accessions->a[j + n_ref] = accessions->a[i + n_ref];
+    //  accessions->a[j + n_ref]->index = j + n_ref;
+    accessions->a[i + n_ref] = temp_acc;
+    //  accessions->a[i + n_ref]->index = i + n_ref;
   }
-  the_genotypes_set->accessions = shuffled_accessions;
-  free_vlong(ref_permutation);
-  free_vlong(permutation);
+  for(long i=0; i<the_genotypes_set->accessions->size; i++){
+    accessions->a[i]->index = i;
+  }
+ 
 }
 
 void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy){
@@ -167,6 +177,7 @@ void check_accession_indices(Vaccession* the_accessions){
 
 void free_vaccession(Vaccession* the_vacc){
   if(the_vacc == NULL) return;
+  //  fprintf(stderr, "# in free_vaccessions. XXXXXXXXXXXXXXXXXX\n");
   for(long i=0; i<the_vacc->size; i++){
     free_accession(the_vacc->a[i]);
   }
@@ -238,7 +249,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     }
   }
   
-  // if the_genotypes_set already has marker_ids set, check for agreement with marker_ids
+  // if the_genotypes_set already has marker_ids set (from a reference set), check for agreement with marker_ids
   // i.e. in case of using reference set, make sure the set of markers is the same in both data sets.
   if(the_genotypes_set->marker_ids  == NULL){
     the_genotypes_set->marker_ids = marker_ids;
@@ -264,33 +275,38 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     long accession_missing_data_count = 0;
     char* genotypes = (char*)calloc((markerid_count+1), sizeof(char));    
     genotypes[markerid_count] = '\0'; // terminate with null.
-    while(1){ // read dosages from one line.
-      
+
+    while(1){ // read dosages from one line.   
       token = strtok_r(NULL, "\t \n\r", &saveptr);
-      if(token == NULL)	break;
-     
+      if(token == NULL)	break;    
       genotypes[marker_count] = token_to_dosage(token, &(the_genotypes_set->ploidy));
-      if(genotypes[marker_count] == MISSING_DATA_CHAR){
-	the_genotypes_set->marker_missing_data_counts->a[marker_count]++;
-	accession_missing_data_count++;
-      }else{
-	the_genotypes_set->marker_alt_allele_counts->a[marker_count] += (long)(genotypes[marker_count]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
-      }
-      
+      if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
       marker_count++;
     } // done reading dosages for all markers of this accession
-    if(marker_count != markerid_count) exit(EXIT_FAILURE);
-    Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
-    free(acc_id); // or cut out the middleman (acc_id)?
-    free(genotypes);
+    if(marker_count != markerid_count) exit(EXIT_FAILURE); 
+   
+    // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
     if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
+      Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
+      for(long jjj=0; jjj<markerid_count; jjj++){ //
+	if(genotypes[jjj] == MISSING_DATA_CHAR){
+	  the_genotypes_set->marker_missing_data_counts->a[jjj]++;
+	  accession_missing_data_count++;
+	}else{
+	  the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
+	}
+      }
+     
+      
       push_to_vaccession(the_genotypes_set->accessions, the_accession);
       accession_count++;
     }else{
       fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
-	      the_accession->id->a, accession_missing_data_count, the_genotypes_set->marker_ids->size);
+	      acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
       the_genotypes_set->n_bad_accessions++;
     }
+     free(acc_id); // or cut out the middleman (acc_id)?
+      free(genotypes);
   } // done reading all lines
   fclose(g_stream);
   fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
@@ -382,17 +398,27 @@ double ragmr(GenotypesSet* the_gtsset){
 
 void check_genotypesset(GenotypesSet* gtss){
   assert(gtss->marker_ids->size == gtss->n_markers);
-  long* md_counts = (long*)calloc(gtss->n_markers, sizeof(long)); 
+  long* md_counts = (long*)calloc(gtss->n_markers, sizeof(long));
+  fprintf(stderr, "# in check_genotypesset. %ld %ld \n", gtss->n_accessions, gtss->n_markers);
+  // long mdhist[8] = {0, 0, 0, 0, 0, 0, 0, 0};
   for(long i=0; i<gtss->n_accessions; i++){
     Accession* an_acc = gtss->accessions->a[i];
+    //  fprintf(stderr, "# nmrkrs: %ld %ld \n", strlen(an_acc->genotypes->a), gtss->n_markers);
     assert(strlen(an_acc->genotypes->a) == gtss->n_markers);
+    long accmdcount = 0;
     for(long j=0; j<gtss->n_markers; j++){
-      if(an_acc->genotypes->a[j] == MISSING_DATA_CHAR)md_counts[j]++;
+      if(an_acc->genotypes->a[j] == MISSING_DATA_CHAR){
+	md_counts[j]++;
+	accmdcount++;
+      }
     }
+    //  mdhist[(long)(accmdcount/1000)]++;
   }
   for(long j=0; j<gtss->n_markers; j++){
+    // fprintf(stderr, "#markermdcounts: %ld %ld\n", md_counts[j], gtss->marker_missing_data_counts->a[j]);
     assert(md_counts[j] == gtss->marker_missing_data_counts->a[j]);
   }
+  //  for(long ii=0; ii<8; ii++){ fprintf(stderr, "%ld ", mdhist[ii]);} fprintf(stderr, "\n");
   free(md_counts);
   fprintf(stderr, "# Successfully completed check_genotypesset\n");
 }
@@ -492,7 +518,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
     long acc_md_count = 0;
     for(long j=0; j<the_gtsset->n_markers; j++){ // j: index of original markers
       if(md_ok->a[j] == 1){
-	filtered_gts[k] = raw_gts[j];
+	filtered_gts[k] = raw_gts[j];				       
 	k++;
 	if(raw_gts[j] == MISSING_DATA_CHAR) acc_md_count++;
       }
@@ -500,19 +526,35 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
     filtered_gts[k] = '\0'; // terminate with null.
     if(DBUG && do_checks) assert(k == n_markers_to_keep);
     Accession* the_accession = construct_accession( the_gtsset->accessions->a[i]->id->a, i, filtered_gts, acc_md_count ); //(Accession*)malloc(sizeof(Accession));
-    free(filtered_gts);
+    free(filtered_gts); // this str was copied into newly allocated memory in the_accession->
     push_to_vaccession(the_accessions, the_accession);
   }
   free_vlong(md_ok);
-  
+
+  /*   fprintf(stderr, "#X n accs %ld \n", the_accessions->size); */
+  /* for(long i=0; i<the_gtsset->accessions->size; i++){ */
+  /*   Accession* acc = the_gtsset->accessions->a[i]; */
+  /*   fprintf(stderr, "#X %ld %s \n", acc->genotypes->length, acc->id->a); */
+  /* } */
+
+  /* fprintf(stderr, "#Xx n accs %ld \n", the_accessions->size); */
+  /* for(long i=0; i<the_accessions->size; i++){ */
+  /*   Accession* acc = the_accessions->a[i]; */
+  /*   fprintf(stderr, "#Xx %ld %s \n", acc->genotypes->length, acc->id->a); */
+  /* } */
+  /* getchar(); */
   free_vaccession(the_gtsset->accessions);
   the_gtsset->accessions = the_accessions;
+  
   free_vstr(the_gtsset->marker_ids);
   the_gtsset->marker_ids = filtered_marker_ids;
+
   free_vlong(the_gtsset->marker_missing_data_counts);
   the_gtsset->marker_missing_data_counts = filtered_md_counts;
+
   free_vlong(the_gtsset->marker_alt_allele_counts);
   the_gtsset->marker_alt_allele_counts = filtered_alt_allele_counts;
+
   the_gtsset->n_markers = the_gtsset->accessions->a[0]->genotypes->length;
 } // end filter_genotypesset
 
@@ -906,10 +948,12 @@ void free_genotypesset(GenotypesSet* the_gtsset){
   free_vstr(the_gtsset->marker_ids);
   free_vlong(the_gtsset->marker_missing_data_counts);
   free_vlong(the_gtsset->marker_alt_allele_counts);
-  for(long i=0; i<=MAX_PLOIDY; i++){
-    free_vlong(the_gtsset->marker_dose_counts[i]);
+  if(the_gtsset->marker_dose_counts != NULL){
+    for(long i=0; i<=MAX_PLOIDY; i++){
+      free_vlong(the_gtsset->marker_dose_counts[i]);
+    }
+    free(the_gtsset->marker_dose_counts);
   }
-  free(the_gtsset->marker_dose_counts);
   free_vaccession(the_gtsset->accessions);
   free(the_gtsset);
 }
