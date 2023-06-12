@@ -161,9 +161,9 @@ main(int argc, char *argv[])
   unsigned rand_seed = (unsigned)time(0);
   // unsigned rand_seed2;
   double max_marker_missing_data_fraction = -1; // default: set to 2.0/chunk_size after chunk_size is set.
-  double max_accession_missing_data_fraction = 1;
+  double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0.0; //
-  double max_est_dist = -1.0;
+  double max_est_dist = -1.0; // default is value will be chosen based on a random sample of distances.
   long output_format = 1; // 1 ->  acc_id1 acc_id2 distance; otherwise add 3 more columns: usable_chunks matching_chunks est_distance
   char default_output_filename[] = "duplicatesearch.out";
   bool print_filtered_gtset = false;
@@ -193,7 +193,7 @@ main(int argc, char *argv[])
     
   int c;
   while(1){
-    if(1){
+    // if(1){
       int option_index = 0;
       static struct option long_options[] = {
 	{"input",   required_argument, 0,  'i'}, // filename of new data set
@@ -206,7 +206,7 @@ main(int argc, char *argv[])
 	{"max_distance",  required_argument,  0,  'e'}, // min. 'estimated genotype probability'
 	{"threads", required_argument, 0,  't'}, // number of threads to use
 	//	{"alternate_marker_ids",  no_argument, 0, 'a'}, // construct marker ids from cols 1 and 2 (in case garbage in col 3)
-	{"chunk_size", required_argument, 0, 'k'}, // number of markers per chunk.
+	{"chunk_size", required_argument, 0, 'k'}, // number of markers per chunk. D
 	
 	{"unshuffled",    no_argument, 0,  'u' }, // shuffle the order of the accessions in output
 	{"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
@@ -217,26 +217,26 @@ main(int argc, char *argv[])
      
       c = getopt_long_only(argc, argv, "", long_options, &option_index);
       if(c == -1) break;
-    }else{
-      c = getopt(argc, argv, "i:r:o:n:m:k:e:s:x:a:f:v:t:hu");
-      if(c == -1) break;
-      // i: input file name (required).
-      // r: reference set file name (optional).
-      // o: output file name. Default: "duplicatesearch.out"
-      // s: random number seed. Default: get seed from clock.
-      // x: marker max missing data fraction. Default: 2.0/chunk_size
-      // f: accession max missing data fraction. Default: 0.5
-      // a: min minor allele frequency. Default: 0
-      // k: chunk size (number of markers per chunk). Defaults: diploid: 8, tetraploid: 5, hexaploid: 4.
-      // e: max distance. Default: automatic (Calculate distance only if quick est. is < this value; output match only if distance < this value.)
-      // n: use n*n_markers/chunk_size chunks. (i.e. each marker gets used in ~n chunks). Default: 1
-      // t: number of threads to use. Default is nprocs/2 (nprocs from get_nprocs()
-      // v: verbosity. Default: 1, 2 gives slightly more output.
-      // h: help. print usage info
-      // u: Don't shuffle order of accessions. Default: do shuffle.
-      //   // m: n maf categories. Default: 2;
-    }
-    fprintf(stderr, "# c: %d %c\n", c, c);
+    /* }else{ */
+    /*   c = getopt(argc, argv, "i:r:o:n:m:k:e:s:x:a:f:v:t:hu"); */
+    /*   if(c == -1) break; */
+    /*   // i: input file name (required). */
+    /*   // r: reference set file name (optional). */
+    /*   // o: output file name. Default: "duplicatesearch.out" */
+    /*   // s: random number seed. Default: get seed from clock. */
+    /*   // x: marker max missing data fraction. Default: 2.0/chunk_size */
+    /*   // f: accession max missing data fraction. Default: 0.5 */
+    /*   // a: min minor allele frequency. Default: 0 */
+    /*   // k: chunk size (number of markers per chunk). Defaults: diploid: 8, tetraploid: 5, hexaploid: 4. */
+    /*   // e: max distance. Default: automatic (Calculate distance only if quick est. is < this value; output match only if distance < this value.) */
+    /*   // n: use n*n_markers/chunk_size chunks. (i.e. each marker gets used in ~n chunks). Default: 1 */
+    /*   // t: number of threads to use. Default is nprocs/2 (nprocs from get_nprocs() */
+    /*   // v: verbosity. Default: 1, 2 gives slightly more output. */
+    /*   // h: help. print usage info */
+    /*   // u: Don't shuffle order of accessions. Default: do shuffle. */
+    /*   //   // m: n maf categories. Default: 2; */
+    /* } */
+      //  fprintf(stderr, "# c, c: %d %c\n", c, c);
     switch(c){
     case 'i':
       input_filename = optarg;
@@ -383,7 +383,7 @@ main(int argc, char *argv[])
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
   free(rparam_buf);
-
+ 
   // *****  done processing command line  *****************************************
   clockid_t clock1 = CLOCK_MONOTONIC;
   struct timespec tspec;
@@ -398,8 +398,11 @@ main(int argc, char *argv[])
   fprintf(stderr, "# max_marker_missing_data_fraction: %8.5f\n", max_marker_missing_data_fraction);
 
   // *****  read in genotype data (including optionally a reference data set) and create a genotypesset object.
-
+ 
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
+
+
+ 
   // Vaccession* the_accessions;
   // Vlong* the_permutation = NULL;
   if(reference_set_filename != NULL){ // load the reference set, if one was specified.
@@ -412,9 +415,11 @@ main(int argc, char *argv[])
   add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
    fprintf(stdout, "# Done reading dosages from file %s. %ld accessions and %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_markers);
-   
-  if(shuffle_accessions) shuffle_order_of_accessions(the_genotypes_set); // this helps to spread load evenly over threads 
- 
+
+  
+   if(shuffle_accessions){ shuffle_order_of_accessions(the_genotypes_set); // this helps to spread load evenly over threads 
+     // fprintf(stderr, "# shuffled order of accessions\n"); // getchar();
+   }
   ploidy = the_genotypes_set->ploidy;
   fprintf(stderr, "# ploidy of %ld detected.\n", ploidy);
   //  find  chunk_size  if not specified on command line; 
@@ -431,7 +436,7 @@ main(int argc, char *argv[])
   
   rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common that 2 for all markers.
   filter_genotypesset(the_genotypes_set);
-  //  store_homozygs(the_genotypes_set);
+  store_homozygs(the_genotypes_set);
 
   long n_accessions = the_genotypes_set->accessions->size;   
   long n_markers = the_genotypes_set->n_markers;
@@ -452,15 +457,26 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to load & filter dosage data: %6.3lf sec.\n", t_after_input - t_start);
   // *****  done reading and storing input  **********
 
- 
+  check_genotypesset(the_genotypes_set);
+
+  // srand(rand_seed);
   if(max_est_dist < 0){ // get max_est_dist so as to do approx. n_ds_to_get distance calculations
-    // get random sample of distances 
-    Vdouble* sorted_rand_distances = sort_vdouble(distances_random_sample(the_genotypes_set, distance_random_sample_size));
+    // get random sample of distances
+    Vdouble* rand_distances = distances_random_sample(the_genotypes_set, distance_random_sample_size);
+    Vdouble* sorted_rand_distances = sort_vdouble(rand_distances);
     double n_ds_all = 0.5*(n_accessions - the_genotypes_set->n_ref_accessions)*(n_accessions + the_genotypes_set->n_ref_accessions - 1);
     // double fraction_of_ds_to_get = n_ds_to_get/n_ds_all;
-    // fprintf(stderr, "#AA %ld\n", (long)(fraction_of_ds_to_get*distance_random_sample_size));
-    max_est_dist = sorted_rand_distances->a[(long)((n_ds_to_get/n_ds_all)*distance_random_sample_size)];
+    fprintf(stderr, "#A: %f %ld %ld \n", n_ds_all, n_ds_to_get, distance_random_sample_size);
+    fprintf(stderr, "#AA %ld\n", (long)(n_ds_to_get*distance_random_sample_size/n_ds_all));
+    long max_dist_idx = (long)((n_ds_to_get/n_ds_all)*distance_random_sample_size);
+    if (max_dist_idx >= sorted_rand_distances->size) max_dist_idx = sorted_rand_distances->size-1;
+    max_est_dist = sorted_rand_distances->a[max_dist_idx];
+    fprintf(stderr, "# max_est_dist: %f\n", max_est_dist);
+    free_vdouble(sorted_rand_distances);
   }
+  double t_after_drs = clock_time(clock1);
+  fprintf(stderr, "# Time for random sample of distances: %lf\n", t_after_drs - t_after_input);
+  // exit(-1);
 
 
   // srand(rand_seed2);
@@ -479,7 +495,7 @@ main(int argc, char *argv[])
   Chunk_pattern_ids* the_cpi = construct_chunk_pattern_ids(n_chunks, chunk_size, ploidy);
   populate_chunk_pattern_ids_from_vaccession(the_accessions, the_cpi);
   double t_after_cpi = clock_time(clock1);
-  fprintf(stdout, "# Time to construct & populate chunk_pattern_ids: %6.3f\n", t_after_cpi - t_after_input);
+  fprintf(stdout, "# Time to construct & populate chunk_pattern_ids: %6.3f\n", t_after_cpi - t_after_drs);
 
   Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, Nthreads, max_est_dist); //, n_maf_categories, maf_category_marker_indices);
   double t_after_find_matches = clock_time(clock1);
@@ -749,6 +765,10 @@ void sort_vmci_by_index(Vmci* the_vmci){ // sort by query index
 ND distance(Accession* acc1, Accession* acc2){
   char* gts1 = acc1->genotypes->a;
   char* gts2 = acc2->genotypes->a;
+  
+  long mdcount1 = 0;
+  long mdcount2 = 0;
+  
   if(DO_ASSERT) assert(acc1->genotypes->length == acc2->genotypes->length);
   long denom = 0;
   long numer = 0;
@@ -777,9 +797,9 @@ Vdouble* distances_random_sample(GenotypesSet* the_gtset, long n){
   long n_ref = the_gtset->n_ref_accessions;
   long n_query = accessions->size - n_ref;
   for(long i=0; i<n; i++){
-    long iq = (long)(rand()*(double)n_query/((double)RAND_MAX+1));
     while(1){
-      long ia = (long)(rand()*(double)(accessions->size)/((double)RAND_MAX+1));
+    long iq = (long)(rand()*(double)n_query/((double)RAND_MAX+1) ) + n_ref;
+    long ia = (long)(rand()*(double)(accessions->size)/((double)RAND_MAX+1));
       if(ia != iq){
 	ND dnd = distance(accessions->a[iq], accessions->a[ia]);
 	if(dnd.d > 0){
