@@ -104,6 +104,9 @@ void check_genotypesset(GenotypesSet* gtss);
 void filter_genotypesset(GenotypesSet* the_genotypes_set);
 void rectify_markers(GenotypesSet* the_gtsset);
 void store_homozygs(GenotypesSet* the_gtsset);
+
+Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
+
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
 ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
 four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
