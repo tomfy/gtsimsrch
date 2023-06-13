@@ -76,7 +76,7 @@ int main(int argc, char *argv[]){
       {"input",   required_argument, 0,  'i'}, // vcf filename
       {"output",  required_argument, 0,  'o'}, // output filename
       {"pmin",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
-      {"threads", required_argument, 0,  't'}, // number of threads to use
+      {"threads", required_argument, 0,  't'}, // number of threads to use. Default: set automatically based on nprocs()
       {"alternate_marker_ids",  no_argument, 0, 'a'}, // construct marker ids from cols 1 and 2 (in case garbage in col 3)
       {"randomize",    no_argument, 0,  'r' }, // shuffle the order of the accessions in output
       {"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.

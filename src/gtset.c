@@ -301,7 +301,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       push_to_vaccession(the_genotypes_set->accessions, the_accession);
       accession_count++;
     }else{
-      fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
+      fprintf(stdout, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
 	      acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
       the_genotypes_set->n_bad_accessions++;
     }
@@ -309,8 +309,8 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       free(genotypes);
   } // done reading all lines
   fclose(g_stream);
-  fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
-	  the_genotypes_set->n_bad_accessions, accession_count);
+  // fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
+  //	  the_genotypes_set->n_bad_accessions, accession_count);
   free(line); // only needs to be freed once.
   the_genotypes_set->n_accessions = the_genotypes_set->accessions->size;
   the_genotypes_set->n_markers = the_genotypes_set->marker_ids->size;
@@ -398,12 +398,10 @@ double ragmr(GenotypesSet* the_gtsset){
 
 void check_genotypesset(GenotypesSet* gtss){
   assert(gtss->marker_ids->size == gtss->n_markers);
+  assert(gtss->accessions->size == gtss->n_accessions);
   long* md_counts = (long*)calloc(gtss->n_markers, sizeof(long));
-  fprintf(stderr, "# in check_genotypesset. %ld %ld \n", gtss->n_accessions, gtss->n_markers);
-  // long mdhist[8] = {0, 0, 0, 0, 0, 0, 0, 0};
   for(long i=0; i<gtss->n_accessions; i++){
     Accession* an_acc = gtss->accessions->a[i];
-    //  fprintf(stderr, "# nmrkrs: %ld %ld \n", strlen(an_acc->genotypes->a), gtss->n_markers);
     assert(strlen(an_acc->genotypes->a) == gtss->n_markers);
     long accmdcount = 0;
     for(long j=0; j<gtss->n_markers; j++){
@@ -412,13 +410,10 @@ void check_genotypesset(GenotypesSet* gtss){
 	accmdcount++;
       }
     }
-    //  mdhist[(long)(accmdcount/1000)]++;
   }
   for(long j=0; j<gtss->n_markers; j++){
-    // fprintf(stderr, "#markermdcounts: %ld %ld\n", md_counts[j], gtss->marker_missing_data_counts->a[j]);
     assert(md_counts[j] == gtss->marker_missing_data_counts->a[j]);
   }
-  //  for(long ii=0; ii<8; ii++){ fprintf(stderr, "%ld ", mdhist[ii]);} fprintf(stderr, "\n");
   free(md_counts);
   fprintf(stderr, "# Successfully completed check_genotypesset\n");
 }
@@ -489,21 +484,20 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
 	too_much_missing_data_count++;
       }
   } // end of loop over markers
-  fprintf(stderr, "# mdsum_all: %ld  mdsum_kept: %ld  n_markers all: %ld  n_markers_to_keep: %ld\n",
-	  mdsum_all, mdsum_kept, md_counts->size, n_markers_to_keep);
+  // fprintf(stderr, "# mdsum_all: %ld  mdsum_kept: %ld  n_markers all: %ld  n_markers_to_keep: %ld\n", mdsum_all, mdsum_kept, md_counts->size, n_markers_to_keep);
   double raw_md_fraction = (double)mdsum_all/(double)(md_counts->size*n_accs);
   double filtered_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
   double raw_minor_allele_freq = (double)altallelesum_all/(md_counts->size*n_accs*the_gtsset->ploidy);
   double filtered_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
 
-  fprintf(stderr, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
-  	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
-  fprintf(stderr, "# removing %ld markers for excessive missing data.\n", too_much_missing_data_count);
-  fprintf(stderr, "# and removing an additional %ld markers for too small maf.\n", maf_too_low_count);
+  /* fprintf(stderr, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n", */
+  /* 	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency); */
+  /* fprintf(stderr, "#   removed %ld markers for excessive missing data.\n", too_much_missing_data_count); */
+  /* fprintf(stderr, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count); */
    fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
   	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
-  fprintf(stdout, "# removing %ld markers for excessive missing data.\n", too_much_missing_data_count);
-  fprintf(stdout, "# and removing an additional %ld markers for too small maf.\n", maf_too_low_count);
+  fprintf(stdout, "#   removed %ld markers for excessive missing data.\n", too_much_missing_data_count);
+  fprintf(stdout, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count);
   
   fprintf(stdout, "# Raw data has %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
 	  md_counts->size, raw_md_fraction, raw_minor_allele_freq);
@@ -531,18 +525,6 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
   }
   free_vlong(md_ok);
 
-  /*   fprintf(stderr, "#X n accs %ld \n", the_accessions->size); */
-  /* for(long i=0; i<the_gtsset->accessions->size; i++){ */
-  /*   Accession* acc = the_gtsset->accessions->a[i]; */
-  /*   fprintf(stderr, "#X %ld %s \n", acc->genotypes->length, acc->id->a); */
-  /* } */
-
-  /* fprintf(stderr, "#Xx n accs %ld \n", the_accessions->size); */
-  /* for(long i=0; i<the_accessions->size; i++){ */
-  /*   Accession* acc = the_accessions->a[i]; */
-  /*   fprintf(stderr, "#Xx %ld %s \n", acc->genotypes->length, acc->id->a); */
-  /* } */
-  /* getchar(); */
   free_vaccession(the_gtsset->accessions);
   the_gtsset->accessions = the_accessions;
   
@@ -602,7 +584,7 @@ void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset){ // get q and d 'hgmr' for 
   long good_count = 0;
   long bad_count = 0;
   char ploidy_char = (char)(the_gtsset->ploidy + 48);
-  fprintf(stderr, "# number of accessions: %ld\n", the_gtsset->accessions->size);
+  //  fprintf(stderr, "# number of accessions: %ld\n", the_gtsset->accessions->size);
   for(long i=0; i<the_gtsset->accessions->size; i++){
     Accession* acc1 = the_gtsset->accessions->a[i];
     Vlong* alt_homozygs = acc1->alt_homozygs;
