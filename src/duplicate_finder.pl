@@ -145,7 +145,7 @@ if ($plink) {		      #            *** analyze using plink ***
   print STDERR "#########   vcf_to_gts done  ##########\n\n";
 
   my $ds_distances_filename = $filename_stem . ".dists";
-  my $ds_command = "duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -max_dist $max_distance -output $ds_distances_filename";
+  my $ds_command = "duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -max_est_dist $max_distance -output $ds_distances_filename";
   $ds_command .= " -ref $ref_filename " if(defined $ref_filename);
   $ds_command .= " -marker_max_missing_data $max_marker_missing_data_fraction ";
   $ds_command .= " -chunk_size $chunk_size -accession_max_missing_data $max_accession_missing_data_fraction ";
