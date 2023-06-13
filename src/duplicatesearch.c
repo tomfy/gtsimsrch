@@ -77,31 +77,6 @@ long strpat_to_ipat(long len, char* strpat); // unused
 ND distance(Accession* acc1, Accession* acc2);
 Vdouble* distances_random_sample(GenotypesSet* the_gtset, long n);
 
-Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
-
-Vstr* read_dosages_file(char* input_filename){
-  FILE* i_stream = fopen(input_filename, "r");
-  if (i_stream == NULL) {
-    perror("fopen");
-    exit(EXIT_FAILURE);
-  }
-
-  Vstr* the_lines = construct_vstr(10000);
-  char* line = NULL;
-  size_t len = 0;
-  ssize_t nread;
-
-  // *****   Read all lines; store non-comments.  *****
-  long markerid_count = 0;
-  Vstr* marker_ids = construct_vstr(1000);
-  char* saveptr = NULL;
-  while((nread = getline(&line, &len, i_stream)) != -1){
-    if(line[0] == '#') continue;
-    char* a_line = (char*)malloc((nread+1)*sizeof(char));
-    push_to_vstr(the_lines, strcpy(a_line, line));
-  }
-  return the_lines;
-}
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
@@ -755,22 +730,6 @@ Vdouble* distances_random_sample(GenotypesSet* the_gtset, long n){
     }
   }
   return distances;
-}
-
-Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset){
-  Vlong* missing_data_counts = the_gtset->marker_missing_data_counts;
-  Vlong* minor_allele_counts = the_gtset->marker_alt_allele_counts;
-  if(DO_ASSERT) assert(missing_data_counts->size == minor_allele_counts->size);
-  Vdouble* marker_mafs = construct_vdouble(missing_data_counts->size);
-  for(long i=0; i<missing_data_counts->size; i++){
-    long ok_count = the_gtset->n_accessions - missing_data_counts->a[i];
-    if(ok_count > 0){
-      double minor_allele_frequency = (double)minor_allele_counts->a[i]/(double)(2.0*ok_count);
-      push_to_vdouble(marker_mafs, minor_allele_frequency);
-    }
-  }
-  the_gtset->mafs = marker_mafs;
-  return marker_mafs;
 }
 
 Vmci** find_matches(const GenotypesSet* the_genotypes_set,
@@ -1449,5 +1408,29 @@ void print_command_line(FILE* ostream, int argc, char** argv){
 /*   return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1; */
 /* } */
 
+
+/* Vstr* read_dosages_file(char* input_filename){ */
+/*   FILE* i_stream = fopen(input_filename, "r"); */
+/*   if (i_stream == NULL) { */
+/*     perror("fopen"); */
+/*     exit(EXIT_FAILURE); */
+/*   } */
+
+/*   Vstr* the_lines = construct_vstr(10000); */
+/*   char* line = NULL; */
+/*   size_t len = 0; */
+/*   ssize_t nread; */
+
+/*   // *****   Read all lines; store non-comments.  ***** */
+/*   long markerid_count = 0; */
+/*   Vstr* marker_ids = construct_vstr(1000); */
+/*   char* saveptr = NULL; */
+/*   while((nread = getline(&line, &len, i_stream)) != -1){ */
+/*     if(line[0] == '#') continue; */
+/*     char* a_line = (char*)malloc((nread+1)*sizeof(char)); */
+/*     push_to_vstr(the_lines, strcpy(a_line, line)); */
+/*   } */
+/*   return the_lines; */
+/* } */
 
 // *****  end of function definitions  *****
