@@ -29,15 +29,15 @@ typedef struct{ // one of these for each chunk
   long capacity;
   long size;
   Vlong** a; // array of Vlong*; indices are patterns, values are Vlong*s containing indices of accessions with that pattern
-} Pattern_ids;
+} Pattern_idxs;
 
 typedef struct{
   long capacity;
   long size; // number of chunks
   long chunk_size; // number of chunks used.
   long n_patterns; // (ploidy+1)^chunk_size
-  Pattern_ids** a; // array of Pattern_ids, one element for each chunk
-} Chunk_pattern_ids;
+  Pattern_idxs** a; // array of Pattern_idxs, one element for each chunk
+} Chunk_pattern_idxs;
 
 
 typedef struct{
@@ -57,7 +57,7 @@ typedef struct{
 
 typedef struct{
   const GenotypesSet* the_genotypes_set;
-  const Chunk_pattern_ids* the_cpi;
+  const Chunk_pattern_idxs* the_cpi;
   double max_est_dist;
   long first_query_idx;
   long last_query_idx;
@@ -116,21 +116,21 @@ int cmpmci_i(const void* v1, const void* v2);
 void free_vmci(Vmci* the_vmci);
 
 
-// *****  Pattern_ids; indices are patterns; elements are Vlong* of accids having that pattern.
-Pattern_ids* construct_pattern_ids(long n_patterns);
-void free_pattern_ids(Pattern_ids*);
+// *****  Pattern_idxs; indices are patterns; elements are Vlong* of accids having that pattern.
+Pattern_idxs* construct_pattern_idxs(long n_patterns);
+void free_pattern_idxs(Pattern_idxs*);
 
-// *****  Chunk_pattern_ids; indices are chunk numbers; elements are Pattern_ids*
-Chunk_pattern_ids* construct_chunk_pattern_ids(long n_chunks, long chunk_size, long ploidy);
-// Vlong** get_all_match_counts(long n_accessions, Chunk_pattern_ids* the_cpi);
-void populate_chunk_pattern_ids_from_vaccession(Vaccession* the_accessions, Chunk_pattern_ids* the_cpi);
-void print_chunk_pattern_ids(Chunk_pattern_ids* the_cpi, FILE* ostream);
-void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi);
+// *****  Chunk_pattern_idxs; indices are chunk numbers; elements are Pattern_idxs*
+Chunk_pattern_idxs* construct_chunk_pattern_idxs(long n_chunks, long chunk_size, long ploidy);
+// Vlong** get_all_match_counts(long n_accessions, Chunk_pattern_idxs* the_cpi);
+void populate_chunk_pattern_idxs_from_vaccession(Vaccession* the_accessions, Chunk_pattern_idxs* the_cpi);
+void print_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi, FILE* ostream);
+void free_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi);
 
-// *****  Gts and Chunk_pattern_ids  ***********
-Vlong* find_chunk_match_counts(const Accession* the_gts, const Chunk_pattern_ids* the_cpi);
+// *****  Gts and Chunk_pattern_idxs  ***********
+Vlong* find_chunk_match_counts(const Accession* the_gts, const Chunk_pattern_idxs* the_cpi);
 Vmci** find_matches(const GenotypesSet* the_genotypes_set,
-		    const Chunk_pattern_ids* the_cpi, long Nthreads, double max_est_dist);
+		    const Chunk_pattern_idxs* the_cpi, long Nthreads, double max_est_dist);
 
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 void print_command_line(FILE* ostream, int argc, char** argv);
@@ -439,10 +439,10 @@ main(int argc, char *argv[])
 
   Vaccession* the_accessions = the_genotypes_set->accessions;
   set_vaccession_chunk_patterns(the_accessions, marker_indices, n_chunks, chunk_size, ploidy);
-  Chunk_pattern_ids* the_cpi = construct_chunk_pattern_ids(n_chunks, chunk_size, ploidy);
-  populate_chunk_pattern_ids_from_vaccession(the_accessions, the_cpi);
+  Chunk_pattern_idxs* the_cpi = construct_chunk_pattern_idxs(n_chunks, chunk_size, ploidy);
+  populate_chunk_pattern_idxs_from_vaccession(the_accessions, the_cpi);
   double t_after_cpi = clock_time(clock1);
-  fprintf(stderr, "# Time to construct & populate chunk_pattern_ids: %6.3f\n", t_after_cpi - t_after_drs);
+  fprintf(stderr, "# Time to construct & populate chunk_pattern_idxs: %6.3f\n", t_after_cpi - t_after_drs);
 
   Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, Nthreads, max_est_dist); //, n_maf_categories, maf_category_marker_indices);
   double t_after_find_matches = clock_time(clock1);
@@ -461,7 +461,7 @@ main(int argc, char *argv[])
   free(query_vmcis);
   free_genotypesset(the_genotypes_set); 
   free_vlong(marker_indices);
-  free_chunk_pattern_ids(the_cpi);
+  free_chunk_pattern_idxs(the_cpi);
   fprintf(stderr, "# total duplicatesearch run time: %9.3f\n", clock_time(clock1) - t_start);
   exit(EXIT_SUCCESS);
 }
@@ -475,7 +475,7 @@ main(int argc, char *argv[])
 
 // *****  Vaccession  ***********************************************************
 
-void populate_chunk_pattern_ids_from_vaccession(Vaccession* the_accessions, Chunk_pattern_ids* the_cpi){
+void populate_chunk_pattern_idxs_from_vaccession(Vaccession* the_accessions, Chunk_pattern_idxs* the_cpi){
   long n_patterns = the_cpi->n_patterns;
  
   for(long i_gts=0; i_gts<the_accessions->size; i_gts++){
@@ -508,10 +508,10 @@ void populate_chunk_pattern_ids_from_vaccession(Vaccession* the_accessions, Chun
   } 
 }
 
-// *****  Pattern_ids; indices are patterns; elements are Vlong* of accidxs having that pattern.
+// *****  Pattern_idxs; indices are patterns; elements are Vlong* of accidxs having that pattern.
 
-Pattern_ids* construct_pattern_ids(long n_patterns){
-  Pattern_ids* pat_ids = (Pattern_ids*)malloc(1*sizeof(Pattern_ids));
+Pattern_idxs* construct_pattern_idxs(long n_patterns){
+  Pattern_idxs* pat_ids = (Pattern_idxs*)malloc(1*sizeof(Pattern_idxs));
   pat_ids->capacity = n_patterns+1; // 0..n_patterns-1 are the indices of the n_patterns (=(ploidy+1)^k) good patterns, and index n_pattern is for the missing data case.
   pat_ids->size = n_patterns+1;
   pat_ids->a = (Vlong**)malloc((n_patterns+1)*sizeof(Vlong*));
@@ -521,7 +521,7 @@ Pattern_ids* construct_pattern_ids(long n_patterns){
   return pat_ids;
 }
 
-void free_pattern_ids(Pattern_ids* pat_ids){
+void free_pattern_idxs(Pattern_idxs* pat_ids){
   if(pat_ids == NULL) return;
   for(long i=0; i<pat_ids->size; i++){
     if(pat_ids->a[i] != NULL) free_vlong(pat_ids->a[i]);
@@ -530,35 +530,35 @@ void free_pattern_ids(Pattern_ids* pat_ids){
   free(pat_ids);
 }
 
-// *****  Chunk_pattern_ids; indices are chunk numbers; elements are Pattern_ids*
+// *****  Chunk_pattern_idxs; indices are chunk numbers; elements are Pattern_idxs*
 
-Chunk_pattern_ids* construct_chunk_pattern_ids(long n_chunks, long chunk_size, long ploidy){ // needed size is known at construct time, so one param for both cap and size
-  Chunk_pattern_ids* chunk_pat_ids = (Chunk_pattern_ids*)malloc(1*sizeof(Chunk_pattern_ids));
+Chunk_pattern_idxs* construct_chunk_pattern_idxs(long n_chunks, long chunk_size, long ploidy){ // needed size is known at construct time, so one param for both cap and size
+  Chunk_pattern_idxs* chunk_pat_ids = (Chunk_pattern_idxs*)malloc(1*sizeof(Chunk_pattern_idxs));
   chunk_pat_ids->capacity = n_chunks;
   chunk_pat_ids->size = n_chunks;
   chunk_pat_ids->chunk_size = chunk_size;
   long n_patterns = int_power(ploidy+1, chunk_size);
   chunk_pat_ids->n_patterns = n_patterns;
-  chunk_pat_ids->a = (Pattern_ids**)malloc(n_chunks*sizeof(Pattern_ids*));
+  chunk_pat_ids->a = (Pattern_idxs**)malloc(n_chunks*sizeof(Pattern_idxs*));
   for(int i=0; i< chunk_pat_ids->size; i++){
-    chunk_pat_ids->a[i] = construct_pattern_ids(n_patterns);
+    chunk_pat_ids->a[i] = construct_pattern_idxs(n_patterns);
   }
   return chunk_pat_ids;
 }
 
-void free_chunk_pattern_ids(Chunk_pattern_ids* the_cpi){
+void free_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi){
   if(the_cpi == NULL) return;
   for(long i=0; i< the_cpi->size; i++){
-    free_pattern_ids(the_cpi->a[i]);
+    free_pattern_idxs(the_cpi->a[i]);
   }
   free(the_cpi->a);
   free(the_cpi);
 }
 
-void print_chunk_pattern_ids(Chunk_pattern_ids* the_cpi, FILE* ostream){
+void print_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi, FILE* ostream){
   for(long i_chunk=0; i_chunk<the_cpi->size; i_chunk++){
     fprintf(ostream, "i_chunk: %ld\n", i_chunk);
-    Pattern_ids* the_pi = the_cpi->a[i_chunk];
+    Pattern_idxs* the_pi = the_cpi->a[i_chunk];
     for(long i_pat=0; i_pat<the_pi->size; i_pat++){
       fprintf(ostream, "  i_pat: %ld \n", i_pat);
       Vlong* the_idxs = the_pi->a[i_pat];
@@ -573,9 +573,9 @@ void print_chunk_pattern_ids(Chunk_pattern_ids* the_cpi, FILE* ostream){
   }
 }
 
-// *****  Accession and Chunk_pattern_ids  ***********
+// *****  Accession and Chunk_pattern_idxs  ***********
 
-Vlong* find_chunk_match_counts(const Accession* the_accession, const Chunk_pattern_ids* the_cpi){
+Vlong* find_chunk_match_counts(const Accession* the_accession, const Chunk_pattern_idxs* the_cpi){
   long n_patterns = the_cpi->n_patterns;
   Vlong* chunk_patterns = the_accession->chunk_patterns; // chunk patterns for Accession the_accession (i.e. the query accession)
   Vlong* accidx_matchcounts = construct_vlong_zeroes(the_accession->index);
@@ -774,7 +774,7 @@ Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset){
 }
 
 Vmci** find_matches(const GenotypesSet* the_genotypes_set,
-		    const Chunk_pattern_ids* the_cpi,
+		    const Chunk_pattern_idxs* the_cpi,
 		    long Nthreads,
 		    double max_est_dist)
 {
@@ -851,7 +851,7 @@ void* process_query_range(void* x){
   
   TD* td = (TD*)x;
   const GenotypesSet* the_genotypes_set = td->the_genotypes_set;
-  const Chunk_pattern_ids* the_cpi = td->the_cpi;
+  const Chunk_pattern_idxs* the_cpi = td->the_cpi;
   double max_est_dist = td->max_est_dist;
   long first_query_idx = td->first_query_idx;
   long last_query_idx  = td->last_query_idx;
@@ -944,7 +944,6 @@ void print_usage_info(FILE* ostream){
   fprintf(ostream, "  -s \t random number generator seed. Default: get seed from clock. \n");
   fprintf(ostream, "  -f \t maximum accession missing data fraction. Default: 0.5\n");
   fprintf(ostream, "  -v \t control output format. Default 1; 2 for more info.\n");
-  // fprintf(ostream, "  -p \t ploidy. (default: 2)\n"); this now is automatically detected from the data.
   fprintf(ostream, "  -n \t number of chunks to use. Default: (int)n_markers/chunk_size \n");
   fprintf(ostream, "  -h \t print this usage information. \n");
 }
