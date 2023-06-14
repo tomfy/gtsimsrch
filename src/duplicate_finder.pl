@@ -37,8 +37,8 @@ my $plink = 0;
 
 my $chunk_size = 6; # relevant only to duplicatesearch
 my $rng_seed = -1; # default duplicatesearch will get seed from clock
-my $max_distance = 0.15; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance
-my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
+my $max_distance = 'auto'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance
+my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data. Default is keep all.
 my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
 my $min_marker_maf = 0.01;
 # plink calculates all distances, and then we output only those <= $max_distance.
@@ -56,7 +56,7 @@ GetOptions(
 	   'ref_filename|reference_filename=s' => \$ref_filename,
 
 	   # used by vcf_to_gts:
-	   'GPmin=f' => \$minGP, 
+	   'GPmin|minGP=f' => \$minGP,
 	   'alt_marker_ids!' => \$use_alt_marker_ids,
 	   #	   'GQmin=f' => \$minGQ,      # min genotype quality. Not implemented.
 	   #       'delta=f' => \$delta,      # if
@@ -66,16 +66,17 @@ GetOptions(
 
 	   # used by duplicatesearch/plink:
 	   'chunk_size|k=i' => \$chunk_size, # (duplicatesearch only)
-	    'seed|rand=i' => \$rng_seed, # (duplicatesearch only)
-	   'dmax=f' => \$max_distance,
+	   'seed|rand=i' => \$rng_seed, # (duplicatesearch only)
+	   'dmax|max_distance=f' => \$max_distance,
 	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
-	   'max_accession_md_fraction|max_accession_md_fraction=f' => \$max_accession_missing_data_fraction,
+	   'max_accession_md_fraction|accession_max_md_fraction=f' => \$max_accession_missing_data_fraction,
 	   'min_maf|maf_min=f' => \$min_marker_maf,
 
 	   # used by clusterer:
 	    'cluster_distance=f' => \$cluster_distance,
 	  );
 
+# $max_distance = -1 if($max_distance eq 'auto');
 
 my $clusterer_input_filename;
 if (!defined $filename_stem) {
@@ -130,6 +131,7 @@ if ($plink) {		      #            *** analyze using plink ***
   system "$plink_command2"; # produces files with endings .mdist (distance matrix), and .mdist.id (marker ids)
 
   my $cluster_filename_in = $filename_stem . ".dists";
+  $max_distance = 0.2 if($max_distance eq 'auto');
   system "plnkout2dsout $filename_stem  $cluster_filename_in $max_distance ";
 
   my $cluster_filename_out = $filename_stem . "_clusters";
@@ -145,7 +147,11 @@ if ($plink) {		      #            *** analyze using plink ***
   print STDERR "#########   vcf_to_gts done  ##########\n\n";
 
   my $ds_distances_filename = $filename_stem . ".dists";
-  my $ds_command = "duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -max_est_dist $max_distance -output $ds_distances_filename";
+  
+  my $ds_command = "duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -output $ds_distances_filename";
+  if($max_distance ne 'auto'){
+    $ds_command .= " -max_est_distance $max_distance ";
+  }
   $ds_command .= " -ref $ref_filename " if(defined $ref_filename);
   $ds_command .= " -marker_max_missing_data $max_marker_missing_data_fraction ";
   $ds_command .= " -chunk_size $chunk_size -accession_max_missing_data $max_accession_missing_data_fraction ";
