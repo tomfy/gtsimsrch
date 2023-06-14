@@ -17,8 +17,8 @@
 #include "vect.h"
 #include "various.h"
 
-#define INIT_N_ACCESSIONS 10000
-#define INIT_N_MARKERS 10000
+#define INIT_N_ACCESSIONS 1000
+#define INIT_N_MARKERS 1000
 
 // There will be one of these structs for each thread,
 // each thread which will process the markers in the range from first_marker to last_marker
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]){
   free(str_of_spaces);
 
   TD* td;   
-    
+  fprintf(stderr, "# Using %ld threads.\n", Nthreads);
   if(Nthreads == 0){ // process without creating any new threads
     td = (TD*)malloc(sizeof(TD));
     fprintf(stderr, "# sizeof TD: %ld \n", (long)sizeof(TD));
