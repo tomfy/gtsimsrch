@@ -251,7 +251,7 @@ main(int argc, char *argv[])
     case 'x':
       max_marker_missing_data_fraction = (double)atof(optarg);
       if(max_marker_missing_data_fraction <= 0){
-	fprintf(stderr, "option x (max_marker_missing_data_fraction) requires an real argument > 0\n");
+	fprintf(stderr, "max_marker_missing_data_fraction < 0; will be set to 1.5/chunk_size\n");
 	exit(EXIT_FAILURE);
       }
       break;
