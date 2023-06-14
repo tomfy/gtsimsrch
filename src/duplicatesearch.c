@@ -133,7 +133,7 @@ main(int argc, char *argv[])
   clockid_t clock1 = CLOCK_MONOTONIC;
   struct timespec tspec;
   double t_start = clock_time(clock1);
-  unsigned rand_seed = (unsigned)tspec.tv_nsec;
+  unsigned rand_seed = time(0); // (unsigned)tspec.tv_nsec;
 
   
   long ploidy = 2; //
