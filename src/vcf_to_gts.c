@@ -106,7 +106,7 @@ int main(int argc, char *argv[]){
 	fprintf(stderr, "# minGP was set to %8.4lf , must be <= 1\n", minGP);
 	exit(EXIT_FAILURE);
       }
-      fprintf(stderr, "# minGP set to: %8.5lf\n", minGP);
+      fprintf(stdout, "# minGP set to: %8.5lf\n", minGP);
       break;
     case 't' :
       if(sscanf(optarg, "%ld", &Nthreads) != 1  ||  errno != 0){
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]){
   fclose(in_stream);
 
   double t1 = clock_time(the_clock);
-  fprintf(stderr, "# input done\n");
+  fprintf(stdout, "# input done\n");
    
   // ********************************************************
   // *****  Extract genotypes, and quality information  *****
@@ -222,10 +222,10 @@ int main(int argc, char *argv[]){
   free(str_of_spaces);
 
   TD* td;   
-  fprintf(stderr, "# Using %ld threads.\n", Nthreads);
+  fprintf(stdout, "# Using %ld threads.\n", Nthreads);
   if(Nthreads == 0){ // process without creating any new threads
     td = (TD*)malloc(sizeof(TD));
-    fprintf(stderr, "# sizeof TD: %ld \n", (long)sizeof(TD));
+    //  fprintf(stderr, "# sizeof TD: %ld \n", (long)sizeof(TD));
     td->n_accessions = n_accessions;
     td->marker_lines = marker_lines;
     td->first_marker = 0;
@@ -264,9 +264,8 @@ int main(int argc, char *argv[]){
     free(td);
     free(thrids);
   }
-
   double t2 = clock_time(the_clock);
-  fprintf(stderr, "# time for threads to run %8.4lf\n", t2 - t1);
+  fprintf(stderr, "# Time for threads to run %8.4lf\n", t2 - t1);
 
 
   // **********************
@@ -286,7 +285,7 @@ int main(int argc, char *argv[]){
   fclose(out_stream);
 
   double t3 = clock_time(the_clock);
-  fprintf(stderr, "# Done. Times for input: %8.4lf, processing: %8.4lf, output: %8.4lf, total: %8.4lf\n",
+  fprintf(stdout, "# Done. Times for input: %8.4lf, processing: %8.4lf, output: %8.4lf, total: %8.4lf\n",
 	  t1-t0, t2-t1, t3-t2, t3-t0);
 
   // *****  cleanup  *****
@@ -360,7 +359,7 @@ void* process_marker_range(void* x){
     assert(acc_index == td->n_accessions); // check that this line has number of accessions = number of accession ids.
     marker_count++;
   } // done reading all lines (markers)
-  fprintf(stderr, "# A thread is done processing markers %ld through %ld; %ld markers x %ld accessions\n",
+  fprintf(stdout, "# A thread is done processing markers %ld through %ld; %ld markers x %ld accessions\n",
 	  first_marker, last_marker, marker_count, td->n_accessions);
 }
 
