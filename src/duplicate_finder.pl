@@ -22,22 +22,22 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 # and can filter on GP (genotype prob., e.g. 0.9,0.16,0.04) ( e.g.  -GP 0.9 )
 # would be nice to filter on GQ (genotype quality, e.g. 98) but not implemented yet. 
 
-# usage:  duplicate_finder.pl -in <input vcf file>  -out <output file>
+# usage:  duplicate_finder.pl -vcf <input vcf file>  -out <output file>
 
 # duplicate_finder.pl  calls:
 # vcf_to_gts
 # duplicatesearch (default) or ( -plink ) plink, plnkout2dsout
-# clusterer
+# clusterer.pl
 
 my $field_to_use = 'GT'; # Presently GT is only option, must be present in vcf file.
 # unimplemented alternatives: DS (alternative allele dosage e.g. 2), AD (allele depths, e.g.'136:25' ).
 
 my $vcf_filename = undef;
 my $ref_filename = undef;
-#my $genotypes_filename = undef; # default: construct from input filename
 
-my $minGP = 0.0; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
+my $minGP = 0.9; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -alt to construct marker ids from cols 1 and 2.
+
 # my $minGQ = 0;	 # if GQ present, must be >= this. Not implemented.
 # my $delta = 0.1; # if DS present, must be within $delta of an integer. Not implemented
 
@@ -45,13 +45,14 @@ my $plink = 0;
 my $plink_default_max_distance = 0.175;
 
 my $chunk_size = 6; # relevant only to duplicatesearch
-my $rng_seed = -1;  # default duplicatesearch will get seed from clock
-my $max_distance = 'auto'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance
+my $rng_seed = -1;  # default: duplicatesearch will get seed from clock
+my $max_distance = 'auto'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'auto' -> get random sample of dists, use to choose $max_distance.
+# plink calculates all distances, and then we output only those <= $max_distance.
 my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data.
 my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
 my $min_marker_maf = 0.01;
-# plink calculates all distances, and then we output only those <= $max_distance.
-my $info_string = "# command: " . join(" ", @ARGV) . "\n";
+
+print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
 my $distances_filename;
 my $filename_stem;
 
@@ -59,12 +60,12 @@ my $filename_stem;
 my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to choose a reasonable value.
 
 GetOptions(
-	   'input_file|vcf=s' => \$vcf_filename,
+	   'vcf|input_filename=s' => \$vcf_filename,
 	   'output_file=s' => \$filename_stem,
 	   'ref_filename|reference_filename=s' => \$ref_filename,
 
 	   # used by vcf_to_gts:
-	   'GPmin|minGP=f' => \$minGP,
+	   'min_gp|gp_min=f' => \$minGP, 
 	   'alt_marker_ids!' => \$use_alt_marker_ids,
 	   #	   'GQmin=f' => \$minGQ,      # min genotype quality. Not implemented.
 	   #       'delta=f' => \$delta,      # if
@@ -95,8 +96,8 @@ if (!defined $filename_stem) {
   }
 }
 my $genotypes_filename = $filename_stem . "_gts";
-# print STDERR "# genotypes_filename: $genotypes_filename \n";
-print STDERR "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
+# print  "# genotypes_filename: $genotypes_filename \n";
+print  "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
 
 
 if ($plink) {  #####  PLINK  #####
@@ -104,12 +105,12 @@ if ($plink) {  #####  PLINK  #####
   my $plink_out_filename = $genotypes_filename . "_bin";
 
   my $plink_command1 = "plink1.9 --vcf $vcf_filename --double-id --out $filename_stem --vcf-min-gp $minGP ";
-  print STDERR "# plink command 1: $plink_command1\n";
+  print  "# plink command 1: $plink_command1\n";
   system "$plink_command1"; # produces 3 files ending in .bed , .bin , and .fam
   my $plink_command2 = "plink1.9 --bfile $filename_stem --out $filename_stem --distance-matrix ";
   $plink_command2 .= " --maf $min_marker_maf --geno $max_marker_missing_data_fraction --mind $max_accession_missing_data_fraction ";
 
-  print STDERR "# plink command 2: $plink_command2\n";
+  print  "# plink command 2: $plink_command2\n";
   system "$plink_command2"; # produces files with endings .mdist (distance matrix), and .mdist.id (marker ids)
 
   $distances_filename = $filename_stem . ".dists";
@@ -126,10 +127,10 @@ if ($plink) {  #####  PLINK  #####
   my $vcf2gts_command = $bindir . "/vcf_to_gts -input $vcf_filename -pmin $minGP "; # for now uses GT field, can filter on GP
   $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
   $vcf2gts_command .= " -output $genotypes_filename ";
-  print STDERR "# vcf_to_gts command: $vcf2gts_command \n";
-  print STDERR "######### running vcf_to_gts ##########\n";
+  print  "# vcf_to_gts command: $vcf2gts_command \n";
+  print  "######### running vcf_to_gts ##########\n";
   system "$vcf2gts_command";
-  print STDERR "#########   vcf_to_gts done  ##########\n\n";
+  print  "#########   vcf_to_gts done  ##########\n\n";
 
   $distances_filename = $filename_stem . ".dists";
   my $ds_command = $bindir . "/duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
@@ -140,15 +141,15 @@ if ($plink) {  #####  PLINK  #####
   $ds_command .= " -marker_max_missing_data $max_marker_missing_data_fraction ";
   $ds_command .= " -chunk_size $chunk_size -accession_max_missing_data $max_accession_missing_data_fraction ";
   $ds_command .= " -seed $rng_seed " if($rng_seed > 0);
-  print STDERR "# duplicatesearch command: $ds_command\n";
-  print STDERR "######### running duplicatesearch ##########\n";
+  print  "# duplicatesearch command: $ds_command\n";
+  print  "######### running duplicatesearch ##########\n";
   system "$ds_command";
-  print STDERR "#########  duplicatesearch done  ##########\n\n";
+  print  "#########  duplicatesearch done  ##########\n\n";
 }
 
- print STDERR "######### running clusterer ##########\n";
+ print  "######### running clusterer ##########\n";
   my $cluster_filename = $filename_stem . "_clusters";
   my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
-  print STDERR "# clusterer command: $cluster_command\n";
+  print  "# clusterer command: $cluster_command\n";
   system "$cluster_command";
-  print STDERR "#########  clusterer done  ##########\n\n";
+  print  "#########  clusterer done  ##########\n\n";
