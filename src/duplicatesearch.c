@@ -15,7 +15,7 @@
 
 #include "gtset.h"
 
-#define DISTANCE_NORM_FACTOR (0.5) // 
+#define DISTANCE_NORM_FACTOR (0.5) // if 0.5 max possible distance is 1 (if all dosage pairs are 0|2)
 // defaults
 #define DEFAULT_DIPLOID_CHUNK_SIZE 6
 #define DEFAULT_MAX_DISTANCE 0.15

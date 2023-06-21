@@ -17,8 +17,8 @@
 #include "vect.h"
 #include "various.h"
 
-#define INIT_N_ACCESSIONS 1000
-#define INIT_N_MARKERS 1000
+#define INIT_N_ACCESSIONS 10000
+#define INIT_N_MARKERS 10000
 
 // There will be one of these structs for each thread,
 // each thread which will process the markers in the range from first_marker to last_marker
@@ -184,6 +184,7 @@ int main(int argc, char *argv[]){
       exit(EXIT_FAILURE);
     }
   }
+  fprintf(stderr, "### line length %ld \n", (long)strlen(line));
   long n_accessions = accid_count;
 
   // *********************************************************
@@ -217,9 +218,10 @@ int main(int argc, char *argv[]){
   str_of_spaces[2*n_markers] = '\0'; // now a null terminated string, 2*n_markers spaces, followed by null.    
   Vchar** genotypes = (Vchar**)malloc(n_accessions*sizeof(Vchar*));
   for(long i=0; i<n_accessions; i++){
-    genotypes[i] = construct_vchar_from_str(str_of_spaces);
+    genotypes[i] = construct_vchar_from_str(str_of_spaces); 
   }
   free(str_of_spaces);
+  // at this point should have ~ 2*n_markers*n_accessions bytes allocated.
 
   TD* td;   
   fprintf(stdout, "# Using %ld threads.\n", Nthreads);
