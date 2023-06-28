@@ -42,7 +42,7 @@ my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -a
 # my $delta = 0.1; # if DS present, must be within $delta of an integer. Not implemented
 
 my $plink = 0;
-my $use_plnk2ds = 0;
+my $plnk2ds_perl = 0; # 0 -> C, 1 -> perl
 my $plink_default_max_distance = 0.175;
 
 my $chunk_size = 6; # relevant only to duplicatesearch
@@ -116,7 +116,7 @@ if ($plink) {  #####  PLINK  #####
   system "$plink_command2"; # produces files with endings .mdist (distance matrix), and .mdist.id (marker ids)
 
   $distances_filename = $filename_stem . ".dists";
-  if ($use_plnk2ds) {
+  if ($plnk2ds_perl) {
     my $plnk2ds_abs_path = $bindir . "/plnkout2dsout.pl";
     system "$plnk2ds_abs_path  $filename_stem  $distances_filename $max_distance ";
   } else {		       # use C program to convert to ds format

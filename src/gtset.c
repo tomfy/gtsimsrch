@@ -255,12 +255,17 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     the_genotypes_set->marker_ids = marker_ids;
   }else{
     if(the_genotypes_set->marker_ids->size != marker_ids->size){
-      fprintf(stderr, "# data sets have different numbers of markers: %5ld  %5ld. Exiting.\n", the_genotypes_set->marker_ids->size, marker_ids->size);
+      fprintf(stderr, "# Data sets have different numbers of markers: %5ld  %5ld. Exiting.\n", the_genotypes_set->marker_ids->size, marker_ids->size);
       exit(EXIT_FAILURE);
-    }
-    else if(compare_vstrs(marker_ids, the_genotypes_set->marker_ids) != 0){
-      fprintf(stderr, "# sets of marker ids do not agree. Exiting.\n");
-      exit(EXIT_FAILURE);
+    }else{
+      long idx = compare_vstrs(marker_ids, the_genotypes_set->marker_ids);
+      assert(idx >= 0);
+      if(idx < marker_ids->size){ 
+	fprintf(stderr, "# Warning: Set of marker ids does not agree with reference.\n");
+	fprintf(stderr, "# First pair of non-matching ids: %s %s %ld\n", the_genotypes_set->marker_ids->a[idx], marker_ids->a[idx], idx);
+      }else{
+	fprintf(stdout, "# Marker ids agree with reference set.\n");
+      }
     }
     free_vstr(marker_ids);
   }
