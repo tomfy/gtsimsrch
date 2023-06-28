@@ -22,7 +22,7 @@ OBJ3 = $(patsubst %,$(ODIR)/%,$(_OBJ3))
 _OBJ4 = vect.o  vcf_to_gts.o various.o
 OBJ4 = $(patsubst %,$(ODIR)/%,$(_OBJ4))
 
-_OBJ5 = vect.o  pthread_test.o various.o
+_OBJ5 = plnkout_to_dsout.o 
 OBJ5 = $(patsubst %,$(ODIR)/%,$(_OBJ5))
 
 
@@ -41,12 +41,12 @@ find_parents: $(OBJ3)
 vcf_to_gts: $(OBJ4)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
-pthread_test: $(OBJ5)
+plnkout_to_dsout: $(OBJ5)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
 .PHONY: all
 
-all: duplicatesearch pedigree_test find_parents vcf_to_gts pthread_test
+all: duplicatesearch pedigree_test find_parents vcf_to_gts plnkout_to_dsout
 
 .PHONY: clean
 
