@@ -148,14 +148,20 @@ void print_vstr(FILE* fh, Vstr* the_vstr){
   fprintf(fh, "\n");
 }
 
-long compare_vstrs(Vstr* vstr1, Vstr* vstr2){ // return value: -1: different sizes; 0: all strs equal; n>0: there are n pairs of unequal strs.
-  long retval = 0;
+long compare_vstrs(Vstr* vstr1, Vstr* vstr2){
+// return value:
+  // -1: vstr1 and vstr2 are different sizes;
+  // size: all strs equal;
+  // 0<=k<size: k is index of first non-matching pair of strings.
+  
+  long retval;
   if(vstr1->size != vstr2->size){
     retval = -1; 
   }else{
+    retval = vstr1->size;
     for(long i=0; i<vstr1->size; i++){
       if(strcmp(vstr1->a[i], vstr2->a[i]) != 0){
-	retval++;
+	retval = i;
 	break;
       }
     }
