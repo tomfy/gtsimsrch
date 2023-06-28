@@ -42,6 +42,7 @@ my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -a
 # my $delta = 0.1; # if DS present, must be within $delta of an integer. Not implemented
 
 my $plink = 0;
+my $use_plnk2ds = 0;
 my $plink_default_max_distance = 0.175;
 
 my $chunk_size = 6; # relevant only to duplicatesearch
@@ -50,7 +51,8 @@ my $max_distance = 'auto'; # duplicatesearch only calculates distance if quick e
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data.
 my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
-my $min_marker_maf = 0.01;
+my $min_marker_maf = 0.08; # this is a good value for the yam 941 accession set.
+my $full_cluster_out = 1;
 
 print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
 my $distances_filename;
@@ -83,6 +85,7 @@ GetOptions(
 
 	   # used by clusterer:
 	   'cluster_distance=f' => \$cluster_distance,
+	   'full_cluster_output!' => \$full_cluster_out, #
 	  );
 
 # $max_distance = -1 if($max_distance eq 'auto');
@@ -110,18 +113,20 @@ if ($plink) {  #####  PLINK  #####
   my $plink_command2 = "plink1.9 --bfile $filename_stem --out $filename_stem --distance-matrix ";
   $plink_command2 .= " --maf $min_marker_maf --geno $max_marker_missing_data_fraction --mind $max_accession_missing_data_fraction ";
 
-  print  "# plink command 2: $plink_command2\n";
   system "$plink_command2"; # produces files with endings .mdist (distance matrix), and .mdist.id (marker ids)
 
   $distances_filename = $filename_stem . ".dists";
-  my $plnk2ds_abs_path = $bindir . "/plnkout2dsout.pl";
-  system "$plnk2ds_abs_path  $filename_stem  $distances_filename $max_distance ";
+  if ($use_plnk2ds) {
+    my $plnk2ds_abs_path = $bindir . "/plnkout2dsout.pl";
+    system "$plnk2ds_abs_path  $filename_stem  $distances_filename $max_distance ";
+  } else {		       # use C program to convert to ds format
+    my $plnk_to_ds_abs_path = $bindir. "/plnkout_to_dsout ";
+    my $distance_matrix_filename = $filename_stem . ".mdist";
+    my $id_filename = $distance_matrix_filename . ".id";
+    my $output_filename = $filename_stem . ".dists";
+    system "$plnk_to_ds_abs_path  -i $id_filename  -d $distance_matrix_filename  -o $output_filename  -m $max_distance ";
+  }
 
-  # my $cluster_filename_out = $filename_stem . "_clusters";
-  # my $clusterer_abs_path = $bindir . "/clusterer.pl";
-  # print $clusterer_abs_path, "\n";
-  # my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename_out -dcolumn 3 -cluster_d $cluster_distance ";
-  # system "$cluster_command";
 } else {   #####  DUPLICATESEARCH  #####
 
   my $vcf2gts_command = $bindir . "/vcf_to_gts -input $vcf_filename -pmin $minGP "; # for now uses GT field, can filter on GP
@@ -150,6 +155,9 @@ if ($plink) {  #####  PLINK  #####
  print  "######### running clusterer ##########\n";
   my $cluster_filename = $filename_stem . "_clusters";
   my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
-  print  "# clusterer command: $cluster_command\n";
+print  "# clusterer command: $cluster_command\n";
+if(! $full_cluster_out){
+  $cluster_command .= " -nofull ";
+}
   system "$cluster_command";
   print  "#########  clusterer done  ##########\n\n";
