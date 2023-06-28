@@ -374,7 +374,7 @@ long index_of_id_in_vidxid(Vidxid* the_vidxid, char* id){
   long ub = the_vidxid->size - 1;
   long idx_guess = (lb + ub)/2;
   char* id_guess = the_vidxid->a[idx_guess]->id;
-  if(lb > ub) getchar();
+  assert(lb <= ub);
   int icmp;
   while((icmp = strcmp(id_guess, id)) != 0){
     if(ub - lb > 1){
