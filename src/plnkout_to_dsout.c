@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     fprintf(outputstream, "%s  ", argv[i]);
   }fprintf(outputstream, "\n");
 
-  // read in the id file
+  // **********  read in the id file  ************
   long array_size = INIT_ARRAY_SIZE;
   // malloc() is used to dynamically allocate a single large block of memory with the specified size.
   IdPair *id_pairs = malloc(array_size * sizeof(IdPair));
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   char *line = NULL;
   size_t len = 0;
   __ssize_t nread;
-  while (nread = getline(&line, &len, idstream) != -1) // Read each line from the file //-1 is returned when there is no more line to read
+  while (nread = getline(&line, &len, idstream) != -1) // Read each line from the file; -1 is returned when there is no more line to read
     {                                                    // getline reads an entire line from stream, storing the address of the buffer containing the text into *lineptr.
       if (num_ids >= array_size)                       // If the number of pairs exceeds the array size, double the array size
         {
@@ -100,13 +100,14 @@ int main(int argc, char *argv[])
     }
   fprintf(stderr, "# Number of ids read from id file: %ld\n", num_ids);
   fclose(idstream);
+  // **********  done reading id file  *********************
     
   // ***********  read in the distance matrix  *********************
   long num_cols = 0;
   long num_rows = 0;
   long row = 0;
     
-  // read first line and count the number of columns
+  // *****  read first line and count the number of columns  *****
   nread = getline (&line, &len, distmatrixstream);
   num_rows++;
   char *token = strtok(line, " \t\n");
@@ -121,12 +122,12 @@ int main(int argc, char *argv[])
   row++;
   fprintf(stdout, "# Done reading first line of matrix. Number of columns is: %ld\n", col);
   num_cols = col;
-  if(num_cols != num_ids){
+  if(num_cols != num_ids){ // check that the number of columns matches the number of ids.
     fprintf(stderr, "# Number of cols in matrix (%ld) not equal to number of ids (%ld). Bye.\n", num_cols, num_ids);
     exit(EXIT_FAILURE);
   }
   
-  // ***********  read the rest of the lines  ***********
+  // ***********  read the rest of the lines  ************
   long num_distances_out = 0;
   while (nread = getline(&line, &len, distmatrixstream) != -1){
       char *token = strtok(line, " \t"); // Split the line by space or tab
@@ -159,10 +160,9 @@ int main(int argc, char *argv[])
       exit(EXIT_FAILURE);
   }else{
     fprintf(stdout, "# Read %ld accession ids and distance matrix with %ld columns and %ld rows.\n", num_ids, num_cols, num_rows);
-    fprintf(stdout, "# Output %ld accession pairs with distance < %7.5lf\n", num_distances_out, max_distance);
+    fprintf(stdout, "# Output %ld accession pairs with distance <= %7.5lf\n", num_distances_out, max_distance);
   }
   
-
   // free the memory
   free(id_pairs);
   fclose(distmatrixstream);
