@@ -149,7 +149,21 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
     $count_cluster_accessions += $cluster_size;
     my %thisclusterids = map(($_ => 1), @$accs);
 
-    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds) = cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance);
+    
+    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds) =
+#	, $dubious_edges, $dubious_ids) 
+      cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance);
+
+    # if (0) {
+    #   for my $e (keys %$dubious_edges) {
+    # 	$the_graph->delete_edge(split(" ", $e));
+    #   }
+    #   for my $an_id (keys %$dubious_ids) {
+    # 	$the_graph->delete_vertex($an_id);
+    #   }
+    #   ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds, $dubious_edges, $dubious_ids) = cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance);
+    # }
+
     my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt);
     if (defined $id_gts) {
       my $consensus_dosages = cluster_consensus_dosages($accs, $id_gts); # array ref holding the consensus dosages for this cluster
@@ -167,8 +181,13 @@ my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_cons
     
     my $output_line_string = '';
     if ($full_output) {
-      my @iddegds = map( sprintf("%s %1d %7.5f", $_->[0], $_->[1], $_->[2]), @$out_iddegds);
+      my @iddegds = map( sprintf("%s %1d %7.5f  ", $_->[0], $_->[1],
+				 # $_->[2],
+				 $_->[3]), @$out_iddegds);
       $output_line_string = join("  ", @iddegds);
+    }else{
+      my @ids = map( sprintf("%s  ", $_->[0]), @$out_iddegds);
+      $output_line_string = join("  ", @ids);
     }
     $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d %4d %4d   %s\n ",
 				  $cluster_size, $cluster_min_d, $cluster_avg_d, $cluster_max_d, $cluster_noncluster_gap,
@@ -357,46 +376,79 @@ sub cluster_quality1{
   my $sum_of_degrees = 0;
   my $cluster_edge_count = 0;
   my %id_maxd = map {$_ => -1} @sorted_clusterids;
-  my %dubiousids = (); # keys: ids of cluster members with few links to other cluster members.
+  my %id_sumdsq = map  {$_ => 0} @sorted_clusterids;
+#  my $F = 0.2;
+#  my $dubious_edges = {};
+  my %id_degree = ();
+#  my %id_dists = map {$_ => []} @sorted_clusterids;
+#  my $dubious_ids = {}; # keys: ids of cluster members with few links to other cluster members.
+#  my $dubious;
   while (my($i, $v) = each @sorted_clusterids) { # loop over every pair of ids in the cluster.
-    my $degree = $graph->degree($v);
-    if($degree < 0.1*($cluster_size-1)){
-      $dubiousids{$v} = 1;
-    }else{
+    my $degree = $graph->degree($v); # degree of $v (=number of other nodes at dist <= $link_max_distance
+    $id_degree{$v} = $degree;
+    my $present_distance_count = 0;
+  #   if($degree < $F*($cluster_size-1)){
+  #     $dubious_ids->{$v} = 1;
+  #     $dubious = 1;
+  #   }
+  #   else{
+  #     $dubious = 0;
+  # }
     my ($minw, $maxw) = (10000, -1);
     
     for (my $j=$i+1; $j<scalar @sorted_clusterids; $j++) {
       my $u = $sorted_clusterids[$j];
-      next if(exists $dubiousids{$u});
+    #  next if(exists $dubious_ids{$u});
       if ($u eq $v) {
+	next;
 	warn "# $u $v  Why are they the same?\n";
 	next;
       }
       my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
+      # if($dubious || $graph->degree($u) < $F*($cluster_size-1)){
+      # 	printf("dubious: %s\n", $edge_verts) if(!exists $dubious_edges->{$edge_verts});
+      # 	$dubious_edges->{$edge_verts} = 1;
+      # 	$dubious_ids->{$u} = 1;
+      # }
       my $weight = $edge_weight->{$edge_verts} // -1;
       if ($weight == -1) {
 	$missing_distance_count++; # just counts pairs in cluster with distance not found
       } else {
+	$present_distance_count++;
 	$minw = $weight if($weight < $minw);
 	$maxw = $weight if($weight > $maxw);
 	$id_maxd{$v} = max($id_maxd{$v}, $weight);
 	$id_maxd{$u} = max($id_maxd{$u}, $weight);
+	$id_sumdsq{$v} += $weight*$weight;
+	$id_sumdsq{$u} += $weight*$weight;
+
+#	push @{$id_dists{$v}}, $weight;
+#	push @{$id_dists{$u}}, $weight;
 	$cluster_sum_d += $weight;
 	$cluster_edge_count++;
 	$intracluster_far_pair_count++ if($weight > $link_max_distance); # count intra-cluster pairs with distance > $link_max_distance
       }
-    }
+    } # loop over $u (only those with indices > $i)
     $cluster_min_d = $minw if($minw < $cluster_min_d);
     $cluster_max_d = $maxw if($maxw > $cluster_max_d);
     $output_line_string .= "$v ";
    # my $degree = $graph->degree($v);
     $sum_of_degrees += $degree;
     $output_line_string .= "$degree  "; # add number of edges joining cluster member to other cluster members.
-    push @output_id_degree_maxds, [$v, $degree, $id_maxd{$v}]; # $clusterid_dist2consensus->{$v}];
+  #  printf("%d\n", scalar @{$id_dists{$v}});
+ #   push @output_id_degree_maxds, [$v, $degree, $id_maxd{$v}]; # $clusterid_dist2consensus->{$v}];
+  #}
+  } # loop over $v
+  while(my($id, $degree) = each %id_degree){
+    
+    my $rms_dist = sqrt($id_sumdsq{$id}/($cluster_size-1));
+   #    printf("id: %s  maxdist: %8.5f  rmsdist: %8.5f \n", $id, $id_maxd{$id}, $rms_dist);
+    push @output_id_degree_maxds, [$id, $degree, $id_maxd{$id}, $rms_dist];
   }
-  }
+  
   @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
-  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds);
+  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds)
+    #, $dubious_edges, $dubious_ids);
 }
 
 sub cluster_quality2{
@@ -647,3 +699,92 @@ sub least_noncluster_distance{	# call once for each cluster,
   return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count);
 }
 
+
+
+#####################
+sub cluster_quality1x{  # version which identifies 'dubious' ids/edges - so they can be pruned from clusters if desired.
+  my $accs = shift;		# array ref of ids of cluster members
+  my $edge_weight = shift; # hashref; keys: order id pairs, values: weights (distances)
+  my $graph = shift;
+  my $link_max_distance = shift;
+  my $output_line_string = '';
+  my @output_id_degree_maxds = ();
+  my @sorted_clusterids = sort {$a cmp $b} @$accs; # sort the accession ids in the cluster
+  my $cluster_size = scalar @sorted_clusterids;
+  my ($cluster_min_d, $cluster_max_d, $cluster_sum_d, $missing_distance_count, $intracluster_far_pair_count) = (10000, -1, 0, 0, 0);
+  my $sum_of_degrees = 0;
+  my $cluster_edge_count = 0;
+  my %id_maxd = map {$_ => -1} @sorted_clusterids;
+  my %id_sumdsq = map  {$_ => 0} @sorted_clusterids;
+  my $F = 0.2;
+  my $dubious_edges = {};
+  my %id_degree = ();
+#  my %id_dists = map {$_ => []} @sorted_clusterids;
+  my $dubious_ids = {}; # keys: ids of cluster members with few links to other cluster members.
+  my $dubious;
+  while (my($i, $v) = each @sorted_clusterids) { # loop over every pair of ids in the cluster.
+    my $degree = $graph->degree($v); # degree of $v (=number of other nodes at dist <= $link_max_distance
+    $id_degree{$v} = $degree;
+    my $present_distance_count = 0;
+    if($degree < $F*($cluster_size-1)){
+      $dubious_ids->{$v} = 1;
+      $dubious = 1;
+    }
+    else{
+      $dubious = 0;
+  }
+    my ($minw, $maxw) = (10000, -1);
+    
+    for (my $j=$i+1; $j<scalar @sorted_clusterids; $j++) {
+      my $u = $sorted_clusterids[$j];
+    #  next if(exists $dubious_ids{$u});
+      if ($u eq $v) {
+	next;
+	warn "# $u $v  Why are they the same?\n";
+	next;
+      }
+      my $edge_verts = ($v lt $u)? "$v $u" : "$u $v";
+      if($dubious || $graph->degree($u) < $F*($cluster_size-1)){
+	printf("dubious: %s\n", $edge_verts) if(!exists $dubious_edges->{$edge_verts});
+	$dubious_edges->{$edge_verts} = 1;
+	$dubious_ids->{$u} = 1;
+      }
+      my $weight = $edge_weight->{$edge_verts} // -1;
+      if ($weight == -1) {
+	$missing_distance_count++; # just counts pairs in cluster with distance not found
+      } else {
+	$present_distance_count++;
+	$minw = $weight if($weight < $minw);
+	$maxw = $weight if($weight > $maxw);
+	$id_maxd{$v} = max($id_maxd{$v}, $weight);
+	$id_maxd{$u} = max($id_maxd{$u}, $weight);
+	$id_sumdsq{$v} += $weight*$weight;
+	$id_sumdsq{$u} += $weight*$weight;
+
+#	push @{$id_dists{$v}}, $weight;
+#	push @{$id_dists{$u}}, $weight;
+	$cluster_sum_d += $weight;
+	$cluster_edge_count++;
+	$intracluster_far_pair_count++ if($weight > $link_max_distance); # count intra-cluster pairs with distance > $link_max_distance
+      }
+    } # loop over $u (only those with indices > $i)
+    $cluster_min_d = $minw if($minw < $cluster_min_d);
+    $cluster_max_d = $maxw if($maxw > $cluster_max_d);
+    $output_line_string .= "$v ";
+   # my $degree = $graph->degree($v);
+    $sum_of_degrees += $degree;
+    $output_line_string .= "$degree  "; # add number of edges joining cluster member to other cluster members.
+  #  printf("%d\n", scalar @{$id_dists{$v}});
+ #   push @output_id_degree_maxds, [$v, $degree, $id_maxd{$v}]; # $clusterid_dist2consensus->{$v}];
+  #}
+  } # loop over $v
+  while(my($id, $degree) = each %id_degree){
+    
+    my $rms_dist = sqrt($id_sumdsq{$id}/($cluster_size-1));
+   #    printf("id: %s  maxdist: %8.5f  rmsdist: %8.5f \n", $id, $id_maxd{$id}, $rms_dist);
+    push @output_id_degree_maxds, [$id, $degree, $id_maxd{$id}, $rms_dist];
+  }
+  
+  @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
+  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds, $dubious_edges, $dubious_ids);
+}
