@@ -6,7 +6,7 @@ use Getopt::Long;
 
 my $input_filename = undef;
 my $output_filename = 'bt.out';
-my $the_col = 18;	# unit-based
+my $the_col = 18;	# column to sort on (unit-based)
 my $verbose = 0;
 my $max_solns_out = 2;
 

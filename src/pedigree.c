@@ -17,7 +17,6 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
   the_pedigree->M = Mparent;
   the_pedigree->A = Acc;
   the_pedigree->pedigree_stats = NULL;
-  //  fprintf(stderr, "# in construct_pedigree, just before return.\n");
   return the_pedigree;
 }
 
@@ -1277,6 +1276,7 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
     long not_in_genotypes_set_count = 0;
     long no_parent_ids_count = 0;
   Vpedigree* pedigrees = construct_vpedigree(1000);
+  //fprintf(stderr, "# pedigrees, cap and size: %ld %ld\n", pedigrees->capacity, pedigrees->size);
   while((nread = getline(&line, &len, p_stream)) != -1){
     Vstr* fields = construct_vstr(3);
     char* token = strtok_r(line, "\t \n\r", &saveptr);
@@ -1291,17 +1291,21 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
     char* acc_id = ith_str_from_vstr(fields, 0); // ith_str ... copies the string, i.e. allocates more memory
     char* fempar_id = ith_str_from_vstr(fields, 1);
     char* malpar_id = ith_str_from_vstr(fields, 2);
-    // fprintf(stderr, "### %s %s %s \n", acc_id, fempar_id, malpar_id);
+    //fprintf(stderr, "### %s %s %s \n", acc_id, fempar_id, malpar_id);
   
     long acc_idx, fempar_idx, malpar_idx;
   
     if(strcmp(acc_id, "NA") != 0){  // progeny id is not "NA" and is present in genotypes data set
       acc_idx = index_of_id_in_vidxid(the_vidxid, acc_id);
+      //fprintf(stderr, "# acc_idx: %ld\n", acc_idx);
       if(acc_idx == ID_NA_INDEX){
 	not_in_genotypes_set_count++;
       }else{ 
 	fempar_idx = index_of_id_in_vidxid(the_vidxid, fempar_id);
+	//fprintf(stderr, "# fem_idx: %ld\n", fempar_idx);
 	malpar_idx = index_of_id_in_vidxid(the_vidxid, malpar_id);
+	 
+	// fprintf(stderr, "# mal_idx: %ld\n", malpar_idx);
       
 	if( (fempar_idx != ID_NA_INDEX) || (malpar_idx != ID_NA_INDEX) ){ // pedigree file has a valid id for at least 1 parent
 	  Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
@@ -1309,8 +1313,10 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
 	  Accession* Mpar = (malpar_idx != ID_NA_INDEX)? the_gtsset->accessions->a[malpar_idx] : NULL; // id->index;
 	  //	fprintf(stderr, "# %p %p %p \n", Acc, Fpar, Mpar);
 	  Pedigree* a_pedigree = construct_pedigree(Acc, Fpar, Mpar);
-	  //	fprintf(stderr, "## added %s %s %s  to pedigree\n", Acc->id->a, Fpar->id->a, Mpar->id->a);
+	  // fprintf(stderr, "## added %s %s %s  to pedigree\n", Acc->id->a, Fpar->id->a, Mpar->id->a);
+	  // fprintf(stderr, "## pedigrees, cap and size: %ld %ld\n", pedigrees->capacity, pedigrees->size);
 	  push_to_vpedigree(pedigrees, a_pedigree);
+	  // fprintf(stderr, "# AAA\n");
 	}else{
 	  no_parent_ids_count++;
 	}
@@ -1318,7 +1324,9 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
     }else{
       prog_id_NA_count++;
     }
+    //fprintf(stderr, "# AAB\n");
     free_vstr(fields);
+    //fprintf(stderr, "# AAC\n");
   } // done reading all lines
   fprintf(stderr, "# pedigrees with NA for progeny id: %ld\n", prog_id_NA_count);
   fprintf(stderr, "# pedigrees with both parent ids NA or not in genotypes set: %ld\n", no_parent_ids_count);
@@ -1397,6 +1405,7 @@ Vpedigree* construct_vpedigree(long cap){
   the_vped->capacity = cap;
   the_vped->size = 0;
   the_vped->a = (Pedigree**)malloc(the_vped->capacity*sizeof(Pedigree*));
+  return the_vped;
 }
   
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped){
