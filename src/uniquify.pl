@@ -3,18 +3,28 @@ use strict;
 use Getopt::Long;
 use List::Util qw(min max sum shuffle);
 use File::Spec;
+use File::Basename 'dirname';
+use List::Util qw 'min max sum';
 
-# runs duplicatesearch, then agmr_cluster, and outputs a file
+
+use Cwd 'abs_path';
+my $bindir;
+BEGIN {     # this has to go in Begin block so happens at compile time
+  $bindir =
+    dirname( abs_path(__FILE__) ) ; # the directory containing this script
+}
+
+# runs duplicatesearch, then clusterer, and outputs a file
 # with the same format as duplicatesearch input, but now with just one
 # line representing each cluster.
 
 my $input_dosages_filename = undef;
 #my $do_remove_bad_accessions = shift // m
 my $max_acc_missing_data_fraction = 0.5;
-my $max_marker_missing_data_fraction = undef;
+my $max_marker_missing_data_fraction = 0.25;
 my $output_dosages_filename = undef;
-my $max_agmr = 0.15;
-my $cluster_max_agmr = 'auto';
+my $max_distance = 0.15;
+my $cluster_max_distance = 'auto';
 my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
 my $vote = 0;
 
@@ -23,8 +33,8 @@ GetOptions(
 	   'output_file=s' => \$output_dosages_filename,
 	   'acc_max_md_fraction=f' => \$max_acc_missing_data_fraction,
 	   'marker_max_md_fraction=f' => \$max_marker_missing_data_fraction,
-	   'agmr_max=f' => \$max_agmr,
-	   'cluster_max_agmr=s' => \$cluster_max_agmr,
+	   'distance_max=f' => \$max_distance,
+	   'cluster_max_distance=s' => \$cluster_max_distance,
 	   'fraction=f' => \$cluster_fraction,
 	   'vote!' => \$vote,
 	  );
@@ -79,14 +89,15 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 #   print "# $n_bad_accessions accessions eliminated due to excessive missing data (>" ,
 #     int($max_acc_missing_data_fraction*100 + 0.5), "\%)\n";
 # } else {
-system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
+# system "~/gtsimsrch/src/bad_accessions_begone.pl -i $input_dosages_filename -o $cleaned_dosages_filename -m $max_acc_missing_data_fraction";
 # }
 
 print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
-my $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename -e $max_agmr ";
-$duplicatesearch_command .= "-marker_max_md_fraction $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
+my $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename -e $max_distance ";
+$duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
+$duplicatesearch_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
 
 ###############################################################################
 
@@ -95,14 +106,16 @@ $duplicatesearch_command .= "-marker_max_md_fraction $max_marker_missing_data_fr
 system "$duplicatesearch_command";
 ###############################################################################
 
-
-####   Run agmr_cluster to get clusters of near-identical genotypes   #########
-system "agmr_cluster -in duplicatesearch.out -out agmr_cluster.out -cluster $cluster_max_agmr ";
+my $cluster_command = $bindir . "/clusterer.pl " . " -in duplicatesearch.out -out cluster.out ";
+  $cluster_command .= " -cluster $cluster_max_distance  -nofull ";
+print $cluster_command, "\n";
+#exit();
+system $cluster_command;
 ###############################################################################
 
 
 ####  Store ids of cluster accessions in    ###################################
-open my $fh_clusters, "<", "agmr_cluster.out";
+open my $fh_clusters, "<", "cluster.out";
 my %clusterids = ();
 
 while (my $line = <$fh_clusters>) { # each line is one cluster
@@ -151,7 +164,7 @@ print STDERR "after storing dosages\n";
 
 my @duplicate_lines = ();
 ####   Cluster members vote on correct genotypes   ############################
-open  $fh_clusters, "<", "agmr_cluster.out";
+open  $fh_clusters, "<", "cluster.out";
 if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then output just representative id with 'elected' dosages. 
   while (my $line = <$fh_clusters>) { # each line is one cluster
     next if($line =~ /^\s*#/);
@@ -173,19 +186,27 @@ if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then outpu
 } else { # output representative, and fraction $cluster_fraction of other cluster members
   while (my $line = <$fh_clusters>) { # each line is one cluster
     next if($line =~ /^\s*#/);
+   
     my @cols = split(" ", $line);
+    # print join("  ", @cols), "\n";
+    next if(scalar @cols  < 10);
     my $cluster_size = shift @cols;
     my $min_d = shift @cols;
+    my $avg_d = shift @cols;
     my $max_d = shift @cols;
-    my $n_bad = shift @cols;
+    my $min_intraextra_d = shift @cols;
+    my $n_near1 = shift @cols;
+    my $n_near2 = shift @cols;
+    my $n_big_intra_d = shift @cols;
+    my $n_missing_dist = shift @cols;
     my $rep_id = shift @cols; # id of the representative of the cluster
-
+    # print "rep_id: $rep_id\n";
     #  print STDERR "done storing cluster of size $cluster_size \n";
     # print STDERR "before vote\n";
     #my $elected_gts = vote(\@cols, \%id_gts);
     #print STDERR "Done with cluster vote. size of elected_gts: ", scalar @$elected_gts, "\n";
     #  print STDERR "done with cluster vote \n";
-    print $fhout "$rep_id  ", join(" ", @{$id_gts{$rep_id}}) , "\n"; # output representative and its dosages.
+    print $fhout "$rep_id  ", join(" ", @{$id_gts{$rep_id}}), "\n"; # output representative and its dosages.
     for my $an_id (@cols) {
      # if (rand() < $cluster_fraction) {
      # print $fhout

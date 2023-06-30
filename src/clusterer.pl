@@ -57,7 +57,7 @@ my $missing_data_char = 'X';
   my $d_column = 3; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
-  my $full_output = 1; # if '-nofull' will not output the cluster ids, etc.
+  my $full_output = 1; # if '-nofull' will not output the degrees, etc for each cluster member, etc.
   my $prune_factor = 0.2; # if cluster member has edges to < this fraction of other cluster members, delete it.
 
   my $min_minextra_maxintra_ratio = -1; # can use this to only output clusters whose
