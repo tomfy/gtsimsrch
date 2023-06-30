@@ -446,7 +446,7 @@ sub find_cluster_at_left{
     }
   #  print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
   } # end of loop over possible L cluster sizes.
-  print STDERR "# start_peak, end_peak: $start_peak, $end_peak \n";
+  # print STDERR "# start_peak, end_peak: $start_peak, $end_peak \n";
 #  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
 #  print "maxQ: $maxQ \n";
 my $H_mid_half_max = -1;
@@ -494,7 +494,7 @@ $Qsum += $nlhqs[$i]->[2];
     }
   }
   my $Qavg_opt = $Qsum_opt/($N+1);
-  print STDERR "### $mid_opt  $Qsum_opt \n";
+  # print STDERR "### $mid_opt  $Qsum_opt \n";
   return ($optH, $maxQ, $nlhqs[$mid_opt]->[1], $Qavg_opt, $Ledge, $Redge); # $H_mid_half_max);
 }
 
