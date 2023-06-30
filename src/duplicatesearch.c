@@ -334,7 +334,11 @@ main(int argc, char *argv[])
   if(max_marker_missing_data_fraction < 0) max_marker_missing_data_fraction = 1.5/chunk_size;
   fprintf(rparam_stream, "# Max. marker missing data fraction: %5.3lf\n", max_marker_missing_data_fraction);
   fprintf(rparam_stream, "# Max. accession missing data fraction: %5.3lf\n", max_accession_missing_data_fraction);
-  fprintf(rparam_stream, "# Max. estimated distance: %5.3lf\n", max_est_dist);
+  if(max_est_dist > 0){
+    fprintf(rparam_stream, "# Max. estimated distance: %5.3lf\n", max_est_dist);
+  }else{
+    fprintf(rparam_stream, "# Max. estimated distance will be set automatically.\n");
+  }
   fclose(rparam_stream);
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
@@ -396,7 +400,8 @@ main(int argc, char *argv[])
     long max_dist_idx = (long)((n_ds_to_get/n_ds_all)*distance_random_sample_size);
     if (max_dist_idx >= sorted_rand_distances->size) max_dist_idx = sorted_rand_distances->size-1;
     max_est_dist = sorted_rand_distances->a[max_dist_idx];
-    fprintf(stdout, "# max_est_dist: %f\n", max_est_dist);
+    fprintf(stdout, "# Max. estimated distance: %8.5f\n", max_est_dist);
+    fprintf(out_stream, "# Max. estimated distance: %8.5f\n", max_est_dist);
     free_vdouble(sorted_rand_distances);
   }
   double t_after_drs = clock_time(clock1);
