@@ -95,7 +95,7 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
-my $duplicatesearch_command = "duplicatesearch  -i $cleaned_dosages_filename -e $max_distance ";
+my $duplicatesearch_command = "duplicatesearch  -i $input_dosages_filename -e $max_distance ";
 $duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
 $duplicatesearch_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
 
@@ -138,7 +138,7 @@ close $fh_clusters;
 print STDERR "before storing dosages\n";
 
 # store individual lines of dosage file in hash
-open my $fh_dosages, "<", "$cleaned_dosages_filename";
+open my $fh_dosages, "<", "$input_dosages_filename";
 open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
 
 # store ids and genotypes of clusters (size >= 2), and output singletons.
