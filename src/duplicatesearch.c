@@ -398,7 +398,9 @@ main(int argc, char *argv[])
     Vdouble* sorted_rand_distances = sort_vdouble(rand_distances);
     double n_ds_all = 0.5*(n_accessions - the_genotypes_set->n_ref_accessions)*(n_accessions + the_genotypes_set->n_ref_accessions - 1);
     long max_dist_idx = (long)((n_ds_to_get/n_ds_all)*distance_random_sample_size);
+    fprintf(stderr, "# %ld  %ld  %ld\n", n_ds_to_get, distance_random_sample_size, (long)n_ds_all);
     if (max_dist_idx >= sorted_rand_distances->size) max_dist_idx = sorted_rand_distances->size-1;
+    fprintf(stderr, "# %ld %ld \n", max_dist_idx, sorted_rand_distances->size);
     max_est_dist = sorted_rand_distances->a[max_dist_idx];
     fprintf(stdout, "# Max. estimated distance: %8.5f\n", max_est_dist);
     fprintf(out_stream, "# Max. estimated distance: %8.5f\n", max_est_dist);
@@ -705,8 +707,9 @@ ND distance(Accession* acc1, Accession* acc2){
     if(a1 != MISSING_DATA_CHAR){
       if(a2 != MISSING_DATA_CHAR){
 	denom++;
-	if(a1 != a2) //numer++;
-	  numer += abs(a1 - a2);
+	if(a1 != a2)
+	  //  numer++;
+	numer += abs(a1 - a2);
       }
     }
   }
@@ -729,6 +732,7 @@ Vdouble* distances_random_sample(GenotypesSet* the_gtset, long n){
 	ND dnd = distance(accessions->a[iq], accessions->a[ia]);
 	if(dnd.d > 0){
 	  push_to_vdouble(distances, DISTANCE_NORM_FACTOR*(double)dnd.n/dnd.d);
+	  //	  fprintf(stderr, "%ld %ld %8.5f\n", iq, ia, DISTANCE_NORM_FACTOR*(double)dnd.n/dnd.d);
 	  break;
 	}
       }
