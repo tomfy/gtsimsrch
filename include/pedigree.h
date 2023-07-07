@@ -7,7 +7,7 @@ typedef struct{
   ND par2_R;
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
   ND d;
-  ND pseudo_hgmr;
+  // ND pseudo_hgmr;
   ND xhgmr1;
   ND xhgmr2;
   ND d_22; // both parents homozyg, delta = 2 

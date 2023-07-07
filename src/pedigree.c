@@ -1106,8 +1106,8 @@ Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy){
   the_ps->par2_R.d = 0;
   //  the_ps->d.n = 0;
   //  the_ps->d.d = 0;
-  the_ps->pseudo_hgmr.n = 0;
-  the_ps->pseudo_hgmr.d = 0;
+  //  the_ps->pseudo_hgmr.n = 0;
+  // the_ps->pseudo_hgmr.d = 0;
   the_ps->xhgmr1.n = 0;
   the_ps->xhgmr1.d = 0;
   the_ps->xhgmr2.n = 0;
