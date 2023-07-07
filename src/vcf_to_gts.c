@@ -70,7 +70,7 @@ int main(int argc, char *argv[]){
      
  
   while (1) {
-    int an_option;
+    int an_option = 0;
     int option_index = 0;
     static struct option long_options[] = {
       {"input",   required_argument, 0,  'i'}, // vcf filename
@@ -82,9 +82,11 @@ int main(int argc, char *argv[]){
       {"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
       {0,         0,                 0,  0 }
     };
-    if(an_option == -1) break;
+   
     an_option = getopt_long_only(argc, argv, "", long_options, &option_index);
+    if(an_option == -1) break;
     //   fprintf(stderr, "# getopt_long retval: %d %c \n", c, c);
+    // fprintf(stderr, "# an_option: %d %c \n", an_option, (char)an_option);
     switch(an_option){
     case 'i':
       input_filename = optarg;
@@ -132,9 +134,26 @@ int main(int argc, char *argv[]){
       exit(EXIT_FAILURE);
     }
     break;
-    } // end of command line processing loop
-  }
+      /*  case '?': */
+      /* printf("? case in command line processing switch.\n"); */
+      /* if ((optopt == 'g') || (optopt == 'x') || (optopt == 'o')) */
+      /* 	fprintf(stderr, "Option -%c requires an argument.\n", optopt); */
+      /* else if (isprint (optopt)) */
+      /* 	fprintf(stderr, "Unknown option `-%c'.\n", optopt); */
+      /* else */
+      /* 	fprintf(stderr, "Unknown option character: %d\n", optopt); */
+      /* exit(EXIT_FAILURE); */
+    default:
+      fprintf(stderr, "# Unknown option %c\n", (char)an_option);
+      exit(EXIT_FAILURE);
+    } // end of switch block
+  } // end of command line processing loop
 
+
+  if(input_filename == NULL){
+    fprintf(stderr, "# No input (vcf) file specified. Exiting.\n");
+    exit(EXIT_FAILURE);
+  }
   out_stream = fopen(output_filename->a, "w");
   if(out_stream == NULL){
     fprintf(stderr, "Failed to open %s for writing.\n", output_filename->a);
