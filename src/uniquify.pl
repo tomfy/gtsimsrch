@@ -22,6 +22,7 @@ my $input_dosages_filename = undef;
 #my $do_remove_bad_accessions = shift // m
 my $max_acc_missing_data_fraction = 0.5;
 my $max_marker_missing_data_fraction = 0.25;
+my $min_maf = 0.08;
 my $output_dosages_filename = undef;
 my $max_distance = 0.15;
 my $cluster_max_distance = 'auto';
@@ -34,6 +35,7 @@ GetOptions(
 	   'acc_max_md_fraction=f' => \$max_acc_missing_data_fraction,
 	   'marker_max_md_fraction=f' => \$max_marker_missing_data_fraction,
 	   'distance_max=f' => \$max_distance,
+	   'min_maf|maf_min=f' => \$min_maf,
 	   'cluster_max_distance=s' => \$cluster_max_distance,
 	   'fraction=f' => \$cluster_fraction,
 	   'vote!' => \$vote,
@@ -97,6 +99,7 @@ print STDERR "dosages file with high-missing data accessions removed: $cleaned_d
 
 my $duplicatesearch_command = "duplicatesearch  -i $input_dosages_filename -e $max_distance ";
 $duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
+$duplicatesearch_command .= " -maf_min $min_maf ";
 $duplicatesearch_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
 
 ###############################################################################
