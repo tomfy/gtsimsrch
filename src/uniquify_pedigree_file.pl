@@ -15,9 +15,9 @@ open my $fhin, "<", "$cluster_file";
 while (my $line = <$fhin>) {
   next if($line =~ /^\s*#/);
   my @cols = split(" ", $line);
-  my $the_repid = $cols[4];
+  my $the_repid = $cols[9];
   $repids{$the_repid} = 1;
-  for my $id (@cols[4..$#cols]) {
+  for my $id (@cols[9..$#cols]) {
     # print STDERR "$id $the_repid\n";
     $clusterids_repid{$id} = $the_repid;
   }
