@@ -25,7 +25,7 @@ main(int argc, char *argv[])
   double t_begin_main = hi_res_time();
 
   
-  double max_marker_missing_data_fraction = 0.2; // default; control this with -x command line option.
+  double max_marker_missing_data_fraction = 0.25; // default; control this with -x command line option.
   double max_accession_missing_data_fraction = 0.5;
   double min_minor_allele_frequency = 0; // 
   char* output_filename = "find_parents.out";
