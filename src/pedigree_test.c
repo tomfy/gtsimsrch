@@ -229,7 +229,7 @@ main(int argc, char *argv[])
 	for(long jj=ii+1; jj<n_acc; jj++){
 	  Accession* A2 = the_genotypes_set->accessions->a[jj];
 	  ND the_xhgmr =
-	    xhgmr(the_genotypes_set, A1, A2, 1);
+	    xhgmr(the_genotypes_set, A1, A2, 0);
 	  //	  ghgmr(the_genotypes_set, A1, A2);
 	  if(1 && the_xhgmr.d > 0){
 	    double dbl_xhgmr = (double)the_xhgmr.n/the_xhgmr.d;
@@ -270,7 +270,7 @@ main(int argc, char *argv[])
     // ***************  Done reading input files  ******************************
 
   
-    const Vlong* parent_idxs = accessions_with_offspring(pedigrees, the_genotypes_set->n_accessions);
+    const Vlong* parent_idxs = accessions_with_offspring(pedigrees); // , the_genotypes_set->n_accessions);
     fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
     fprintf(stdout, "# Cumulative time so far: %6.3f sec.\n", hi_res_time() - t_begin_main);
     

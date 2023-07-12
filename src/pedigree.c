@@ -1164,8 +1164,10 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
   }
     return the_ps;
 }
-const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessions){
-  Vlong* offspring_counts = construct_vlong_zeroes(n_accessions);
+
+// get the indices of all the accessions which, according to the_vped, have offspring.
+const Vlong* accessions_with_offspring(const Vpedigree* the_vped){ // , long n_accessions){
+  Vlong* offspring_counts = construct_vlong_zeroes(the_vped->size);
   for(long i=0; i<the_vped->size; i++){
     const Pedigree* the_ped = the_vped->a[i];
     // fprintf(stderr, "%ld %ld \n", the_ped->F->index, the_ped->Fparent->index);

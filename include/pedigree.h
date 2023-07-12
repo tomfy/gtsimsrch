@@ -55,7 +55,7 @@ void free_pedigree(const Pedigree* the_pedigree);
 Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset);
 Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset); 
 Vpedigree* construct_vpedigree(long cap);
-const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
+const Vlong* accessions_with_offspring(const Vpedigree* the_Vped); //, long n_accessions);
 
 Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
