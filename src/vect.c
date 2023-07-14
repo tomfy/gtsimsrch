@@ -297,8 +297,7 @@ double get_ith_double_from_vdouble(Vdouble* the_vdouble, long i){ // i=-1  ->  l
     the_vdouble->a[the_vdouble->size + i];
   // fprintf(stderr, "i: %ld  x: %f  vdouble->size: %ld \n", i, x, the_vdouble->size-i);
   return x;
-}
-  
+} 
 
 Vdouble* sort_vdouble(Vdouble* the_vdouble){
   qsort(the_vdouble->a, the_vdouble->size, sizeof(double), compare_double);
@@ -428,4 +427,49 @@ void free_vidxid(const Vidxid* the_vidxid){
   }
   free(the_vidxid->a);
   free((Vidxid*)the_vidxid);
+}
+
+//  *****  Vld  *****
+Vld* construct_vld(long init_capacity){
+  Vld* the_vld = (Vld*)malloc(1*sizeof(Vld));
+  the_vld->capacity = init_capacity;
+  the_vld->size = 0;
+  the_vld->a = (Ld**)malloc(init_capacity*sizeof(Ld*));
+  return the_vld;		      
+}
+void push_to_vld(Vld* the_vld, long l, double d){
+  Ld* new_ld = (Ld*)malloc(sizeof(Ld));
+  new_ld->l = l;
+  new_ld->d = d;
+  if(the_vld->size >= the_vld->capacity){
+    the_vld->capacity *= 2;
+    the_vld->a = (Ld**)realloc(the_vld->a, the_vld->capacity*sizeof(Ld*));
+  }
+  the_vld->a[the_vld->size] = new_ld;
+  the_vld->size++;
+}
+
+void sort_vld_by_d(Vld* the_vld){
+  qsort(the_vld->a, the_vld->size, sizeof(Ld*), compare_ld);
+}
+
+int compare_ld(const void* a, const void* b){
+  double d1 = (*((Ld**)a))->d;
+  double d2 = (*((Ld**)b))->d;
+  if(d1 > d2){
+    return 1;
+  }else if(d1 < d2){
+    return -1;
+  }else{
+    return 0;
+  }
+}
+
+void free_vld(Vld* the_vld){
+  if(the_vld == NULL) return;
+  for(long i=0; i<the_vld->size; i++){
+    free(the_vld->a[i]);
+  }
+  free(the_vld->a);
+  free(the_vld);
 }
