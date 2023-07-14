@@ -23,14 +23,14 @@ open my $fhin, "<", "$input_filename" or die "Couldn't open $input_filename for 
 my %accid_solns = ();
 while (my $line = <$fhin>) {
   next if($line =~ /^\s*#/);
-   my @cols = split(" ", $line);
-   my $value = $cols[$the_col]; # will sort on these values.
+  my @cols = split(" ", $line);
+  my $value = $cols[$the_col];	# will sort on these values.
   my $accid = shift @cols;
   my $parents = $cols[0] . " " . $cols[1];
   my $cross_type = ($cols[0] eq $cols[1])? "self" : "bip";
-  my $x = join(" ", @cols);
+  my $x = join(" ", @cols); 
   my $vc = $value . "\t" .  " $x ";
-#  my $vc = [$value, $x];
+  #  my $vc = [$value, $x];
   if (exists $accid_solns{$accid}) {
     push @{$accid_solns{$accid}}, $vc; # "$parents  $value"; 
   } else {
