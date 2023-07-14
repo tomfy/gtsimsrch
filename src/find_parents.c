@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
+#include <getopt.h>
 #include <unistd.h>
 #include <assert.h>
 #include <stdbool.h>
@@ -14,6 +15,9 @@
 int do_checks = 0; // option -c sets this to 1 to do some checks.
 
 double hi_res_time(void);
+
+void print_usage_info(FILE* stream);
+
 
 // **********************************************************************************************
 // ***********************************  main  ***************************************************
@@ -38,7 +42,8 @@ main(int argc, char *argv[])
   //double epsilon = 0.01;
   // ***** process command line *****
   if (argc < 2) {
-    fprintf(stderr, "Usage:  %s -i <dosages_file> [-o <output_filename> -h <max_xhgmr>] \n", argv[0]);
+    fprintf(stderr, "Usage:  %s -in <dosages_file> [-out <output_filename> -xhgmr_max <max_xhgmr>] \n", argv[0]);
+    print_usage_info(stderr);
     exit(EXIT_FAILURE);
   }
 
@@ -46,16 +51,36 @@ main(int argc, char *argv[])
   FILE *g_stream = NULL;
 
   // c: do checks,
-  // i: dosages input filename 
-  // x: max fraction of missing data for markers,
+  // i: dosages input filename
   // o: output filename.
-  // m: min minor allele frequency
+  // x: max fraction of missing data for markers,
+  // f: max fraction of missing data for accessions
+  // a: min minor allele frequency
   // h: max xhgmr for candidate parents
   // p: max_candidate_parents
 
   int c;
-  while((c = getopt(argc, argv, "ci:x:o:m:h:r:D:p:")) != -1){
+  while(1){
+      int option_index = 0;
+      static struct option long_options[] = {
+	{"input",   required_argument, 0,  'i'}, // filename of new data set
+	{"output",  required_argument, 0,  'o'}, // output filename
+	{"marker_max_missing_data", required_argument, 0, 'x'}, // markers with > this fraction missing data will not be used.
+	{"maf_min", required_argument, 0, 'a'}, //
+	{"accession_max_missing_data", required_argument, 0, 'f'},
+	{"candidate_parents_max", required_argument, 0, 'p'},
+	{"xhgmr_max", required_argument, 0, 'H'},
+	{"help", no_argument, 0, 'h'},
+	{0,         0,                 0,  0 }
+      };
+     
+      c = getopt_long_only(argc, argv, "", long_options, &option_index);
+      if(c == -1) break;
     switch(c){
+
+  
+      // while((c = getopt(argc, argv, "ci:x:o:m:h:r:D:p:")) != -1){
+      // switch(c){
 
     case 'c':
       do_checks = 1;
@@ -85,6 +110,17 @@ main(int argc, char *argv[])
 	  printf("# max missing data fraction in markers will be set automatically.\n");
 	}}
       break;
+         case 'f':
+      if(optarg == 0){
+	perror("option f requires a numerical argument > 0\n");
+	exit(EXIT_FAILURE);
+      }else{
+	max_accession_missing_data_fraction = atof(optarg);
+	if (max_marker_missing_data_fraction < 0){
+	  printf("# max missing data fraction in accessions must be >= 0.\n");
+	    exit(EXIT_FAILURE);
+	}}
+      break;
     case 'm': 
       min_minor_allele_frequency = (double)atof(optarg);
       if(min_minor_allele_frequency < 0){
@@ -92,18 +128,18 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       break;
-    case 'h': // xhgmr > this -> poor parent-offspring candidate
-      if(optarg == 0){
-	perror("option h requires a numerical argument > 0\n");
+         case 'H': 
+      max_xhgmr = (double)atof(optarg);
+      if(max_xhgmr < 0){
+	fprintf(stderr, "option H (max_xhgmr) requires an real argument >= 0\n");
 	exit(EXIT_FAILURE);
-      }else{
-	max_xhgmr = atof(optarg);
-	if (max_xhgmr < 0) exit(EXIT_FAILURE);
-	fprintf(stderr, "# max xhgmr: %7.4f\n", max_xhgmr);
       }
       break;
-
-
+       case 'h':
+      print_usage_info(stderr);
+      exit(EXIT_FAILURE);
+      break;
+     
       /* case 'D': // d > this argument means this a is poor candidate triple of parents and offspring */
       /* 	if(optarg == 0){ */
       /* 	  perror("option x requires a numerical argument > 0\n"); */
@@ -362,3 +398,20 @@ double hi_res_time(void){
   return (double)clock()/(double)CLOCKS_PER_SEC;
 }
 
+void print_usage_info(FILE* stream){
+    // c: do checks,
+  // i: dosages input filename 
+  // x: max fraction of missing data for markers,
+  // o: output filename.
+  // m: min minor allele frequency
+  // h: max xhgmr for candidate parents
+  // p: max_candidate_parents
+  fprintf(stream, " -input <filename>               input filename (dosages matrix)\n");
+  fprintf(stream, " -output <filename>              output filename (default: find_parents.out) \n");
+  fprintf(stream, " -marker_max_missing_data <f>    don't use markers with missing data fraction > f\n");
+  fprintf(stream, " -accession_max_missing_data <f> accessions with missing data fraction >f are ignored > f\n");
+  fprintf(stream, " -maf_min <f>                    don't use markers with minor allele frequency < f\n");
+  fprintf(stream, " -xhgmr_max <f>                  candidate parents must have xhgmr <= f\n");
+  fprintf(stream, " -candidate_parents_max <n>      sort candidate parents by xhgmr and use only best n\n");
+  fprintf(stream, " -help                           print this message and exit.\n");
+}
