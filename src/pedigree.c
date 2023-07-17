@@ -1422,6 +1422,28 @@ void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped){
   the_vped->size++;
 }
 
+void sort_vpedigree_by_d(Vpedigree* the_vped){
+  qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigree);
+}
+/* void sort_vld_by_d(Vld* the_vld){ */
+/*   qsort(the_vld->a, the_vld->size, sizeof(Ld*), compare_ld); */
+/* } */
+
+int compare_pedigree(const void* a, const void* b){
+  ND nd1 = (*((Pedigree**)a))->pedigree_stats->d;
+  ND nd2 = (*((Pedigree**)b))->pedigree_stats->d;
+  double d1 = (nd1.d > 0)? (double)nd1.n/nd1.d : 1.0;
+  double d2 = (nd2.d > 0)? (double)nd2.n/nd2.d : 1.0;
+  if(d1 > d2){
+    return 1;
+  }else if(d1 < d2){
+    return -1;
+  }else{
+    return 0;
+  }
+}
+
+
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d){
   long n_parents = parent_idxs->size;
 
@@ -1612,6 +1634,27 @@ long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset){
   return 1;
 }
 
+
+// sorting an array of Pedigree_stats*
+int pscmp(const void* v1, const void* v2){
+  const Pedigree_stats** s1 = (const Pedigree_stats**)v1;
+  const Pedigree_stats** s2 = (const Pedigree_stats**)v2;
+  long denom1 = ((*s1)->d).d;
+  double d1 = (denom1 > 0)? (double)((*s1)->d).n/denom1 : 2.0;
+  long denom2 = ((*s2)->d).d;
+   double d2 = (denom2 > 0)? (double)((*s2)->d).n/denom2 : 2.0;
+  if(d1 < d2){
+    return -1;
+  }else if(d1 > d2){
+    return 1;
+  }else{
+    return 0;
+  }
+}
+
+void sort_pedigree_stats_by_d(Pedigree_stats** the_pss, long size){ // sort in place
+  qsort(the_pss, size, sizeof(Pedigree_stats*), pscmp);
+}
 
 /* void print_pedigree_alternatives(FILE* fh, const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs){ */
 /*   long n_parents = parent_idxs->size; */

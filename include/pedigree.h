@@ -62,6 +62,9 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
 Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d);
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees);
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
+
+void sort_vpedigree_by_d(Vpedigree* the_vped);
+int compare_pedigree(const void* a, const void* b);
 void free_vpedigree(const Vpedigree* the_vped);
 
 // *****  array of Idxhgmr  *****
@@ -88,6 +91,9 @@ long marker_d_counts(Pedigree* the_pedigree,
 		     // char* gts1, char* gts2, char* proggts,
 		     long* d0counts, long* d1counts, long* d2counts);
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
+int pscmp(const void* v1, const void* v2);
+void sort_pedigree_stats_by_d(Pedigree_stats** the_pss, long size); // sort in place
+
 void print_d_r(FILE* fh, ND nd);
 double n_over_d(ND nd);
 
