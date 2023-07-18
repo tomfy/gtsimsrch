@@ -351,9 +351,10 @@ main(int argc, char *argv[])
 	  Pedigree_stats* the_ps = triple_counts( par1->genotypes->a,  par2->genotypes->a, prog->genotypes->a, ploidy );
 	  Pedigree* the_pedigree = construct_pedigree(prog, par1, par2);
 	  the_pedigree->pedigree_stats = the_ps;
-	  if(oldway){
 	    the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog, 0); // do full (not 'quick') xhgmr
 	    the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog, 0); // do full (not 'quick') xhgmr
+	  if(oldway){
+	  
 	    fprintf(o_stream, "%s %s %s  %ld  ", prog->id->a, par1->id->a, par2->id->a, ncandpairs);
 	    print_pedigree_stats(o_stream, the_ps);
 	    long N_22 = the_ps->d_22.n; // n_00_2 + n_22_0
