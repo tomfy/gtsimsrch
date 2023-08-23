@@ -100,17 +100,36 @@ my @col_ids = ();
 my @dosage_distribution = ();
 open my $fhin, "<", "$input_vcf_filename" or die "Couldn't open $input_vcf_filename for reading.\n";
 while (<$fhin>) {
-  my @cols = split(" ", $_);
+  # my @cols = split("\t", $_);
   next if(/^\s*##/);
+  s/\s+$//;
   if (/^\s*#/) {
-    @col_ids = split(" ", $_);
+  #   my $tab_count = () = $_ =~ /\t/gi;
+  #     my $ws_count = () = $_ =~ /\s/gi;
+  # print "tab_count: $tab_count wscount: $ws_count \n";
+ 
+    # my @cs = split(" ", $_);
+    # print "n cs: [", scalar @cs, "]\n";
+    # @cs = @cs[9..$#cs];
+    @col_ids = split("\t", $_);
+    my $n_col_ids = scalar @col_ids;
+  #  printf("n col ids: %d\n", scalar @col_ids);
+   
+
     @col_ids = @col_ids[9..$#col_ids];
+   #  my $number = () = $string =~ /\./gi;
+    while (my($i, $v) = each @col_ids) {
+      my $v =  $col_ids[$i] // '-';
+      $v =~ s/\s+/_/; # replace whitespace with underscore
+      #print "$i  [$v]\n"; # if($vv ne $v); # =~ /\s/);
+     
+    }
     last;
   }
 }
 print $fhout "# number of accession ids: #  ", scalar @col_ids, "\n" if(! $plink_format);
 print STDERR "# number of accession ids: #  ", scalar @col_ids, "\n";
-
+#exit;
 # #####  done reading accession ids  #####
 
 
@@ -133,15 +152,26 @@ while (<$fhin>) {
   my $marker_alt_allele_count = 0;
   my @marker_dosage_distribution = ();
   my @genotypes_this_row = ();
-#  my $row_gts_str = '';
-  my @cols = split(" ", $_);
+  #  my $row_gts_str = '';
+
+ # exit;
+  s/\s*$//; # remove any whitespace at end.
+  my @cols = split("\t", $_);
+  # print "n cols: [",  scalar @cols, "]\n";
+  # while(my($i, $ds) = each @cols){
+  #   print "i, ds: $i [$ds]\n";
+  # }
+  # my @cs = split(" ", $_);
+  # print "n cs: [", scalar @cs, "]\n";
+ #exit;
+  
   my $row_id = $cols[2]; # store row id in file (if these are not distinct, we will use $alt_row_id).
   my $alt_row_id = $cols[0] . "_" . $cols[1]; # construct a marker id from col[0] (chromosome number) and col[1] (position)
   my $chr_number = $cols[0];
   $chr_number =~ s/^chr//;
   my $plink_mapfile_str = "$chr_number\t$alt_row_id\t0\t" . $cols[1];
   #  print STDERR "$plink_mapfile_str\n";
-  print $fhmap "$plink_mapfile_str\n" if($plink_format);
+#  print $fhmap "$plink_mapfile_str\n" if($plink_format);
   my $format_str = $cols[8]; # e.g. 'GT:DS:AD' tells which types of data are present.
   my ($allele_zero, $allele_one) = @cols[3,4]; # e.g. 'A' and 'T' 
 
@@ -149,6 +179,7 @@ while (<$fhin>) {
 
   # record which data fields are present (DS, GT, AD, GP, GQ)
   my @fields = split(':', $format_str);
+ # print "fields: ", join(", ", @fields), "\n";
   my $nfields = scalar @fields;
   my ($DSidx, $GTidx, $ADidx, $GPidx, $GQidx) = fields_present($format_str);
 
@@ -158,12 +189,20 @@ while (<$fhin>) {
   @cols = @cols[9..$#cols];	# cols 9 and above have genotype info.
   # for my $e (@cols) {
   $n_accessions = 0;
+  my @dosages_this_marker = ();
   while (my($acc_idx, $e) = each @cols) {
     my $dosage = $missing_data_string; # indicates missing data
     my $first_allele = undef;	       # 0: ref allele, 1: alt allele.
     #   my $plnk_gt = "0\t0\t"; # this is what plink wants
-    my @field_values = split(":", $e);
-    die if(scalar @field_values != $nfields);
+   # printf("e: %s\n", $e);
+    my @field_values;
+    if(length $e > 0){
+      @field_values = split(":", $e);
+    }else{
+      @field_values = ('');
+    }
+   #   print "field values: [", join(", ", @field_values), "]\n";
+    die if((length $e > 0)  and  scalar @field_values != $nfields);
 
     # #####  if the data field is specified (GT, DS, GT, AD)  #####
     if ($field_to_use eq 'GT') {
@@ -182,12 +221,15 @@ while (<$fhin>) {
     } elsif ($field_to_use eq 'DS') {
       if ($DSidx >= 0) {      # DS; use dosage if present in vcf file.
 	$fieldused_count{'DS'}++;
-	my $float_dosage = $field_values[$DSidx];
-	my $int_dosage = int($float_dosage + 0.5); # round to integer
-	if (abs($float_dosage - $int_dosage) <= $delta) { # float_dosage is close to integer, use
-	  $dosage = $int_dosage;
+	my $fv = $field_values[$DSidx] // '';
+	if (length $fv > 0) {
+	  my $float_dosage = $field_values[$DSidx];
+	  my $int_dosage = int($float_dosage + 0.5); # round to integer
+	  if (abs($float_dosage - $int_dosage) <= $delta) { # float_dosage is close to integer, use
+	    $dosage = $int_dosage;
 
-	}			# else regard as missing data.
+	  }			# else regard as missing data.
+	}
       } else {
 	die "Selected data field 'DS' not present.\n";
       }
@@ -241,18 +283,17 @@ while (<$fhin>) {
       $marker_dosage_distribution[$dosage]++;
       $marker_alt_allele_count += $dosage;
     }
+    push @dosages_this_marker, $dosage;
+    $n_accessions++
+  } 	# end loop over entries in a row
 
-    if ($plink_format) {
-      my $plnk_gt = ($dosage eq $missing_data_string)? "0\t0\t" :
-	($dosage == 0)? "$allele_zero\t$allele_zero\t" :
-	($dosage == 1)? (($first_allele eq '0')? "$allele_zero\t$allele_one\t" : "$allele_one\t$allele_zero\t") :
-	($dosage == 2)? "$allele_one\t$allele_one\t" : "0\t0\t";
-      $accession_gt_strings[$acc_idx] .= $plnk_gt;
-    } else {	      # not plink
-      $accession_gt_strings[$acc_idx] .= "$dosage ";
-    }
-    $n_accessions++;
-  }				# end loop over entries in a row
+  #my $maf = $marker_alt_allele_count / ($ploidy*scalar @dosages_this_marker);
+
+ 
+
+
+ 
+  
   die "Inferred ploidy ($inferred_ploidy) is greater than specified ploidy ($ploidy).\n" if($inferred_ploidy > $ploidy);
   my $marker_total_allele_count = $ploidy*($n_accessions - $marker_missing_data_count);
   my $marker_alt_allele_frequency = $marker_alt_allele_count/$marker_total_allele_count;
@@ -264,11 +305,12 @@ while (<$fhin>) {
 
   die "# n col ids: ", scalar @col_ids, "; n dosages in row: ", $n_accessions, "\n" if($n_accessions != scalar @col_ids);
   my $marker_missing_data_fraction = $marker_missing_data_count/$n_accessions;
-
+ # print STDERR "maf: $marker_minor_allele_frequency  $min_marker_maf \n";
   #  print STDERR "# avg pref gt prob: $avg_pref_gt_prob ;  marker md fraction: $marker_missing_data_fraction  $marker_missing_data_count\n";
   if ($avg_pref_gt_prob >= $min_marker_avg_pref_gt_prob  and
       $marker_missing_data_fraction <= $max_marker_missing_data_fraction and
       $marker_minor_allele_frequency >= $min_marker_maf) { # there is good data for this marker; store and output later.
+   # print STDERR "    maf: $marker_minor_allele_frequency  $min_marker_maf \n";
     push @row_ids, $row_id;	# store row (marker) id
     $rowid{$row_id} = 1; # also store in a hash to see whether all ids are distinct.
     push @alt_row_ids, $alt_row_id;
@@ -280,6 +322,18 @@ while (<$fhin>) {
     }
     $dosage_distribution[$ploidy+1] += $marker_missing_data_count;
     #print STDERR $dosage_distribution[$ploidy+1], ",  $marker_missing_data_count \n";
+
+     while( my ($acc_idx, $the_dosage) = each @dosages_this_marker) {
+      if ($plink_format) {
+	# my $plnk_gt = ($the_dosage eq $missing_data_string)? "0\t0\t" :
+	#   ($the_dosage == 0)? "$allele_zero\t$allele_zero\t" :
+	#   ($the_dosage == 1)? (($first_allele eq '0')? "$allele_zero\t$allele_one\t" : "$allele_one\t$allele_zero\t") :
+	#   ($the_dosage == 2)? "$allele_one\t$allele_one\t" : "0\t0\t";
+	# $accession_gt_strings[$acc_idx] .= $plnk_gt;
+      } else {			# not plink
+	$accession_gt_strings[$acc_idx] .= "$the_dosage ";
+      }
+    }
   }
 
   $markers_read_count++;
