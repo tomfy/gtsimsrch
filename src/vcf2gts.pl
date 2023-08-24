@@ -36,7 +36,6 @@ my $min_marker_avg_pref_gt_prob = -1.0; # default is negative (meaning don't fil
 my $max_marker_missing_data_fraction = 1.0; # remove markers with excessive missing data. Default is keep all.
 my $min_marker_maf = 0;
 my $info_string = "# command: " . join(" ", @ARGV) . "\n";
-my $plink_format = 0;
 
 GetOptions(
 	   'input_file|vcf=s' => \$input_vcf_filename,
@@ -50,7 +49,6 @@ GetOptions(
 	   'min_maf=f' => \$min_marker_maf,
 	   'ploidy=f' => \$ploidy,
 	   'map_to_012!' => \$map_to_012,
-	   'plink!' => \$plink_format,
 	  );
 
 # #####  check for input filename; construct output filename if not specified  #####
@@ -67,14 +65,6 @@ if (!defined $output_genotypes_filename) { # construct an output filename from i
 }
 
 my $output_markerids_filename;
-if ($plink_format) {
-  $output_genotypes_filename =~ s/dosages$//;
-  $output_genotypes_filename =~ s/[.]$//;
-  $output_markerids_filename = $output_genotypes_filename . ".map";
-  $output_genotypes_filename .= ".ped";
-  print STDERR "$output_markerids_filename\n";
-}
-
 
 open my $fhout, ">", "$output_genotypes_filename" or die "Couldn't open $output_genotypes_filename for writing.\n";
 # ##########################################################
@@ -87,7 +77,7 @@ $info_string .= "# delta: $delta ; min read depth: $min_read_depth\n";
 $info_string .= "# GPmin: $minGP ; GQmin: $minGQ\n";
 $info_string .= "# max marker missing data fraction: $max_marker_missing_data_fraction \n";
 # $info_string .= "\n";
-print $fhout $info_string if(! $plink_format);;
+print $fhout $info_string;
 print STDERR $info_string;
 $info_string = '';
 # ##################################################
@@ -127,15 +117,13 @@ while (<$fhin>) {
     last;
   }
 }
-print $fhout "# number of accession ids: #  ", scalar @col_ids, "\n" if(! $plink_format);
+print $fhout "# number of accession ids: #  ", scalar @col_ids, "\n"; # if(! $plink_format);
 print STDERR "# number of accession ids: #  ", scalar @col_ids, "\n";
 #exit;
 # #####  done reading accession ids  #####
 
 
 # #####  read the rows with genotype data  #####
-# print STDERR "plink map filename: $output_markerids_filename \n"; sleep(2);
-open my $fhmap, ">", "$output_markerids_filename" or die "Couldn't open $output_markerids_filename for writing.\n" if($plink_format);
 my @row_ids = ();		# i.e. marker ids
 my @alt_row_ids = ();
 my %rowid = ();
@@ -152,26 +140,15 @@ while (<$fhin>) {
   my $marker_alt_allele_count = 0;
   my @marker_dosage_distribution = ();
   my @genotypes_this_row = ();
-  #  my $row_gts_str = '';
 
- # exit;
   s/\s*$//; # remove any whitespace at end.
   my @cols = split("\t", $_);
-  # print "n cols: [",  scalar @cols, "]\n";
-  # while(my($i, $ds) = each @cols){
-  #   print "i, ds: $i [$ds]\n";
-  # }
-  # my @cs = split(" ", $_);
-  # print "n cs: [", scalar @cs, "]\n";
- #exit;
-  
+
   my $row_id = $cols[2]; # store row id in file (if these are not distinct, we will use $alt_row_id).
   my $alt_row_id = $cols[0] . "_" . $cols[1]; # construct a marker id from col[0] (chromosome number) and col[1] (position)
   my $chr_number = $cols[0];
   $chr_number =~ s/^chr//;
-  my $plink_mapfile_str = "$chr_number\t$alt_row_id\t0\t" . $cols[1];
-  #  print STDERR "$plink_mapfile_str\n";
-#  print $fhmap "$plink_mapfile_str\n" if($plink_format);
+
   my $format_str = $cols[8]; # e.g. 'GT:DS:AD' tells which types of data are present.
   my ($allele_zero, $allele_one) = @cols[3,4]; # e.g. 'A' and 'T' 
 
@@ -193,8 +170,7 @@ while (<$fhin>) {
   while (my($acc_idx, $e) = each @cols) {
     my $dosage = $missing_data_string; # indicates missing data
     my $first_allele = undef;	       # 0: ref allele, 1: alt allele.
-    #   my $plnk_gt = "0\t0\t"; # this is what plink wants
-   # printf("e: %s\n", $e);
+
     my @field_values;
     if(length $e > 0){
       @field_values = split(":", $e);
@@ -324,15 +300,7 @@ while (<$fhin>) {
     #print STDERR $dosage_distribution[$ploidy+1], ",  $marker_missing_data_count \n";
 
      while( my ($acc_idx, $the_dosage) = each @dosages_this_marker) {
-      if ($plink_format) {
-	# my $plnk_gt = ($the_dosage eq $missing_data_string)? "0\t0\t" :
-	#   ($the_dosage == 0)? "$allele_zero\t$allele_zero\t" :
-	#   ($the_dosage == 1)? (($first_allele eq '0')? "$allele_zero\t$allele_one\t" : "$allele_one\t$allele_zero\t") :
-	#   ($the_dosage == 2)? "$allele_one\t$allele_one\t" : "0\t0\t";
-	# $accession_gt_strings[$acc_idx] .= $plnk_gt;
-      } else {			# not plink
 	$accession_gt_strings[$acc_idx] .= "$the_dosage ";
-      }
     }
   }
 
@@ -340,7 +308,6 @@ while (<$fhin>) {
   print STDERR "# $markers_read_count lines of marker data read. \n" if($markers_read_count % 200 == 0);
 }				# end loop over rows
 close $fhin;
-close $fhmap if($plink_format);
 $info_string .= "# Done processing all $markers_read_count rows (markers).\n";
 $info_string .= "# ", scalar @row_ids . " rows stored to be output.\n";
 $info_string .= "# Data format: count.  ";
@@ -348,7 +315,7 @@ while (my($f, $c) = each %fieldused_count) {
   $info_string .= "$f: $c;  ";
 }
 $info_string .= "\n";
-print $fhout $info_string if(! $plink_format);
+print $fhout $info_string;
 print STDERR $info_string;
 
 # #####  output  #####
@@ -377,26 +344,18 @@ for my $i (0..$ploidy) {
 }
 $info_string .= sprintf("# missing data %8d   %8.6f\n", $dosage_distribution[$ploidy+1], $dosage_distribution[$ploidy+1]/$n_elements);
 print STDERR $info_string;
-print $fhout $info_string if(! $plink_format);
+print $fhout $info_string; # if(! $plink_format);
 
 # #####  print the output dosages  #####
 # transposed
-if (! $plink_format) {
   print $fhout "MARKER ", join(" ", @row_ids_out), "\n";
-}
+
 while (my ($i, $col_id) = each @col_ids) {
-  # print col i (gts of ith accession) as a row
-  if ($plink_format) {
-    print $fhout "$col_id\t$col_id\t";
-    print $fhout "0\t0\t0\t0\t"; # vcftools always puts these 4 zeroes - not sure why or whether necessary
-  } else {
     print $fhout "$col_id ";
-  }
-  if (1 or $plink_format) {
     my $gtstr = $accession_gt_strings[$i];
     $gtstr =~ s/\t\s*$//;
     print $fhout "$gtstr\n";
-  }
+
 }
 close $fhout;
 
