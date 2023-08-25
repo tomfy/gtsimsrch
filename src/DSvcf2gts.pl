@@ -48,7 +48,7 @@ GetOptions(
 	   'delta=f' => \$delta, 
 	  # 'min_read_depth=f' => \$min_read_depth,
 	   'max_marker_md_fraction=f' => \$max_marker_missing_data_fraction,
-	   'min_maf=f' => \$min_marker_maf,
+	   'min_maf|min_marker_maf=f' => \$min_marker_maf,
 	   'ploidy=f' => \$ploidy,
 	  # 'map_to_012!' => \$map_to_012,
 	  );
@@ -100,8 +100,8 @@ while (<$fhin>) {
 
     @col_ids = @col_ids[9..$#col_ids];
     while (my($i, $v) = each @col_ids) {
-      my $v =  $col_ids[$i] // '-';
-      $v =~ s/\s+/_/; # replace whitespace with underscore
+      $col_ids[$i] //= '-';
+      $col_ids[$i] =~ s/\s+/_/; # replace whitespace with underscore
     }
     last;
   }
