@@ -45,7 +45,7 @@ GetOptions(
 	   'output_file|dosage_file=s' => \$output_genotypes_filename,
 	  # 'GQmin=f' => \$minGQ,	# min genotype quality.
 	  # 'GPmin=f' => \$minGP,	# 
-	   'delta=f' => \$delta, 
+	   'delta=f' => \$delta,
 	  # 'min_read_depth=f' => \$min_read_depth,
 	   'max_marker_md_fraction=f' => \$max_marker_missing_data_fraction,
 	   'min_maf|min_marker_maf=f' => \$min_marker_maf,
@@ -78,6 +78,7 @@ $info_string .= "# data field to use: $field_to_use\n";
 $info_string .= "# delta: $delta\n";
 #$info_string .= "# GPmin: $minGP ; GQmin: $minGQ\n";
 $info_string .= "# max marker missing data fraction: $max_marker_missing_data_fraction \n";
+$info_string .= "# min minor allele frequency: $min_marker_maf\n";
 # $info_string .= "\n";
 print $fhout $info_string;
 print STDERR $info_string;
@@ -193,7 +194,7 @@ while (<$fhin>) {
   if ($avg_pref_gt_prob >= $min_marker_avg_pref_gt_prob  and
       $marker_missing_data_fraction <= $max_marker_missing_data_fraction and
       $marker_minor_allele_frequency >= $min_marker_maf) { # there is good data for this marker; store and output later.
-   # print STDERR "    maf: $marker_minor_allele_frequency  $min_marker_maf \n";
+   # print STDERR "marker, maf, md: $row_id  $marker_minor_allele_frequency  $marker_missing_data_fraction    $n_accessions $marker_missing_data_count $marker_alt_allele_count\n";
     push @row_ids, $row_id;	# store row (marker) id
     $rowid{$row_id} = 1; # also store in a hash to see whether all ids are distinct.
     push @alt_row_ids, $alt_row_id;
@@ -253,15 +254,18 @@ $info_string .= sprintf("# missing data %8d   %8.6f\n", $dosage_distribution[$pl
 print STDERR $info_string;
 print $fhout $info_string; # if(! $plink_format);
 
+
 # #####  print the output dosages  #####
 # transposed
   print $fhout "MARKER ", join(" ", @row_ids_out), "\n";
 
 while (my ($i, $col_id) = each @col_ids) {
-    print $fhout "$col_id ";
+    printf( $fhout "%s ", $col_id);
     my $gtstr = $accession_gt_strings[$i];
-    $gtstr =~ s/\t\s*$//;
+    $gtstr =~ s/\s+$//;
     print $fhout "$gtstr\n";
 
 }
 close $fhout;
+print STDERR "Done.\n";
+sleep(100);
