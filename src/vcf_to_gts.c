@@ -267,6 +267,7 @@ int main(int argc, char *argv[]){
   }
   chomp(accession_ids->a[accession_ids->size-1]); // chomp off any trailing newline(s) from the last acc_id 
   long n_accessions = accid_count;
+  //getchar();
 
   // *********************************************************
   // *****   Read the rest of the lines, one per marker  *****
@@ -284,7 +285,7 @@ int main(int argc, char *argv[]){
 
   
   
-  while(1){ // will bail out when EOF encountered.
+  while(1){ // loop over chunks
     long line_count = 0;
     // read n_markers_in_chunk lines (or up to eof)
     while(
@@ -303,28 +304,7 @@ int main(int argc, char *argv[]){
     // ********************************************************
     
     if(Nthreads == 0){ // process without creating any new threads
-      Vstr* chunk_genos = construct_vstr(100);
-      /* if(0){ */
-      /* TD* td = (TD*)malloc(sizeof(TD)); */
-      /* td->n_accessions = n_accessions; */
-      /* td->marker_lines = marker_lines; */
-      /* td->first_marker = 0; */
-      /* td->last_marker = marker_lines->size-1; */
-      /* td->use_alt_marker_id = use_alt_marker_id; */
-      /* td->minGP = minGP; */
-      /* td->delta = delta; */
-      /* td->minmaf = min_maf; */
-      /* td->maxmd = max_marker_md; */
-      /* td->ploidy = ploidy; */
-      /* td->marker_ids = construct_vstr(1000); */
-      /* td->gntps = chunk_genos; */
-      /* process_marker_range((void*)td); */
-      /*  for(long im=0; im<chunk_genos->size; im++){ // loop over stored markers */
-      /* 	push_to_vstr(all_used_genos, chunk_genos->a[im]); */
-      /* 	push_to_vstr(all_used_markerids, td->marker_ids->a[im]); */
-      /* } */
-      /* free(td); */
-      /* }else{ */
+      Vstr* chunk_genos = construct_vstr(100); 
        TD td;
       td.n_accessions = n_accessions;
       td.marker_lines = marker_lines;
@@ -347,10 +327,11 @@ int main(int argc, char *argv[]){
        //}
 	
     }else{ // 1 or more pthreads
-      Vstr** chunk_genos = (Vstr**)malloc(Nthreads*sizeof(Vstr*));
-      for(long ithr=0; ithr<Nthreads; ithr++){
-	chunk_genos[ithr] = construct_vstr(100);
-      }
+      //Vstr** chunk_genos = (Vstr**)malloc(Nthreads*sizeof(Vstr*));
+      /* for(long ithr=0; ithr<Nthreads; ithr++){  // chunk_genos[ithr] is a vstr holding genotypes for markers kept after filtering */
+      /* 	// with chunk_genos->a[im][ia] being the genotype for ia_th accession, im_th marker in thread ithr. */
+      /* 	chunk_genos[ithr] = construct_vstr(1000); */
+      /* } */
       
       TD* td = (TD*)malloc(Nthreads*sizeof(TD));
       for(long i_thread = 0; i_thread<Nthreads; i_thread++){
@@ -365,7 +346,7 @@ int main(int argc, char *argv[]){
 	td[i_thread].maxmd = max_marker_md;
 	td[i_thread].ploidy = ploidy;
 	td[i_thread].marker_ids = construct_vstr(1000);
-	td[i_thread].gntps = chunk_genos[i_thread];
+	td[i_thread].gntps = construct_vstr(1000); //chunk_genos[i_thread];
       }
       td[Nthreads-1].last_marker = marker_lines->size-1;
     
@@ -380,18 +361,26 @@ int main(int argc, char *argv[]){
     
       // store results from this chunk
       for(long ith=0; ith<Nthreads; ith++){ // loop over threads
-	for(long im=0; im<chunk_genos[ith]->size; im++){ // loop over markers stored by thread ith
-	  push_to_vstr(all_used_genos, chunk_genos[ith]->a[im]);
+	for(long im=0; im<td[ith].gntps->size; im++){ // loop over markers stored by thread ith
+	  push_to_vstr(all_used_genos, td[ith].gntps->a[im]); //chunk_genos[ith]->a[im]);
 	  push_to_vstr(all_used_markerids, td[ith].marker_ids->a[im]);
 	}
+	free(td[ith].marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
+	free(td[ith].gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
       }
-        free(td);
+      
+      free(td);
       free(thrids);
     } // end >=1 pthreads branch
-  
+
+    for(long im=0; im < marker_lines->size; im++){
+      free(marker_lines->a[im]); // free the c-strings containing the lines of this chunk.
+    }
     marker_lines->size = 0; // done with this chunk, let next chunk overwrite marker_lines->a
     if(nread == -1) break; // eof reached
-  }
+  } // end of loop over chunks
+  fprintf(stderr, "# marker_lines, size and capacity: %ld %ld\n", marker_lines->size, marker_lines->capacity);
+  free_vstr(marker_lines);
   fprintf(stderr, "# number of markers left after filtering: %ld  %ld\n", all_used_markerids->size, all_used_genos->size);
   free(line);
   fclose(in_stream);
@@ -421,9 +410,15 @@ int main(int argc, char *argv[]){
   fprintf(stdout, "# Done. Time: %8.4lf\n", t3-t0);
   
   // *****  cleanup  *****
-
+  getchar();
   // free_vstr(marker_ids); // getting free() invalid pointer with this.
+  fprintf(stderr, "# before final freeing of memory.\n");
+  fprintf(stderr, "# size, capacity of accession_ids: %ld %ld\n", accession_ids->size, accession_ids->capacity);
   free_vstr(accession_ids);
+  fprintf(stderr, "# size, capacity of all_used_markerids: %ld %ld\n", all_used_markerids->size, all_used_markerids->capacity);
+  free_vstr(all_used_markerids);
+  fprintf(stderr, "# size, capacity of all_used_genos: %ld %ld\n", all_used_genos->size, all_used_genos->capacity);
+  free_vstr(all_used_genos);
   free_vchar(output_filename);
 } // end of main
 
@@ -522,12 +517,12 @@ void* process_marker_range(void* x){
       double mdf = (double)md_count/n_accessions;
       double maf = (double)alt_allele_count/(td->ploidy*(n_accessions-md_count));
       if(maf > 0.5) maf = 1.0 - maf;
-      if((mdf <= td->maxmd) && (maf >= td->minmaf)){
+      if((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker
 	push_to_vstr(td->gntps, one_marker_gts);
 	push_to_vstr(marker_ids, marker_id->a);
-	free(marker_id);
-      }else{
-	free(one_marker_gts);
+	free(marker_id); // but don't free marker_id->a
+      }else{ // this marker is not used
+	free(one_marker_gts); 
 	free_vchar(marker_id);
       }
      
