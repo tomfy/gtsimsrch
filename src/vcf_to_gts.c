@@ -406,7 +406,7 @@ int main(int argc, char *argv[]){
   fprintf(stdout, "# Done. Time: %8.4lf\n", t3-t0);
   
   // *****  cleanup  *****
-  getchar();
+  //getchar();
   // free_vstr(marker_ids); // getting free() invalid pointer with this.
   fprintf(stderr, "# before final freeing of memory.\n");
   free_vlong(accession_indices);
