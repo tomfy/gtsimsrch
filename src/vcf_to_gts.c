@@ -11,24 +11,20 @@
 #include <errno.h>
 #include <stdbool.h>
 
-// #include <math.h>
-// #include <ctype.h>
-// #include <limits.h>
-
 #include "vect.h"
 #include "various.h"
 
 #define INIT_N_ACCESSIONS 10000
 #define INIT_N_MARKERS 10000
 
-// char* split_str = "\t \n\r";
-#define split_str "\t" //  \n\r"
+#define split_str "\t"
 // #define split_str "\t \n\r" 
 
 // There will be one of these structs for each thread,
 // each thread which will process the markers in the range from first_marker to last_marker
 typedef struct{
   long n_accessions;
+  Vstr* marker_ids;
   Vstr* marker_lines; 
   long first_marker;
   long last_marker;
@@ -38,8 +34,7 @@ typedef struct{
   double maxmd;
   double delta;
   long ploidy;
- 
-  Vstr* marker_ids;
+
   Vstr* gntps; // gts->a[i]->[j] is genotype (dosage) of ith stored marker for this thread, jth accession
 } TD; // thread data
 
@@ -84,7 +79,7 @@ int main(int argc, char *argv[]){
   double min_maf = 0.1;
   double max_marker_md = 0.25;
   long ploidy = 2;
-  long n_markers_in_chunk = 1260;
+  long n_markers_in_chunk = 5040;
   long min_chunk_size = 60;
      
  
@@ -163,7 +158,7 @@ int main(int argc, char *argv[]){
 	Nthreads = 1;
       }
       break;
-        case 'c' :
+    case 'c' :
       if(sscanf(optarg, "%ld", &n_markers_in_chunk) != 1  ||  errno != 0){
 	fprintf(stderr, "# n_markers_in_chunk; conversion of argument %s to long failed.\n", optarg);
 	exit(EXIT_FAILURE);
@@ -267,25 +262,22 @@ int main(int argc, char *argv[]){
   }
   chomp(accession_ids->a[accession_ids->size-1]); // chomp off any trailing newline(s) from the last acc_id 
   long n_accessions = accid_count;
-  //getchar();
 
   // *********************************************************
   // *****   Read the rest of the lines, one per marker  *****
   // *****   Each line has genotypes for all accessions  *****
   // *********************************************************
   
-
-  long thrchnksize = (Nthreads >= 1)? n_markers_in_chunk/Nthreads : n_markers_in_chunk; // number of lines (markers) each thread will analyze per chunk.
-  fprintf(stderr, "# markers analyzed in each chunk: %ld  thrchnksize: %ld\n", n_markers_in_chunk, thrchnksize);
+  fprintf(stderr, "# markers analyzed in each chunk: %ld ; which is %ld per thread\n",
+	  n_markers_in_chunk, (Nthreads >= 1)? n_markers_in_chunk/Nthreads : n_markers_in_chunk);
   Vstr* marker_lines = construct_vstr(n_markers_in_chunk);
-  //  Vstr* marker_ids = construct_vstr_empties(n_markers_in_chunk);
 
   Vstr* all_used_markerids = construct_vstr(1000);
   Vstr* all_used_genos = construct_vstr(1000);
 
   
   
-  while(1){ // loop over chunks
+  while(nread >= 0){ // loop over chunks
     long line_count = 0;
     // read n_markers_in_chunk lines (or up to eof)
     while(
@@ -304,7 +296,7 @@ int main(int argc, char *argv[]){
     // ********************************************************
     
     if(Nthreads == 0){ // process without creating any new threads
-       TD td;
+      TD td;
       td.n_accessions = n_accessions;
       td.marker_lines = marker_lines;
       td.first_marker = 0;
@@ -318,14 +310,14 @@ int main(int argc, char *argv[]){
       td.marker_ids = construct_vstr(1000);
       td.gntps = construct_vstr(100); // chunk_genos;
       process_marker_range((void*)(&td));
-       for(long im=0; im<td.marker_ids->size; im++){ // loop over stored markers
+      for(long im=0; im<td.marker_ids->size; im++){ // loop over stored markers
 	push_to_vstr(all_used_genos, td.gntps->a[im]);
 	push_to_vstr(all_used_markerids, td.marker_ids->a[im]);
       }
-       	free(td.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
-	 free(td.marker_ids->a);
-	free(td.gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
-	 free(td.gntps->a);
+      free(td.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
+      free(td.marker_ids->a);
+      free(td.gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
+      free(td.gntps->a);
     }else{ // 1 or more pthreads
       TD* td = (TD*)malloc(Nthreads*sizeof(TD));
       for(long i_thread = 0; i_thread<Nthreads; i_thread++){
@@ -360,9 +352,9 @@ int main(int argc, char *argv[]){
 	  push_to_vstr(all_used_markerids, td[ith].marker_ids->a[im]);
 	}
 	free(td[ith].marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
-	 free(td[ith].marker_ids->a);
+	free(td[ith].marker_ids->a);
 	free(td[ith].gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
-	 free(td[ith].gntps->a);
+	free(td[ith].gntps->a);
       }
       
       free(td);
@@ -373,7 +365,7 @@ int main(int argc, char *argv[]){
       free(marker_lines->a[im]); // free the c-strings containing the lines of this chunk.
     }
     marker_lines->size = 0; // done with this chunk, let next chunk overwrite marker_lines->a
-    if(nread == -1) break; // eof reached
+    // if(nread == -1) break; // eof reached
   } // end of loop over chunks
   fprintf(stderr, "# marker_lines, size and capacity: %ld %ld\n", marker_lines->size, marker_lines->capacity);
   free_vstr(marker_lines);
@@ -503,25 +495,23 @@ void* process_marker_range(void* x){
 	}else{
 	  alt_allele_count += (genotype - 48);
 	}
-	//  fprintf(stderr, "token, gt: [%s]  %c  %ld\n", token, genotype, alt_allele_count);  
-	//	  if(acc_index < 10) fprintf(stderr, "accidx gt: %ld %c\n", acc_index, genotype);
 	acc_index++;
       }
     }else{
       fprintf(stderr, "# Neither GT nor DS present. \n");
     }
     // have read dosages for one marker, now filter on missing data, maf
-      double mdf = (double)md_count/n_accessions;
-      double maf = (double)alt_allele_count/(td->ploidy*(n_accessions-md_count));
-      if(maf > 0.5) maf = 1.0 - maf;
-      if((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker
-	push_to_vstr(td->gntps, one_marker_gts);
-	push_to_vstr(marker_ids, marker_id->a);
-	free(marker_id); // but don't free marker_id->a
-      }else{ // this marker is not used
-	free(one_marker_gts); 
-	free_vchar(marker_id);
-      }
+    double mdf = (double)md_count/n_accessions;
+    double maf = (double)alt_allele_count/(td->ploidy*(n_accessions-md_count));
+    if(maf > 0.5) maf = 1.0 - maf;
+    if((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker
+      push_to_vstr(td->gntps, one_marker_gts);
+      push_to_vstr(marker_ids, marker_id->a);
+      free(marker_id); // but don't free marker_id->a
+    }else{ // this marker is not used
+      free(one_marker_gts); 
+      free_vchar(marker_id);
+    }
      
     assert(acc_index == td->n_accessions); // check that this line has number of accessions = number of accession ids.
     marker_count++;
@@ -566,13 +556,9 @@ char token_to_genotype_DS(char* token, long dsidx, long gpidx, double minGP, dou
   long idx = 0;
   long tidx = 0;
   if(dsidx == 0  &&  token[0] == '\0') return 'X';
-  //char* tkn = strtok_r(token, ":", &saveptr);
   char* tkn = split_on_char(token, ':', &tidx);
-  //  fprintf(stderr, "### tkn: [%s] %c\n", tkn, (tkn == NULL)? '-' : tkn[0]);
   if(idx == dsidx){ // tkn should be e.g. 0.002  0.99
-    // fprintf(stderr, "# tkn: [%s]\n", tkn);
     result = DSstr_to_dosage(tkn, delta); // return result;
-    //  fprintf(stderr, "#d: %c\n", (int)result);
   }else if(idx == gpidx){
     quality_ok =
       GP_to_quality_ok(tkn, minGP);
@@ -580,7 +566,6 @@ char token_to_genotype_DS(char* token, long dsidx, long gpidx, double minGP, dou
   idx++;
   
   while(1){ // get more subtokens
-    //  tkn = strtok_r(NULL, ":", &saveptr);
     tkn = split_on_char(token, ':', &tidx);
     if(tkn == NULL)	break; // end of line has been reached.
     if(idx == dsidx){ // tkn should be e.g. 0|1 or 0/1 or 1/1
@@ -591,9 +576,7 @@ char token_to_genotype_DS(char* token, long dsidx, long gpidx, double minGP, dou
     }
     idx++;   
   }
-
   if(! quality_ok) result = 'X';
-  // fprintf(stderr, "token_to_gt_DS result: %c\n", result);
   return result;
 }
 
@@ -631,12 +614,9 @@ char DSstr_to_dosage(char* tkn, double delta){
   if(tkn[0] == '\0') return 'X';
   double ds = -1;
   long n_ok = sscanf(tkn, "%lf", &ds);
-  // fprintf(stderr, "ds: %lf\n", ds);
   int lds = round(ds);
-  // fprintf(stderr, "%8.5lf  %d  %8.5lf  %8.5lf\n", ds, lds, fabs(ds-lds), delta);
   if(fabs(ds - lds) > delta) return 'X';
   char chards = (char)round(ds) + 48;
-  //  fprintf(stderr, "####### [%c]\n", chards);
   return (n_ok == 1)? chards : 'X';
 }
 
@@ -648,7 +628,6 @@ void get_GT_GQ_GP_DS_indices(char* format, long* GTp, long* GQp, long* GPp, long
   long index = 0;
   char* saveptr = format;
   char* token = strtok_r(format, ":", &saveptr);
-  //  fprintf(stderr, "### [%s] [%s]\n", format, token);
   if(strcmp(token, "GT") == 0){ *GTp = index;}
   else if(strcmp(token, "GQ") == 0){ *GQp = index;}
   else if(strcmp(token, "GP") == 0){ *GPp = index;}
@@ -683,7 +662,6 @@ char* split_on_char(char* str, char c, long* iptr){
     }
     i++;
   }
-  //  fprintf(stderr, "# %ld  [%s]\n", i_begin, str+i_begin);
   return str+i_begin;
 } 
 
