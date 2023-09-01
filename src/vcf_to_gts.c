@@ -278,7 +278,7 @@ int main(int argc, char *argv[]){
   long thrchnksize = (Nthreads >= 1)? n_markers_in_chunk/Nthreads : n_markers_in_chunk; // number of lines (markers) each thread will analyze per chunk.
   fprintf(stderr, "# markers analyzed in each chunk: %ld  thrchnksize: %ld\n", n_markers_in_chunk, thrchnksize);
   Vstr* marker_lines = construct_vstr(n_markers_in_chunk);
-  Vstr* marker_ids = construct_vstr_empties(n_markers_in_chunk);
+  //  Vstr* marker_ids = construct_vstr_empties(n_markers_in_chunk);
 
   Vstr* all_used_markerids = construct_vstr(1000);
   Vstr* all_used_genos = construct_vstr(1000);
@@ -304,7 +304,6 @@ int main(int argc, char *argv[]){
     // ********************************************************
     
     if(Nthreads == 0){ // process without creating any new threads
-      Vstr* chunk_genos = construct_vstr(100); 
        TD td;
       td.n_accessions = n_accessions;
       td.marker_lines = marker_lines;
@@ -317,22 +316,17 @@ int main(int argc, char *argv[]){
       td.maxmd = max_marker_md;
       td.ploidy = ploidy;
       td.marker_ids = construct_vstr(1000);
-      td.gntps = chunk_genos;
+      td.gntps = construct_vstr(100); // chunk_genos;
       process_marker_range((void*)(&td));
-       for(long im=0; im<chunk_genos->size; im++){ // loop over stored markers
-	push_to_vstr(all_used_genos, chunk_genos->a[im]);
+       for(long im=0; im<td.marker_ids->size; im++){ // loop over stored markers
+	push_to_vstr(all_used_genos, td.gntps->a[im]);
 	push_to_vstr(all_used_markerids, td.marker_ids->a[im]);
       }
-     
-       //}
-	
+       	free(td.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
+	 free(td.marker_ids->a);
+	free(td.gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
+	 free(td.gntps->a);
     }else{ // 1 or more pthreads
-      //Vstr** chunk_genos = (Vstr**)malloc(Nthreads*sizeof(Vstr*));
-      /* for(long ithr=0; ithr<Nthreads; ithr++){  // chunk_genos[ithr] is a vstr holding genotypes for markers kept after filtering */
-      /* 	// with chunk_genos->a[im][ia] being the genotype for ia_th accession, im_th marker in thread ithr. */
-      /* 	chunk_genos[ithr] = construct_vstr(1000); */
-      /* } */
-      
       TD* td = (TD*)malloc(Nthreads*sizeof(TD));
       for(long i_thread = 0; i_thread<Nthreads; i_thread++){
 	td[i_thread].n_accessions = n_accessions;
@@ -351,11 +345,11 @@ int main(int argc, char *argv[]){
       td[Nthreads-1].last_marker = marker_lines->size-1;
     
       pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
-      for(long i=0; i<Nthreads; i++){
+      for(long i=0; i<Nthreads; i++){ // run the threads
 	int iret = pthread_create( thrids+i, NULL, process_marker_range, (void*) (td+i));
 	if(iret > 0) fprintf(stderr, "# warning. pthread_create returned non-zero value. Thread %ld \n", (long)thrids[i]);
       }
-      for(long i_thread=0; i_thread<Nthreads; i_thread++){
+      for(long i_thread=0; i_thread<Nthreads; i_thread++){ // wait for threads to terminate.
 	pthread_join(thrids[i_thread], NULL);
       }
     
@@ -366,7 +360,9 @@ int main(int argc, char *argv[]){
 	  push_to_vstr(all_used_markerids, td[ith].marker_ids->a[im]);
 	}
 	free(td[ith].marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
+	 free(td[ith].marker_ids->a);
 	free(td[ith].gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
+	 free(td[ith].gntps->a);
       }
       
       free(td);
@@ -413,6 +409,7 @@ int main(int argc, char *argv[]){
   getchar();
   // free_vstr(marker_ids); // getting free() invalid pointer with this.
   fprintf(stderr, "# before final freeing of memory.\n");
+  free_vlong(accession_indices);
   fprintf(stderr, "# size, capacity of accession_ids: %ld %ld\n", accession_ids->size, accession_ids->capacity);
   free_vstr(accession_ids);
   fprintf(stderr, "# size, capacity of all_used_markerids: %ld %ld\n", all_used_markerids->size, all_used_markerids->capacity);
