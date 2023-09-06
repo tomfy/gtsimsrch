@@ -376,7 +376,7 @@ main(int argc, char *argv[])
   //  double t_after_store_homozygs = clock_time(clock1);
   fprintf(stderr, "# times. \n# to read: %8.5lf\n# to rectify: %8.5lf\n# to filter: %8.5lf\n",
 	  t_after_read-t_start, t_after_rectify-t_after_read, t_after_filter-t_after_rectify);
-  getchar();
+  // getchar();
   
   long n_accessions = the_genotypes_set->accessions->size;   
   long n_markers = the_genotypes_set->n_markers;
