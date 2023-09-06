@@ -142,7 +142,7 @@ main(int argc, char *argv[])
   
   double max_marker_missing_data_fraction = 0.25; // if < 0, gets set to 2.0/chunk_size after chunk_size is set.
   double max_accession_missing_data_fraction = 0.5;
-  double min_minor_allele_frequency = 0.0; //
+  double min_minor_allele_frequency = 0.1; //
   double max_est_dist = -1.0; // default is value will be chosen based on a random sample of distances.
   long output_format = 1; // 1 ->  acc_id1 acc_id2 distance; otherwise add 3 more columns: usable_chunks matching_chunks est_distance
   char default_output_filename[] = "duplicatesearch.out";
@@ -358,6 +358,7 @@ main(int argc, char *argv[])
     fprintf(stdout, "# Done reading reference data set dosages from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
 	    reference_set_filename, the_genotypes_set->n_ref_accessions, the_genotypes_set->n_bad_accessions, the_genotypes_set->n_markers);
   }
+  fprintf(stdout, "# loading data set.\n");
   add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
    fprintf(stdout, "# Done reading dosages from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
 	   input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_bad_accessions, the_genotypes_set->n_markers);
@@ -366,11 +367,17 @@ main(int argc, char *argv[])
     
   ploidy = the_genotypes_set->ploidy;
   if(ploidy != 2) { fprintf(stderr, "# Ploidy of %ld detected. Non-diploid ploidy not implemented. Exiting.\n", ploidy); exit(EXIT_FAILURE); }
- 
-  rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common that 2 for all markers.
+  double t_after_read = clock_time(clock1);
+  // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common that 2 for all markers.
+  double t_after_rectify = clock_time(clock1);
   filter_genotypesset(the_genotypes_set);
-  store_homozygs(the_genotypes_set);
-
+  double t_after_filter = clock_time(clock1);
+  //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicatesearch
+  //  double t_after_store_homozygs = clock_time(clock1);
+  fprintf(stderr, "# times. \n# to read: %8.5lf\n# to rectify: %8.5lf\n# to filter: %8.5lf\n",
+	  t_after_read-t_start, t_after_rectify-t_after_read, t_after_filter-t_after_rectify);
+  getchar();
+  
   long n_accessions = the_genotypes_set->accessions->size;   
   long n_markers = the_genotypes_set->n_markers;
 
@@ -816,7 +823,9 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
 }
 
 void* process_query_range(void* x){
-  
+   clockid_t clock2 = CLOCK_MONOTONIC;
+   double start_pqr_time = clock_time(clock2);
+  double true_distance_time = 0;
   TD* td = (TD*)x;
   const GenotypesSet* the_genotypes_set = td->the_genotypes_set;
   const Chunk_pattern_idxs* the_cpi = td->the_cpi;
@@ -845,10 +854,13 @@ void* process_query_range(void* x){
       long match_md_chunk_count = the_accessions->a[i_match]->md_chunk_count;
       double usable_chunk_count = (double)((n_chunks-q_md_chunk_count)*(n_chunks-match_md_chunk_count))/(double)n_chunks; // estimate
       
-      if( matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count ){	
+      if( matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count ){
+	double predistance_time = clock_time(clock2);
 	ND d_nd = distance(q_gts, the_accessions->a[i_match]);
 	distance_count++;
 	double true_dist = (d_nd.d > 0)? DISTANCE_NORM_FACTOR*(double)d_nd.n/(double)d_nd.d : -1;
+	double postdistance_time = clock_time(clock2);
+	true_distance_time += postdistance_time - predistance_time;
 	if(true_dist <= max_est_dist){
 	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	  double est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size));
@@ -862,9 +874,13 @@ void* process_query_range(void* x){
     n_matches_checked += i_query;
     free_vlong(chunk_match_counts);
   } // end loop over queries.
- // fprintf(stderr, "# A thread checked %ld query-match pairs.\n", n_matches_checked);
+ double total_pqr_time = clock_time(clock2)  - start_pqr_time;
+ fprintf(stderr, "# A thread checked %ld query-match pairs. %ld true dists\n# times: est, true, total: %8.5lf %8.5lf %8.5lf\n",
+	 n_matches_checked, distance_count, total_pqr_time-true_distance_time, true_distance_time, total_pqr_time);
+
  td->n_matches_checked = n_matches_checked;
  td->distance_count = distance_count;
+ 
 }
 
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){
