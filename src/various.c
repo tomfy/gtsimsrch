@@ -4,8 +4,6 @@
 #include "various.h"
 
 
-
-
 double hi_res_time(void){
   return (double)clock()/(double)CLOCKS_PER_SEC;
 }

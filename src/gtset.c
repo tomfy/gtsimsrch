@@ -25,9 +25,9 @@ Accession* construct_accession(char* id, long idx, char* genotypes, long accessi
   the_accession->genotypes = construct_vchar_from_str(genotypes);
   the_accession->chunk_patterns = NULL; // set to NULL to avoid containing garbage which causes crash when freeing accession
   the_accession->missing_data_count = accession_md_count;
-  the_accession->ref_homozygs = construct_vlong(1000);
+  the_accession->ref_homozygs = NULL; // construct_vlong(10); // can construct in store_homozygs (so no mem used if not calling store_homozygs)
   //  the_accession->heterozygs = construct_vlong(1000);
-  the_accession->alt_homozygs = construct_vlong(1000);
+  the_accession->alt_homozygs = NULL; // construct_vlong(10);
   return the_accession;
 }
 void set_accession_missing_data_count(Accession* the_accession, long missing_data_count){
@@ -273,6 +273,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   // Read in the rest of the lines, construct Accession for each line
   long accession_count = 0;
   while((nread = getline(&line, &len, g_stream)) != -1){
+    // fprintf(stderr, "# reading accession %ld\n", accession_count);
     saveptr = line;
     char* token = strtok_r(line, "\t \n\r", &saveptr);
     char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
@@ -288,8 +289,10 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
       marker_count++;
     } // done reading dosages for all markers of this accession
-    if(marker_count != markerid_count) exit(EXIT_FAILURE); 
-   
+    if(marker_count != markerid_count) {
+      fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, markerid_count);
+      exit(EXIT_FAILURE); 
+    }
     // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
     if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
       Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
@@ -300,9 +303,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	}else{
 	  the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
 	}
-      }
-     
-      
+      }   
       push_to_vaccession(the_genotypes_set->accessions, the_accession);
       accession_count++;
     }else{
@@ -402,6 +403,10 @@ double ragmr(GenotypesSet* the_gtsset){
 }
 
 void check_genotypesset(GenotypesSet* gtss){
+  // recalculates the maf and missing data of each marker,
+  // checks that these are same as values stored in gtss
+  // do this after filtering to check that filtering
+  // correctly adjusted the maf and missing data for each marker.
   assert(gtss->marker_ids->size == gtss->n_markers);
   assert(gtss->accessions->size == gtss->n_accessions);
   long* marker_md_counts = (long*)calloc(gtss->n_markers, sizeof(long));
@@ -471,11 +476,11 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
     mdsum_all += marker_md_counts->a[i];
     altallelesum_all += alt_allele_counts->a[i];
   
-      if (marker_md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions){  // not too much missing data
-	long max_possible_alt_alleles = the_gtsset->ploidy * (the_gtsset->n_accessions - marker_md_counts->a[i]);
-	double min_min_allele_count = fmax(max_possible_alt_alleles * the_gtsset->min_minor_allele_frequency, 1);
-	double max_min_allele_count = fmin(max_possible_alt_alleles * (1.0 - the_gtsset->min_minor_allele_frequency), max_possible_alt_alleles-1);
-	bool alt_allele_freq_ok = (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
+    if (marker_md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions){  // not too much missing data
+      long max_possible_alt_alleles = the_gtsset->ploidy * (the_gtsset->n_accessions - marker_md_counts->a[i]);
+      double min_min_allele_count = fmax(max_possible_alt_alleles * the_gtsset->min_minor_allele_frequency, 1);
+      double max_min_allele_count = fmin(max_possible_alt_alleles * (1.0 - the_gtsset->min_minor_allele_frequency), max_possible_alt_alleles-1);
+      bool alt_allele_freq_ok = (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
 	(alt_allele_counts->a[i] <= max_min_allele_count);     // and not too large
       if ( alt_allele_freq_ok ){ // the alt_allele_frequency is in the right range
 	md_ok->a[i] = 1;
@@ -490,9 +495,9 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
       }else{
 	maf_too_low_count++;
       }
-      }else{
-	too_much_missing_data_count++;
-      }
+    }else{
+      too_much_missing_data_count++;
+    }
   } // end of loop over markers
   // fprintf(stderr, "# mdsum_all: %ld  mdsum_kept: %ld  n_markers all: %ld  n_markers_to_keep: %ld\n", mdsum_all, mdsum_kept, marker_md_counts->size, n_markers_to_keep);
   double raw_md_fraction = (double)mdsum_all/(double)(marker_md_counts->size*n_accs);
@@ -555,15 +560,20 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
   long n_markers = the_gtsset->marker_alt_allele_counts->size;
   long ploidy = the_gtsset->ploidy;
   long delta_dosage;
+  long n_markers_rectified = 0;
   for(long i=0; i<n_markers; i++){
     delta_dosage = 0;
-    if(the_gtsset->marker_alt_allele_counts->a[i] > (n_accessions - the_gtsset->marker_missing_data_counts->a[i])){ // 
+    //  fprintf(stderr, "altallcounts, okmrkrs: %ld  %ld\n", the_gtsset->marker_alt_allele_counts->a[i], (n_accessions - the_gtsset->marker_missing_data_counts->a[i]) );
+    if(2*the_gtsset->marker_alt_allele_counts->a[i] > ploidy*(n_accessions - the_gtsset->marker_missing_data_counts->a[i])){ //
+      n_markers_rectified++;
       for(long j=0; j<n_accessions; j++){
 	char dosage = the_gtsset->accessions->a[j]->genotypes->a[i];
 	if(dosage != MISSING_DATA_CHAR){
 	  long ldosage = dosage-48;
-	  the_gtsset->accessions->a[j]->genotypes->a[i] = (char)(ploidy - ldosage) + 48;
-	  delta_dosage += ploidy - 2*ldosage;
+	  if(2*ldosage != ploidy){
+	    the_gtsset->accessions->a[j]->genotypes->a[i] = (char)(ploidy - ldosage) + 48;
+	    delta_dosage += ploidy - 2*ldosage;
+	  }
 	}
       }
     }
@@ -571,13 +581,15 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
     //  fprintf(stderr, "%ld  %ld   ", the_gtsset->marker_alt_allele_counts->a[i], delta_dosage);
     the_gtsset->marker_alt_allele_counts->a[i] += delta_dosage;
   }
+  fprintf(stderr, "##### n_markers_rectified: %ld\n", n_markers_rectified);
 }
 
 void store_homozygs(GenotypesSet* the_gtsset){ // for each accession,
   // store indices of alt homozygous genotypes, and (separately) ref homozyg gts.
   for(long i=0; i<the_gtsset->accessions->size; i++){
     Accession* acc = the_gtsset->accessions->a[i];
-   
+     acc->alt_homozygs = construct_vlong(1000);
+     acc->ref_homozygs = construct_vlong(1000);
     for(long j=0; j<the_gtsset->marker_alt_allele_counts->size; j++){
       if(acc->genotypes->a[j] == MISSING_DATA_CHAR) continue;
       long dosage = (long)(acc->genotypes->a[j] - 48); // 0, 1, ..., ploidy
