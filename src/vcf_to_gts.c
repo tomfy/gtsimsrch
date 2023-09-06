@@ -18,7 +18,6 @@
 #define INIT_N_MARKERS 10000
 
 #define split_str "\t"
-// #define split_str "\t \n\r" 
 
 // There will be one of these structs for each thread,
 // each thread which will process the markers in the range from first_marker to last_marker
@@ -35,7 +34,7 @@ typedef struct{
   double delta;
   long ploidy;
 
-  Vstr* gntps; // gts->a[i]->[j] is genotype (dosage) of ith stored marker for this thread, jth accession
+  Vstr* gntps; // gntps->a[i]->[j] is genotype (dosage) of ith stored marker for this thread, jth accession
 } TD; // thread data
 
 void* process_marker_range(void* x);
@@ -48,6 +47,7 @@ void get_GT_GQ_GP_DS_indices(char* format, long* GTidx, long* GQidx, long* GPidx
 bool GP_to_quality_ok(char* token, double minGP);
 char* split_on_char(char* str, char c, long* iptr); 
 void chomp(char* str); // remove any trailing newlines from str
+void print_usage_info(FILE* ostream);
 double clock_time(clockid_t the_clock){
   struct timespec tspec;
   clock_gettime(the_clock, &tspec);
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]){
 
   char* input_filename = NULL;
   FILE *in_stream = NULL;
-  Vchar* output_filename = construct_vchar_from_str("vcftogts");
+  Vchar* output_filename = construct_vchar_from_str("vcftogts.out");
   FILE* out_stream = NULL; 
 
   // double minGQ = 0; // not implemented, but should be.
@@ -88,17 +88,18 @@ int main(int argc, char *argv[]){
     int option_index = 0;
     static struct option long_options[] = {
       {"input",   required_argument, 0,  'i'}, // vcf filename
-      {"output",  required_argument, 0,  'o'}, // output filename
-      {"pmin",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
-      {"threads", required_argument, 0,  't'}, // number of threads to use. Default: set automatically based on nprocs()
-      {"alternate_marker_ids",  no_argument, 0, 'a'}, // construct marker ids from cols 1 and 2 (in case garbage in col 3)
-      {"randomize",    no_argument, 0,  'r' }, // shuffle the order of the accessions in output
-      {"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
-      {"min_maf", required_argument, 0, 'f'}, // filter out markers with minor allele frequency less than this.
-      {"max_marker_md", required_argument, 0, 'm'}, // filter out markers with missing data fraction > this.
-      {"delta", required_argument, 0, 'd'},  // if using DS, the dosage will be considered to be missing data if > delta from an integer.
-      {"chunk_size", required_argument, 0, 'c'}, // number of lines (markers) to read and process at a time.
-      {0,         0,                 0,  0 }
+	{"output",  required_argument, 0,  'o'}, // output filename
+	{"pmin",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
+	{"threads", required_argument, 0,  't'}, // number of threads to use. Default: set automatically based on nprocs()
+	{"alternate_marker_ids",  no_argument, 0, 'a'}, // construct marker ids from cols 1 and 2 (in case garbage in col 3)
+	{"randomize",    no_argument, 0,  'r' }, // shuffle the order of the accessions in output
+	{"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
+	{"min_maf", required_argument, 0, 'f'}, // filter out markers with minor allele frequency less than this.
+	{"max_marker_md", required_argument, 0, 'm'}, // filter out markers with missing data fraction > this.
+	{"delta", required_argument, 0, 'd'},  // if using DS, the dosage will be considered to be missing data if > delta from an integer.
+	{"chunk_size", required_argument, 0, 'c'}, // number of lines (markers) to read and process at a time.
+	{"help", no_argument, 0, 'h'},
+	{0,         0,                 0,  0 }
     };
    
     an_option = getopt_long_only(argc, argv, "", long_options, &option_index);
@@ -170,6 +171,10 @@ int main(int argc, char *argv[]){
     case 'a' :
       use_alt_marker_id = true;
       break;
+    case 'h' :
+      print_usage_info(stdout);
+      exit(EXIT_FAILURE);
+      break;
     case 'r' :
       shuffle_accessions = true;
       break;
@@ -194,9 +199,14 @@ int main(int argc, char *argv[]){
     } // end of switch block
   } // end of command line processing loop
 
+  if (argc < 2) {
+    print_usage_info(stdout);
+    exit(EXIT_FAILURE);
+  }
 
   if(input_filename == NULL){
-    fprintf(stderr, "# No input (vcf) file specified. Exiting.\n");
+    fprintf(stderr, "No input (vcf) file specified.\n");
+    print_usage_info(stdout);
     exit(EXIT_FAILURE);
   }
   out_stream = fopen(output_filename->a, "w");
@@ -401,14 +411,20 @@ int main(int argc, char *argv[]){
   //getchar();
   // free_vstr(marker_ids); // getting free() invalid pointer with this.
   fprintf(stderr, "# before final freeing of memory.\n");
+  fprintf(stderr, "# size, capacity of accession_indices: %ld %ld\n", accession_indices->size, accession_indices->capacity);
   free_vlong(accession_indices);
   fprintf(stderr, "# size, capacity of accession_ids: %ld %ld\n", accession_ids->size, accession_ids->capacity);
+  //  getchar();
   free_vstr(accession_ids);
   fprintf(stderr, "# size, capacity of all_used_markerids: %ld %ld\n", all_used_markerids->size, all_used_markerids->capacity);
+  //  getchar();
   free_vstr(all_used_markerids);
   fprintf(stderr, "# size, capacity of all_used_genos: %ld %ld\n", all_used_genos->size, all_used_genos->capacity);
+  // getchar();
   free_vstr(all_used_genos);
+  // getchar();
   free_vchar(output_filename);
+  //  getchar();
 } // end of main
 
 
@@ -673,6 +689,20 @@ void chomp(char* str){ // remove any trailing newlines from str
   }
 }
 
+void print_usage_info(FILE* ostream){
+  fprintf(stdout, "Options:\n");
+  fprintf(stdout, "  -input       Input vcf filename (required).\n");
+  fprintf(stdout, "  -out         Output filename (default: vcftogts.out)\n");
+  fprintf(stdout, "  -threads     Number of threads to use. (Default: automatic, from get_nprocs.\n");
+  fprintf(stdout, "  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
+  fprintf(stdout, "  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
+  fprintf(stdout, "  -pmin        Min. estimated genotype probibility (if GP field present; default: 0.9)\n");
+  fprintf(stdout, "  -min_maf     Exclude markers with minor allele frequency < this. (Default: 0.1)\n");
+  fprintf(stdout, "  -max_marker_md  Exclude markers with proportion of missing data > this. (Default: 0.25)\n");
+  fprintf(stdout, "  -delta       If using DS field, must be within this of an integer or call it missing data. (Default: 0.1)\n");
+  fprintf(stdout, "  -randomize   Randomize the order of accessions in output (Default: 0 (false))\n");
+  fprintf(stdout, "  -seed        Random number generator seed. Only relevant if randomizing accession output order.\n");
+}
 
 // unused
 
