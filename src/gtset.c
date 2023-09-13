@@ -293,7 +293,10 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, markerid_count);
       exit(EXIT_FAILURE); 
     }
+    double fraction_to_keep = 0.3;
     // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
+    // if(0 || (double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){
+     if(1 || (double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){   
     if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
       Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
       for(long jjj=0; jjj<markerid_count; jjj++){ //
@@ -310,6 +313,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       fprintf(stdout, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
 	      acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
       the_genotypes_set->n_bad_accessions++;
+    }
     }
      free(acc_id); // or cut out the middleman (acc_id)?
       free(genotypes);
