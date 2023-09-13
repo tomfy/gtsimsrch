@@ -42,12 +42,13 @@ my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -a
 # my $delta = 0.1; # if DS present, must be within $delta of an integer. Not implemented
 
 my $plink = 0;
-my $plnk2ds_perl = 0;		# 0 -> C, 1 -> perl
+my $plnk2ds_perl = 0;	default	# 0 -> C, 1 -> perl
 my $plink_default_max_distance = 0.175;
 
 my $chunk_size = 6;		# relevant only to duplicatesearch
 my $rng_seed = -1; # default: duplicatesearch will get seed from clock
-my $max_distance = 'auto'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'auto' -> get random sample of dists, use to choose $max_distance.
+my $max_distance = 0.125; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'default' use duplicatesearch's default.
+#  'auto' seems to not work very well; not recommended. 'auto' -> get random sample of dists, use to choose $max_distance.
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data.
 my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
@@ -108,7 +109,7 @@ print  "# distances <= $max_distance will be found using ", ($plink)? "plink\n" 
 
 
 if ($plink) {			#####  PLINK  #####
-  $max_distance = $plink_default_max_distance if($max_distance eq 'auto');
+  $max_distance = $plink_default_max_distance if($max_distance eq 'default');
   my $plink_out_filename = $genotypes_filename . "_bin";
 
   my $plink_command1 = "plink1.9 --vcf $input_filename --double-id --out $filename_stem --vcf-min-gp $minGP ";
@@ -146,7 +147,7 @@ if ($plink) {			#####  PLINK  #####
   
   $distances_filename = $filename_stem . ".dists";
   my $ds_command = $bindir . "/duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
-  if ($max_distance ne 'auto') {
+  if ($max_distance ne 'default') {
     $ds_command .= " -max_est_distance $max_distance ";
   }
   $ds_command .= " -ref $ref_filename " if(defined $ref_filename);
@@ -168,3 +169,13 @@ if (! $full_cluster_out) {
 }
 system "$cluster_command";
 print  "#########  clusterer done  ##########\n\n";
+
+print "#########  histogramming distances  ##########\n\n";
+my $histogram_command = "histogram -i $distances_filename:3 -output distance_histogram -bw 0.0025 ";
+if($max_distance ne 'default'){
+  my $hi = $max_distance + 0.01;
+  $histogram_command .= " -hi $hi ";
+}
+print "about to run command: [$histogram_command]\n";
+system "$histogram_command";
+print "#########  done histogramming  ##########\n\n";
