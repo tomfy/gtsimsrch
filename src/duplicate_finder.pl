@@ -32,7 +32,7 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 my $field_to_use = 'GT'; # Presently GT is only option, must be present in vcf file.
 # unimplemented alternatives: DS (alternative allele dosage e.g. 2), AD (allele depths, e.g.'136:25' ).
 
-my $vcf_filename = undef;
+my $input_filename = undef;
 my $ref_filename = undef;
 
 my $minGP = 0.9; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
@@ -42,17 +42,19 @@ my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -a
 # my $delta = 0.1; # if DS present, must be within $delta of an integer. Not implemented
 
 my $plink = 0;
-my $plnk2ds_perl = 0; # 0 -> C, 1 -> perl
+my $plnk2ds_perl = 0;		# 0 -> C, 1 -> perl
 my $plink_default_max_distance = 0.175;
 
-my $chunk_size = 6; # relevant only to duplicatesearch
-my $rng_seed = -1;  # default: duplicatesearch will get seed from clock
+my $chunk_size = 6;		# relevant only to duplicatesearch
+my $rng_seed = -1; # default: duplicatesearch will get seed from clock
 my $max_distance = 'auto'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'auto' -> get random sample of dists, use to choose $max_distance.
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data.
 my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
 my $min_marker_maf = 0.08; # this is a good value for the yam 941 accession set.
 my $full_cluster_out = 1;
+my $input_format = 'vcf';
+my $ref_format = 'vcf';
 
 print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
 my $distances_filename;
@@ -62,9 +64,11 @@ my $filename_stem;
 my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to choose a reasonable value.
 
 GetOptions(
-	   'vcf|input_filename=s' => \$vcf_filename,
+	   'input_filename=s' => \$input_filename,
+	   'format=s' => \$input_format, # either 'vcf' (default) or, if anything else -> dosage.
 	   'output_file=s' => \$filename_stem,
 	   'ref_filename|reference_filename=s' => \$ref_filename,
+	   'ref_format=s' => \$ref_format, # default is 'vcf', anything else -> dosage 
 
 	   # used by vcf_to_gts:
 	   'min_gp|gp_min=f' => \$minGP, 
@@ -92,7 +96,7 @@ GetOptions(
 
 my $clusterer_input_filename;
 if (!defined $filename_stem) {
-  (my $vol, my $dir, $filename_stem) = File::Spec->splitpath($vcf_filename);
+  (my $vol, my $dir, $filename_stem) = File::Spec->splitpath($input_filename);
   if ($filename_stem =~ /vcf$/) {
     $filename_stem =~ s/vcf$//; # remove vcf if present
     $filename_stem =~ s/[.]$//; # remove final . if present
@@ -103,11 +107,11 @@ my $genotypes_filename = $filename_stem . "_gts";
 print  "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
 
 
-if ($plink) {  #####  PLINK  #####
+if ($plink) {			#####  PLINK  #####
   $max_distance = $plink_default_max_distance if($max_distance eq 'auto');
   my $plink_out_filename = $genotypes_filename . "_bin";
 
-  my $plink_command1 = "plink1.9 --vcf $vcf_filename --double-id --out $filename_stem --vcf-min-gp $minGP ";
+  my $plink_command1 = "plink1.9 --vcf $input_filename --double-id --out $filename_stem --vcf-min-gp $minGP ";
   print  "# plink command 1: $plink_command1\n";
   system "$plink_command1"; # produces 3 files ending in .bed , .bin , and .fam
   my $plink_command2 = "plink1.9 --bfile $filename_stem --out $filename_stem --distance-matrix ";
@@ -127,16 +131,19 @@ if ($plink) {  #####  PLINK  #####
     system "$plnk_to_ds_abs_path  -i $id_filename  -d $distance_matrix_filename  -o $output_filename  -m $max_distance ";
   }
 
-} else {   #####  DUPLICATESEARCH  #####
-
-  my $vcf2gts_command = $bindir . "/vcf_to_gts -input $vcf_filename -pmin $minGP "; # for now uses GT field, can filter on GP
-  $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
-  $vcf2gts_command .= " -output $genotypes_filename ";
-  print  "# vcf_to_gts command: $vcf2gts_command \n";
-  print  "######### running vcf_to_gts ##########\n";
-  system "$vcf2gts_command";
-  print  "#########   vcf_to_gts done  ##########\n\n";
-
+} else {			#####  DUPLICATESEARCH  #####
+  if ($input_format eq 'vcf') {
+    my $vcf2gts_command = $bindir . "/vcf_to_gts -input $input_filename -pmin $minGP "; # for now uses GT field, can filter on GP
+    $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
+    $vcf2gts_command .= " -output $genotypes_filename ";
+    print  "# vcf_to_gts command: $vcf2gts_command \n";
+    print  "######### running vcf_to_gts ##########\n";
+    system "$vcf2gts_command";
+    print  "#########   vcf_to_gts done  ##########\n\n";
+  } else { # format was not 'vcf', assume input file has dosage format directly readable by duplicatesearch
+    $genotypes_filename = $input_filename;
+  }
+  
   $distances_filename = $filename_stem . ".dists";
   my $ds_command = $bindir . "/duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
   if ($max_distance ne 'auto') {
@@ -152,12 +159,12 @@ if ($plink) {  #####  PLINK  #####
   print  "#########  duplicatesearch done  ##########\n\n";
 }
 
- print  "######### running clusterer ##########\n";
-  my $cluster_filename = $filename_stem . "_clusters";
-  my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
+print  "######### running clusterer ##########\n";
+my $cluster_filename = $filename_stem . "_clusters";
+my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
 print  "# clusterer command: $cluster_command\n";
-if(! $full_cluster_out){
+if (! $full_cluster_out) {
   $cluster_command .= " -nofull ";
 }
-  system "$cluster_command";
-  print  "#########  clusterer done  ##########\n\n";
+system "$cluster_command";
+print  "#########  clusterer done  ##########\n\n";
