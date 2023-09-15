@@ -293,7 +293,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, markerid_count);
       exit(EXIT_FAILURE); 
     }
-    double fraction_to_keep = 0.3;
+    double fraction_to_keep = 0.75;
     // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
     // if(0 || (double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){
      if(1 || (double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){   

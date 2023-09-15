@@ -22,6 +22,10 @@
 #define DEFAULT_MAX_ACC_MD 0.5
 #define DEFAULT_D_RANDOM_SAMPLE_SIZE 20000
 
+long nnnn = 0;
+double fcmc_time = 0;
+double fcmc_time2 = 0;
+
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
 
@@ -440,6 +444,7 @@ main(int argc, char *argv[])
   long distances_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# Number of matches output: %ld\n", distances_count);
   fclose(out_stream);
+  fprintf(stderr, "# nnnn: %ld  fcmc_times: constructvlong: %8.6f  rest: %8.6f\n", nnnn, fcmc_time2, fcmc_time);
 
   // getchar();
    // *****  clean up  *****
@@ -569,16 +574,20 @@ void print_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi, FILE* ostream){
 // *****  Accession and Chunk_pattern_idxs  ***********
 
 Vlong* find_chunk_match_counts(const Accession* the_accession, const Chunk_pattern_idxs* the_cpi){
+   clockid_t clock3 = CLOCK_MONOTONIC;
+   double start_time = clock_time(clock3);
+   
   long n_patterns = the_cpi->n_patterns;
   Vlong* chunk_patterns = the_accession->chunk_patterns; // chunk patterns for Accession the_accession (i.e. the query accession)
   Vlong* accidx_matchcounts = construct_vlong_zeroes(the_accession->index);
-
+  double time_b = clock_time(clock3);
+  fcmc_time2 += time_b - start_time;
   for(long i_chunk=0; i_chunk < chunk_patterns->size; i_chunk++){
     long the_pattern = chunk_patterns->a[i_chunk];  
-  Vlong* chunk_match_idxs = the_cpi->a[i_chunk]->a[the_pattern]; // array of indices of the matches to this chunk & pat
+    Vlong* chunk_match_idxs = the_cpi->a[i_chunk]->a[the_pattern]; // array of indices of the matches to this chunk & pat
 
     // assert(the_pattern >= 0  &&  the_pattern <= n_patterns);
-    // (patterns 0..n_patterns-1 are good, n_patterns=3^chunk_size is the pattern for missing data )
+    // (patterns 0..n_patterns-1 are good, the_pattern == n_patterns (== (ploidy+1)^chunk_size) indicates a chunk with missing data )
     if(the_pattern == n_patterns){ // missing data in this chunk 
     }else{ // the_pattern = 0..n_patterns-1 (good data)   
       // just get the counts for matches with index < index of the_accession
@@ -589,10 +598,13 @@ Vlong* find_chunk_match_counts(const Accession* the_accession, const Chunk_patte
 	long accidx = chunk_match_idxs->a[i]; // index of one of the accessions matching on this chunk
 	if(accidx >= the_accession->index) break;
 	accidx_matchcounts->a[accidx]++; // accidx here is < the_accession->index
+	nnnn++;
       }
     }
   }
-  return accidx_matchcounts; 
+  fcmc_time += clock_time(clock3) - time_b;
+  return accidx_matchcounts; // array containing the number of matching chunks for each accession (with lower index than the_accession->index)
+  // accidx_matchcounts->a[j] is the number of chunks for which the accession with index j matches the_accession.
 }
 
 // ***** Mci  *****
