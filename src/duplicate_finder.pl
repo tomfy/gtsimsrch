@@ -34,6 +34,8 @@ my $field_to_use = 'GT'; # Presently GT is only option, must be present in vcf f
 
 my $input_filename = undef;
 my $ref_filename = undef;
+my $genotypes_filename;
+my $ref_genotypes_filename;
 
 my $minGP = 0.9; # if GP present, there must be 1 genotype with prob >= $minGP; i.e. one genotype must be strongly preferred.
 my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -alt to construct marker ids from cols 1 and 2.
@@ -42,7 +44,7 @@ my $use_alt_marker_ids = 0; # default is use marker ids in col 3 of vcf file. -a
 # my $delta = 0.1; # if DS present, must be within $delta of an integer. Not implemented
 
 my $plink = 0;
-my $plnk2ds_perl = 0;	default	# 0 -> C, 1 -> perl
+my $plnk2ds_perl = 0;	# default	# 0 -> C, 1 -> perl
 my $plink_default_max_distance = 0.175;
 
 my $chunk_size = 6;		# relevant only to duplicatesearch
@@ -66,10 +68,10 @@ my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to ch
 
 GetOptions(
 	   'input_filename=s' => \$input_filename,
-	   'format=s' => \$input_format, # either 'vcf' (default) or, if anything else -> dosage.
+	  # 'format=s' => \$input_format, # either 'vcf' (default) or, if anything else -> dosage.
 	   'output_file=s' => \$filename_stem,
 	   'ref_filename|reference_filename=s' => \$ref_filename,
-	   'ref_format=s' => \$ref_format, # default is 'vcf', anything else -> dosage 
+	  # 'ref_format=s' => \$ref_format, # default is 'vcf', anything else -> dosage 
 
 	   # used by vcf_to_gts:
 	   'min_gp|gp_min=f' => \$minGP, 
@@ -93,6 +95,14 @@ GetOptions(
 	   'full_cluster_output!' => \$full_cluster_out, #
 	  );
 
+
+$input_format = determine_input_format($input_filename);
+die "Input file $input_filename has unknown format.\n" if($input_format eq 'UNKNOWN');
+if(defined $ref_filename){
+  $ref_format = determine_input_format($ref_filename);
+  die "Reference file $ref_filename has unknown format.\n" if($input_format eq 'UNKNOWN');
+}
+
 # $max_distance = -1 if($max_distance eq 'auto');
 
 my $clusterer_input_filename;
@@ -103,7 +113,7 @@ if (!defined $filename_stem) {
     $filename_stem =~ s/[.]$//; # remove final . if present
   }
 }
-my $genotypes_filename = $filename_stem . "_gts";
+$genotypes_filename = $filename_stem . "_gts";
 # print  "# genotypes_filename: $genotypes_filename \n";
 print  "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
 
@@ -144,13 +154,25 @@ if ($plink) {			#####  PLINK  #####
   } else { # format was not 'vcf', assume input file has dosage format directly readable by duplicatesearch
     $genotypes_filename = $input_filename;
   }
+
+  if(defined $ref_filename  and  $ref_format eq 'vcf'){
+      my $vcf2gts_command = $bindir . "/vcf_to_gts -input $ref_filename -pmin $minGP "; # for now uses GT field, can filter on GP
+    $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
+    $vcf2gts_command .= " -output $ref_genotypes_filename ";
+    print  "# vcf_to_gts command: $vcf2gts_command \n";
+    print  "######### running vcf_to_gts ##########\n";
+    system "$vcf2gts_command";
+    print  "#########   vcf_to_gts done  ##########\n\n";
+  }else{
+    $ref_genotypes_filename = $ref_filename;
+  }
   
   $distances_filename = $filename_stem . ".dists";
   my $ds_command = $bindir . "/duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
   if ($max_distance ne 'default') {
     $ds_command .= " -max_est_distance $max_distance ";
   }
-  $ds_command .= " -ref $ref_filename " if(defined $ref_filename);
+  $ds_command .= " -ref $ref_genotypes_filename " if(defined $ref_filename);
   $ds_command .= " -marker_max_missing_data $max_marker_missing_data_fraction ";
   $ds_command .= " -chunk_size $chunk_size -accession_max_missing_data $max_accession_missing_data_fraction ";
   $ds_command .= " -seed $rng_seed " if($rng_seed > 0);
@@ -171,7 +193,7 @@ system "$cluster_command";
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
-my $histogram_command = "histogram -i $distances_filename:3 -output distance_histogram -bw 0.0025 ";
+my $histogram_command = "histogram -data $distances_filename:3 -output distances_histogram -bw 0.0025 -png -noscreen -nointeractive ";
 if($max_distance ne 'default'){
   my $hi = $max_distance + 0.01;
   $histogram_command .= " -hi $hi ";
@@ -179,3 +201,28 @@ if($max_distance ne 'default'){
 print "about to run command: [$histogram_command]\n";
 system "$histogram_command";
 print "#########  done histogramming  ##########\n\n";
+
+
+sub determine_input_format{
+  my $input_filename = shift;
+  my $format = 'UNKNOWN';
+  open my $fhin, "<", "$input_filename" or die "Couldn't open $input_filename for reading.\n";
+  my $line;
+  while($line = <$fhin>){
+    if($line =~ /^#/){
+      if($line =~ /^#CHROM/){
+	$format = 'vcf';
+	close $fhin;
+	return $format;
+      }
+    }else{
+      last;
+    }
+  }
+
+  if($line =~ /^MARKER/){
+    $format = 'dosage';
+  }
+  close $fhin;
+  return $format;
+}
