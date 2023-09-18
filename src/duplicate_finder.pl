@@ -200,7 +200,8 @@ $vline_xpos = $1;
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
-my $histogram_command = "histogram -data $distances_filename:3 -output distances_histogram -bw 0.0025 -png -noscreen -nointeractive ";
+my $histogram_filename = $filename_stem . '_distances_histogram';
+my $histogram_command = "histogram -data $distances_filename:3 -output $histogram_filename -bw 0.0025 -png -noscreen -nointeractive ";
 if($max_distance ne 'default'){
   my $hi = $max_distance + 0.01;
   $histogram_command .= " -hi $hi ";
