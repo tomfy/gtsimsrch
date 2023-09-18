@@ -108,10 +108,10 @@ if(defined $ref_filename){
 my $clusterer_input_filename;
 if (!defined $filename_stem) {
   (my $vol, my $dir, $filename_stem) = File::Spec->splitpath($input_filename);
-  if ($filename_stem =~ /vcf$/) {
-    $filename_stem =~ s/vcf$//; # remove vcf if present
-    $filename_stem =~ s/[.]$//; # remove final . if present
-  }
+  # if ($filename_stem =~ /vcf$/) {
+  #   $filename_stem =~ s/vcf$//; # remove vcf if present
+  #   $filename_stem =~ s/[.]$//; # remove final . if present
+  # }
 }
 $genotypes_filename = $filename_stem . "_gts";
 # print  "# genotypes_filename: $genotypes_filename \n";
