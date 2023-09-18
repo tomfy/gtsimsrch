@@ -182,6 +182,7 @@ if ($plink) {			#####  PLINK  #####
   print  "#########  duplicatesearch done  ##########\n\n";
 }
 
+
 print  "######### running clusterer ##########\n";
 my $cluster_filename = $filename_stem . "_clusters";
 my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
