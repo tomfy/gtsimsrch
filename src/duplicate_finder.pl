@@ -161,7 +161,7 @@ if ($plink) {			#####  PLINK  #####
     $vcf2gts_command .= " -output $ref_genotypes_filename ";
     print  "# vcf_to_gts command: $vcf2gts_command \n";
     print  "######### running vcf_to_gts ##########\n";
-    system "$vcf2gts_command";
+      system "$vcf2gts_command";
     print  "#########   vcf_to_gts done  ##########\n\n";
   }else{
     $ref_genotypes_filename = $ref_filename;
@@ -189,7 +189,13 @@ print  "# clusterer command: $cluster_command\n";
 if (! $full_cluster_out) {
   $cluster_command .= " -nofull ";
 }
-system "$cluster_command";
+# system "$cluster_command";
+my $cluster_stdout = `$cluster_command`;
+print "clusterer output to stdout: ", $cluster_stdout, "\n";
+my $vline_xpos = 0;
+if($cluster_stdout =~ /Max link distance: (\S+)/){
+$vline_xpos = $1;
+}
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
