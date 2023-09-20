@@ -182,7 +182,6 @@ if ($plink) {			#####  PLINK  #####
   print  "#########  duplicatesearch done  ##########\n\n";
 }
 
-
 print  "######### running clusterer ##########\n";
 my $cluster_filename = $filename_stem . "_clusters";
 my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
@@ -193,15 +192,17 @@ if (! $full_cluster_out) {
 # system "$cluster_command";
 my $cluster_stdout = `$cluster_command`;
 print "clusterer output to stdout: ", $cluster_stdout, "\n";
-my $vline_xpos = 0;
+my $vline_xpos = undef;
 if($cluster_stdout =~ /Max link distance: (\S+)/){
-$vline_xpos = $1;
+  $vline_xpos = $1;
 }
+
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
 my $histogram_filename = $filename_stem . '_distances_histogram';
-my $histogram_command = "histogram -data $distances_filename:3 -output $histogram_filename -bw 0.0025 -png -noscreen -nointeractive ";
+my $histogram_command = "histogram -data $distances_filename:3 -output $histogram_filename -bw 0.0025 -png -noscreen -nointeractive -h_key right ";
+$histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
 if($max_distance ne 'default'){
   my $hi = $max_distance + 0.01;
   $histogram_command .= " -hi $hi ";
