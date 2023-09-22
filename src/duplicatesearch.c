@@ -18,7 +18,7 @@
 #define DISTANCE_NORM_FACTOR (1.0) // if 0.5 max possible distance is 1 (if all dosage pairs are 0|2)
 // defaults
 #define DEFAULT_DIPLOID_CHUNK_SIZE 6
-#define DEFAULT_MAX_DISTANCE 0.125
+#define DEFAULT_MAX_DISTANCE 0.25
 #define DEFAULT_MAX_ACC_MD 0.5
 #define DEFAULT_D_RANDOM_SAMPLE_SIZE 20000
 
@@ -861,7 +861,7 @@ void* process_query_range(void* x){
   Vaccession* the_accessions = the_genotypes_set->accessions;
   long n_chunks = the_cpi->size;
   long chunk_size = the_cpi->chunk_size;
-  double min_matching_chunk_fraction = pow(1.0 - 2*max_est_dist, chunk_size);
+  double min_matching_chunk_fraction = pow(1.0 - max_est_dist, chunk_size);
 
   long n_matches_checked = 0;
   long distance_count = 0;
