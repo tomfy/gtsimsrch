@@ -15,7 +15,7 @@
 
 #include "gtset.h"
 
-#define DISTANCE_NORM_FACTOR (0.5) // if 0.5 max possible distance is 1 (if all dosage pairs are 0|2)
+#define DISTANCE_NORM_FACTOR (1.0) // if 0.5 max possible distance is 1 (if all dosage pairs are 0|2)
 // defaults
 #define DEFAULT_DIPLOID_CHUNK_SIZE 6
 #define DEFAULT_MAX_DISTANCE 0.125
@@ -51,6 +51,8 @@ typedef struct{
   long n_matching_chunks;
   double est_dist;
   double dist;
+  double agmr;
+  double hgmr;
 } Mci; // 'Mci = Matching chunk info'
 
 typedef struct{
@@ -79,12 +81,13 @@ void print_usage_info(FILE* ostream);
 char* ipat_to_strpat(long len, long ipat); // unused
 long strpat_to_ipat(long len, char* strpat); // unused
 ND distance(Accession* acc1, Accession* acc2);
+four_longs agmr_hgmr_diploid(Accession* gtset1, Accession* gtset2);
 Vdouble* distances_random_sample(GenotypesSet* the_gtset, long n);
 
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
-		   double est_dist, double dist);
+		   double est_dist, double dist, double agmr, double hgmr);
 // *****  Vmci  *********************************************************************************
 Vmci* construct_vmci(long init_size);
 void push_to_vmci(Vmci* the_vmci, Mci* the_mci);
@@ -611,7 +614,7 @@ Vlong* find_chunk_match_counts(const Accession* the_accession, const Chunk_patte
 
 Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_chunks,
 		   // double est_matching_chunk_fraction, double matching_chunk_fraction){
-		   double est_dist, double dist){
+		   double est_dist, double dist, double agmr, double hgmr){
   Mci* the_mci = (Mci*)calloc(1,sizeof(Mci));
   the_mci->query_index = qidx;
   the_mci->match_index = midx;
@@ -619,6 +622,8 @@ Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_c
   the_mci->n_matching_chunks = n_matching_chunks;
   the_mci->est_dist = est_dist;
   the_mci->dist = dist;
+  the_mci->agmr = agmr;
+  the_mci->hgmr = hgmr;
   return the_mci;
 }
 
@@ -722,6 +727,8 @@ ND distance(Accession* acc1, Accession* acc2){
   if(DO_ASSERT) assert(acc1->genotypes->length == acc2->genotypes->length);
   long denom = 0;
   long numer = 0;
+  long h_denom = 0;
+  long h_numer = 0;
   for(long i=0; ;i++){
     char a1 = gts1[i];
     if(a1 == '\0') break; // end of 
@@ -736,9 +743,9 @@ ND distance(Accession* acc1, Accession* acc2){
       }
     }
   }
-  ND result;
-  result.n = numer;
-  result.d = denom;
+  ND result = {numer, denom};
+  // result.n = numer;
+  // result.d = denom;
   return result;
 }
 
@@ -872,16 +879,37 @@ void* process_query_range(void* x){
       
       if( matching_chunk_count > min_matching_chunk_fraction*usable_chunk_count ){
 	double predistance_time = clock_time(clock2);
-	ND d_nd = distance(q_gts, the_accessions->a[i_match]);
+	double true_dist;
+	double agmr = -1;
+	double hgmr = -1;
+	if(0){
+	  ND d_nd = distance(q_gts, the_accessions->a[i_match]);
+	  true_dist = (d_nd.d > 0)? DISTANCE_NORM_FACTOR*(double)d_nd.n/(double)d_nd.d : -1;
+	}else{
+	  four_longs four_counts = agmr_hgmr_diploid(q_gts, the_accessions->a[i_match]);
+	  // four_counts = {count_00_22, count_02, count_11, count_01_12}
+	  long agmr_numerator = four_counts.l2 + four_counts.l4;
+ 
+	  long d_numerator = agmr_numerator + four_counts.l2;
+	  long d_denominator = agmr_numerator + four_counts.l1 + four_counts.l3;
+	  true_dist = (d_denominator > 0)? DISTANCE_NORM_FACTOR*(double)d_numerator/(double)d_denominator : -1;
+	  agmr = (d_denominator > 0)?  DISTANCE_NORM_FACTOR*(double)agmr_numerator/(double)d_denominator : -1;
+	  long hgmr_numerator = four_counts.l2;
+	  long hgmr_denominator = hgmr_numerator + four_counts.l1;
+	  hgmr = (hgmr_denominator > 0)? (double)hgmr_numerator/(double)hgmr_denominator : -1;
+	  /* if(true_dist <= 0.2){ */
+	  /*   fprintf(stderr, "%6.4f  %ld %ld %ld %ld\n", true_dist, four_counts.l1, four_counts.l2, four_counts.l3, four_counts. l4); */
+	  /* } */
+	}
 	distance_count++;
-	double true_dist = (d_nd.d > 0)? DISTANCE_NORM_FACTOR*(double)d_nd.n/(double)d_nd.d : -1;
+
 	double postdistance_time = clock_time(clock2);
 	true_distance_time += postdistance_time - predistance_time;
 	if(true_dist <= max_est_dist){
 	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	  double est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size));
 	  push_to_vmci(query_vmcis[i_query],
-		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, true_dist));
+		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, true_dist, agmr, hgmr));
 	
 	} // end if(true_dist < max_est_dist)
       } // end if(enough matching chunks) - i.e. est dist is small enough
@@ -911,8 +939,8 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       if(output_format == 1){
 	fprintf(ostream, "%s  %s  %8.6f\n", q_acc->id->a, m_acc->id->a, the_mci->dist);
       }else{
-	fprintf(ostream, "%s  %s  %8.6f  %5.2f %3ld %6.4f\n", q_acc->id->a, m_acc->id->a, the_mci->dist,
-		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist);
+	fprintf(ostream, "%s  %s  %8.6f  %5.2f %3ld %6.4f %6.4f %6.4f\n", q_acc->id->a, m_acc->id->a, the_mci->dist,
+		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist, the_mci->agmr, the_mci->hgmr);
       }
       distance_count++;
     } // end of loop over matches to query
@@ -1058,34 +1086,47 @@ void print_command_line(FILE* ostream, int argc, char** argv){
 
 
 
-/* double agmr_hgmr(Accession* gtset1, Accession* gtset2, double* hgmr){ */
-/*   char* gts1 = gtset1->genotypes->a; */
-/*   char* gts2 = gtset2->genotypes->a; */
-/*   long usable_pair_count = 0; // = agmr_denom */
-/*   long mismatches = 0; // = agmr_numerator */
-/*   long hgmr_denom = 0; */
-/*   long hgmr_numerator = 0; */
-/*   // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2)); */
-/*   for(long i=0; ;i++){ */
-/*     char a1 = gts1[i]; */
-/*     if(a1 == '\0') break; // end of  */
-/*     char a2 = gts2[i]; */
-/*     if(DO_ASSERT) assert(a2 != '\0'); */
-/*     // fprintf(stderr, "chars: %c %c\n", a1, a2); */
-/*     if(a1 != MISSING_DATA_CHAR){ */
-/*       if(a2 != MISSING_DATA_CHAR){ */
-/* 	usable_pair_count++; */
-/* 	if(a1 != a2) mismatches++; */
-/* 	if(a1 != '1' && a2 != '1'){ */
-/* 	  hgmr_denom++; */
-/* 	  if(a1 != a2) hgmr_numerator++; */
-/* 	} */
-/*       } */
-/*     } */
-/*   } */
-/*   *hgmr = (hgmr_denom > 0)? (double)hgmr_numerator/hgmr_denom : -1; */
-/*   return (usable_pair_count > 0)? (double)mismatches/(double)usable_pair_count : -1; */
-/* } */
+four_longs agmr_hgmr_diploid(Accession* gtset1, Accession* gtset2){
+  char* gts1 = gtset1->genotypes->a;
+  char* gts2 = gtset2->genotypes->a;
+  long count_00_22 = 0; // count of 00, 22
+  long count_02 = 0; // count of 02, 20
+  long count_11 = 0; // count of 11
+  long count_01_12 = 0; // count of 01, 10, 12, 21
+  // agmr_numerator = count_02 + count_01_12
+  // hgmr_numerator = count_02;
+  // agmr_denominator = agmr_numerator + count_00_22 + count_11
+  // hgmr_denominator = hgmr_numerator + count_00_22
+  
+  // fprintf(stderr, "strlen gts1, gts2: %ld %ld \n", strlen(gts1), strlen(gts2));
+  for(long i=0; ;i++){
+    char a1 = gts1[i];
+    if(a1 == '\0') break; // end of
+    char a2 = gts2[i];
+    if(DO_ASSERT) assert(a2 != '\0');
+    // fprintf(stderr, "chars: %c %c\n", a1, a2);
+    if(a1 != MISSING_DATA_CHAR){
+      if(a2 != MISSING_DATA_CHAR){
+	//	if(a1 != a2) mismatches++;
+	if(a1 != '1' && a2 != '1'){ // both homozyg
+	  if(a1 != a2) { // not equal: 02 or 20
+	    count_02++;
+	  }else{
+	    count_00_22++;
+	  }
+	}else{ // at least one heterozyg
+	  if(a1 == a2){ 
+	    count_11++;
+	  }else{
+	    count_01_12++;
+	  }
+	}
+      }
+    }
+  }
+  four_longs result = {count_00_22, count_02, count_11, count_01_12};
+  return result;
+}
 
 
 /* long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){ */
