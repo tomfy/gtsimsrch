@@ -49,15 +49,17 @@ my $plink_default_max_distance = 0.175;
 
 my $chunk_size = 6;		# relevant only to duplicatesearch
 my $rng_seed = -1; # default: duplicatesearch will get seed from clock
-my $max_distance = 0.125; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'default' use duplicatesearch's default.
+my $max_distance = 'default'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'default' use duplicatesearch's default.
 #  'auto' seems to not work very well; not recommended. 'auto' -> get random sample of dists, use to choose $max_distance.
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data.
 my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
 my $min_marker_maf = 0.08; # this is a good value for the yam 941 accession set.
+my $full_duplicatesearch_output = 1;
 my $full_cluster_out = 1;
 my $input_format = 'vcf';
 my $ref_format = 'vcf';
+my $histogram_agmr0 = 0;
 
 print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
 my $distances_filename;
@@ -67,7 +69,9 @@ my $filename_stem;
 my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to choose a reasonable value.
 
 GetOptions(
+
 	   'input_filename=s' => \$input_filename,
+
 	  # 'format=s' => \$input_format, # either 'vcf' (default) or, if anything else -> dosage.
 	   'output_file=s' => \$filename_stem,
 	   'ref_filename|reference_filename=s' => \$ref_filename,
@@ -89,10 +93,13 @@ GetOptions(
 	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
 	   'max_accession_md_fraction|accession_max_md_fraction=f' => \$max_accession_missing_data_fraction,
 	   'min_maf|maf_min=f' => \$min_marker_maf,
+	   'full_duplicatesearch_output!' => $full_duplicatesearch_output,
 
 	   # used by clusterer:
 	   'cluster_distance=f' => \$cluster_distance,
 	   'full_cluster_output!' => \$full_cluster_out, #
+
+	   'show_agmr0!' => \$histogram_agmr0,
 	  );
 
 
@@ -170,7 +177,10 @@ if ($plink) {			#####  PLINK  #####
   $distances_filename = $filename_stem . ".dists";
   my $ds_command = $bindir . "/duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
   if ($max_distance ne 'default') {
-    $ds_command .= " -max_est_distance $max_distance ";
+    $ds_command .= " -distance_max $max_distance ";
+  }
+  if($full_duplicatesearch_output){
+    $ds_command .= " -format 2 ";
   }
   $ds_command .= " -ref $ref_genotypes_filename " if(defined $ref_filename);
   $ds_command .= " -marker_max_missing_data $max_marker_missing_data_fraction ";
@@ -201,12 +211,15 @@ print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
 my $histogram_filename = $filename_stem . '_distances_histogram';
-my $histogram_command = "histogram -data $distances_filename:3 -output $histogram_filename -bw 0.0025 -png -noscreen -nointeractive -h_key right ";
+my $histogram_command = ($histogram_agmr0  and  $full_duplicatesearch_output)?
+  "histogram -data $distances_filename:3/8 " :
+  "histogram -data $distances_filename:3 ";
+$histogram_command .= " -output $histogram_filename -bw 0.0025 -png -noscreen -nointeractive -h_key right ";
 $histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
-if($max_distance ne 'default'){
-  my $hi = $max_distance + 0.01;
-  $histogram_command .= " -hi $hi ";
-}
+# if($max_distance ne 'default'){
+#   my $hi = $max_distance + 0.01;
+#   $histogram_command .= " -hi $hi ";
+# }
 print "about to run command: [$histogram_command]\n";
 system "$histogram_command";
 print "#########  done histogramming  ##########\n\n";
