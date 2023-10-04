@@ -210,7 +210,7 @@ two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2
 
   long count22_2b = 0;
   long count22_01b = 0;
-  for(long i=0; i<acc2->alt_homozygs->size; i++){
+  for(long i=0; i<acc2->alt_homozygs->size; i++){ // gt2 is '2'
     long index = acc2->alt_homozygs->a[i];
     char gt1 = acc1->genotypes->a[index];
     char gtprog = progacc->genotypes->a[index];
@@ -273,7 +273,7 @@ four_longs q_and_d_n22x_diploid(Accession* acc1, Accession* acc2, Accession* pro
     }
   }
  
-  for(long i=0; i<acc1->ref_homozygs->size; i++){ // just look at markers with gt1 = 2
+  for(long i=0; i<acc1->ref_homozygs->size; i++){ // just look at markers with gt1 = 0
     long index = acc1->ref_homozygs->a[i];
     assert(acc1->genotypes->a[index] == '0');
     char gt2 = acc2->genotypes->a[index];
