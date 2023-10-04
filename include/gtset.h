@@ -26,6 +26,9 @@ typedef struct{
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
   Vlong* alt_homozygs; //
+  Vull* Abits; // Abit and Bbist encode the gts, 64 gts to each pair of longs
+  Vull* Bbits; //
+  double agmr0;
 }Accession;
 
 typedef struct{
@@ -35,7 +38,7 @@ typedef struct{
 }Vaccession;
 
 typedef struct{
-  long capacity; // needed?
+  //  long capacity; // needed?
   double max_marker_missing_data_fraction;
   double min_minor_allele_frequency;
   long n_accessions; // accessions stored (ref + new but bad ones not counted)
@@ -51,7 +54,8 @@ typedef struct{
   Vlong* marker_missing_data_counts; //
   Vlong* marker_alt_allele_counts; //
   Vdouble* mafs; 
-  Vlong** marker_dose_counts; // counts of dosages.
+  Vlong** marker_dosage_counts; // counts of dosages for each marker
+  Vlong* dosage_counts; // counts of dosages for whole
 }GenotypesSet;
 
 // *****  functions  *****
@@ -68,6 +72,12 @@ char* print_accession(Accession* the_gts, FILE* ostream);
 
 void free_accession(Accession* the_accession);
 void free_accession_innards(Accession* the_accession);
+
+double agmr0(GenotypesSet* the_gtsset);
+double agmr0_qvsall(const GenotypesSet* the_gtsset, Accession* A);
+double agmr0_accvsall(const GenotypesSet* the_gtsset, Accession* A);
+double pair_agmr0(Accession* A, Accession* B);
+
 
 // *****  Vaccession  *****
 Vaccession* construct_vaccession(long cap);
@@ -103,10 +113,12 @@ void check_genotypesset(GenotypesSet* gtss);
 // GenotypesSet* construct_filtered_genotypesset(const GenotypesSet* the_gtsset, double max_md_fraction);
 void filter_genotypesset(GenotypesSet* the_genotypes_set);
 void rectify_markers(GenotypesSet* the_gtsset);
+void set_Abits_Bbits(GenotypesSet* the_genotypesset); // diploid only
 void store_homozygs(GenotypesSet* the_gtsset);
-
+void set_agmr0s(GenotypesSet* the_gtsset);
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
+four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
 ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
 four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
