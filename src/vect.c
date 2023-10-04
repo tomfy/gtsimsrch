@@ -12,7 +12,7 @@ Vlong* construct_vlong(long cap){
   Vlong* the_vlong = (Vlong*)malloc(1*sizeof(Vlong));
   the_vlong->capacity = cap;
   the_vlong->size = 0;
-  the_vlong->a = (long*)malloc(cap*sizeof(char*));
+  the_vlong->a = (long*)malloc(cap*sizeof(long));
   return the_vlong;
 }
 
@@ -78,6 +78,26 @@ void free_vlong(const Vlong* the_vlong){
   free((Vlong*)the_vlong);
 }
 
+// *****  Vull (unsigned long long)
+Vull* construct_vull(long cap){ // set capacity = cap, size = 0
+  Vull* the_vull = (Vull*)malloc(1*sizeof(Vull));
+  the_vull->capacity = cap;
+  the_vull->size = 0;
+  the_vull->a = (unsigned long long*)malloc(cap*sizeof(unsigned long long));
+  return the_vull;
+}
+Vull* construct_vull_zeroes(long size){ // set capacity = cap, size = 0
+  Vull* the_vull = (Vull*)malloc(1*sizeof(Vull));
+  the_vull->capacity = size;
+  the_vull->size = size;
+  the_vull->a = (unsigned long long*)calloc(size, sizeof(unsigned long long));
+  return the_vull;
+}
+void free_vull(const Vull* the_vull){ // free memory
+  if(the_vull == NULL) return;
+  free(the_vull->a);
+  free((Vull*)the_vull);
+}
 
 // *****  Vstr  ***************************************************x
 

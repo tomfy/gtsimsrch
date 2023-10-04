@@ -15,12 +15,18 @@ typedef struct{
 typedef struct{
   long capacity; // allocated size
   long size; // number of elements
+  unsigned long long* a; // array
+} Vull;
+
+typedef struct{
+  long capacity; // allocated size
+  long size; // number of elements
   char** a; // array of strings
 } Vstr;
 
 typedef struct{
   long capacity;
-  long length; // length of the string not including term. null
+  long length; // length of the string not including terminating null char.
   char* a; // a regular null-terminated string
 }Vchar;
 
@@ -64,6 +70,11 @@ void push_to_vlong(Vlong* the_vlong, long x); // push, realloc if necessary
 void shuffle_vlong(Vlong* the_vlong); // randomize order of array elements
 void append_vlong_to_vlong(Vlong* the_vlong, Vlong* a_vlong);
 void free_vlong(const Vlong* the_vlong); // free memory
+
+// *****  Vunsignedlonglong *****************************************************************
+Vull* construct_vull(long cap); // set capacity = cap, size = 0
+Vull* construct_vull_zeroes(long size);
+void free_vull(const Vull* the_vull); // free memory
 
 // *****  Vstr  *****************************************************************************
 Vstr* construct_vstr(long cap); // set capacity = cap, size = 0
