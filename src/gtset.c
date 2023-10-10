@@ -390,30 +390,30 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, markerid_count);
       exit(EXIT_FAILURE); 
     }
-    double fraction_to_keep = 0.75;
-    // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
-    // if(0 || (double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){
-     if(1 || (double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){   
-    if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
-      Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
-      for(long jjj=0; jjj<markerid_count; jjj++){ //
-	if(genotypes[jjj] == MISSING_DATA_CHAR){
-	  the_genotypes_set->marker_missing_data_counts->a[jjj]++;
-	  accession_missing_data_count++;
-	}else{
-	  the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
-	}
-      }   
-      push_to_vaccession(the_genotypes_set->accessions, the_accession);
-      accession_count++;
-    }else{
-      fprintf(stdout, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
-	      acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
-      the_genotypes_set->n_bad_accessions++;
+    // double fraction_to_keep = 0.75;  
+    // if((double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){
+    if(1){
+      // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
+      if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
+	Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
+	for(long jjj=0; jjj<markerid_count; jjj++){ //
+	  if(genotypes[jjj] == MISSING_DATA_CHAR){
+	    the_genotypes_set->marker_missing_data_counts->a[jjj]++;
+	    accession_missing_data_count++;
+	  }else{
+	    the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
+	  }
+	}   
+	push_to_vaccession(the_genotypes_set->accessions, the_accession);
+	accession_count++;
+      }else{
+	fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
+		acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
+	the_genotypes_set->n_bad_accessions++;
+      }
     }
-    }
-     free(acc_id); // or cut out the middleman (acc_id)?
-      free(genotypes);
+    free(acc_id); // or cut out the middleman (acc_id)?
+    free(genotypes);
   } // done reading all lines
   fclose(g_stream);
   // fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
@@ -548,10 +548,10 @@ void check_genotypesset(GenotypesSet* gtss){
     assert(marker_alt_allele_counts[j] == gtss->marker_alt_allele_counts->a[j]);
   }
   free(marker_md_counts);
-  fprintf(stderr, "# Successfully completed check_genotypesset\n");
+  // fprintf(stderr, "# Successfully completed check_genotypesset\n");
 }
 
-void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'filtered' accession genotypes, which replace the raw ones.
+void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct a new set of 'filtered' accession genotypes, which replace the raw ones.
   double max_marker_md_fraction = the_gtsset->max_marker_missing_data_fraction;
   Vlong* marker_md_counts = the_gtsset->marker_missing_data_counts; // the number of missing data for each marker
   Vlong* alt_allele_counts = the_gtsset->marker_alt_allele_counts;  
@@ -623,18 +623,22 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
   double raw_minor_allele_freq = (double)altallelesum_all/(marker_md_counts->size*n_accs*the_gtsset->ploidy);
   double filtered_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
 
-  /* fprintf(stderr, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n", */
-  /* 	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency); */
-  /* fprintf(stderr, "#   removed %ld markers for excessive missing data.\n", too_much_missing_data_count); */
-  /* fprintf(stderr, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count); */
-   fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
+  fprintf(stdout, "# Before filtering of markers %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
+	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);   
+  fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
   	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
   fprintf(stdout, "#   removed %ld markers for excessive missing data.\n", too_much_missing_data_count);
-  fprintf(stdout, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count);
-  
-  fprintf(stdout, "# Raw data has %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
-	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);
+  fprintf(stdout, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count); 
   fprintf(stdout, "# Filtered data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
+	  n_markers_to_keep, filtered_md_fraction, filtered_minor_allele_freq);
+
+  fprintf(ostream, "# Before filtering of markers %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
+	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);   
+  fprintf(ostream, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
+  	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
+  fprintf(ostream, "#   removed %ld markers for excessive missing data.\n", too_much_missing_data_count);
+  fprintf(ostream, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count); 
+  fprintf(ostream, "# Filtered data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
 	  n_markers_to_keep, filtered_md_fraction, filtered_minor_allele_freq);
 
   Vaccession* the_accessions = construct_vaccession(the_gtsset->n_accessions); //(Accession*)malloc(the_gtsset->n_accessions*sizeof(Accession)); 

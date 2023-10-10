@@ -111,7 +111,7 @@ void check_gtsset(GenotypesSet* gtsset);
 //GenotypesSet* construct_genotypesset(Vaccession* accessions, Vstr* marker_ids, Vlong* md_counts, double delta, double max_marker_md_fraction);
 void check_genotypesset(GenotypesSet* gtss);
 // GenotypesSet* construct_filtered_genotypesset(const GenotypesSet* the_gtsset, double max_md_fraction);
-void filter_genotypesset(GenotypesSet* the_genotypes_set);
+void filter_genotypesset(GenotypesSet* the_genotypes_set, FILE* ostream);
 void rectify_markers(GenotypesSet* the_gtsset);
 void set_Abits_Bbits(GenotypesSet* the_genotypesset); // diploid only
 void store_homozygs(GenotypesSet* the_gtsset);
