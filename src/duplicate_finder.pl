@@ -59,6 +59,7 @@ my $full_duplicatesearch_output = 1;
 my $full_cluster_out = 1;
 my $input_format = 'vcf';
 my $ref_format = 'vcf';
+my $histogram_path = 'histogram'; # 
 my $histogram_agmr0 = 0;
 
 print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
@@ -89,7 +90,7 @@ GetOptions(
 	   # used by duplicatesearch/plink:
 	   'chunk_size|k=i' => \$chunk_size, # (duplicatesearch only)
 	   'seed|rand=i' => \$rng_seed,	     # (duplicatesearch only)
-	   'dmax|max_distance=f' => \$max_distance,
+	   'dmax|max_distance|distance_max=f' => \$max_distance,
 	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
 	   'max_accession_md_fraction|accession_max_md_fraction=f' => \$max_accession_missing_data_fraction,
 	   'min_maf|maf_min=f' => \$min_marker_maf,
@@ -99,7 +100,9 @@ GetOptions(
 	   'cluster_distance=f' => \$cluster_distance,
 	   'full_cluster_output!' => \$full_cluster_out, #
 
+	   'histogram_path=s' => \$histogram_path,
 	   'show_agmr0!' => \$histogram_agmr0,
+	   
 	  );
 
 
@@ -212,8 +215,8 @@ print  "#########  clusterer done  ##########\n\n";
 print "#########  histogramming distances  ##########\n\n";
 my $histogram_filename = $filename_stem . '_distances_histogram';
 my $histogram_command = ($histogram_agmr0  and  $full_duplicatesearch_output)?
-  "histogram -data $distances_filename:3/8 " :
-  "histogram -data $distances_filename:3 ";
+  "$histogram_path -data $distances_filename:3/8 " :
+  "$histogram_path -data $distances_filename:3 ";
 $histogram_command .= " -output $histogram_filename -bw 0.0025 -png -noscreen -nointeractive -h_key right ";
 $histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
 # if($max_distance ne 'default'){
