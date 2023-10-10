@@ -197,7 +197,7 @@ main(int argc, char *argv[])
   fprintf(o_stream, "# %ld accessions were excluded from analysis due to > %5.2lf percent missing data.\n",
 	  the_genotypes_set->n_bad_accessions, max_accession_missing_data_fraction*100);
   fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
-  filter_genotypesset(the_genotypes_set);
+  filter_genotypesset(the_genotypes_set, o_stream);
   double t_c = hi_res_time();
   fprintf(stdout, "# Time to clean genotype data: %6.3f sec.\n", t_c - t_b);
   rectify_markers(the_genotypes_set);
