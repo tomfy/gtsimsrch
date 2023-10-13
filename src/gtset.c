@@ -122,7 +122,10 @@ double agmr0(GenotypesSet* the_gtsset){
     // fprintf(stderr, "## f0, f1, f2: %8.5f %8.5f %8.5f  ok_count: %8.5f  n_exp_diff: %8.5f nok %8.5f\n",
     //	  f0, f1, f2, ok_count, n_exp_different, n_exp_ok);
 }
-  return (n_exp_ok > 0)? n_exp_different/n_exp_ok : -1;
+ 
+  double agmr0 = (n_exp_ok > 0)? n_exp_different/n_exp_ok : -1;
+  the_gtsset->agmr0 = agmr0;
+  return agmr0;
 }
 double agmr0_accvsall(const GenotypesSet* the_gtsset, Accession* A){
    double n_exp_different = 0;
@@ -423,6 +426,65 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   the_genotypes_set->n_markers = the_genotypes_set->marker_ids->size;
   if(DBUG && do_checks) check_genotypesset(the_genotypes_set);
 }
+
+void* process_input_lines(void* x){
+  threaded_input_struct* tis = (threaded_input_struct*)x;
+  tis->marker_missing_data_counts = construct_vlong(tis->markerid_count);
+  tis->marker_alt_allele_counts = construct_vlong(tis->markerid_count);
+  tis->n_bad_accessions = 0;
+  tis->accessions = construct_vaccession(tis->last_line - tis->first_line + 1);
+  
+  long accession_count = 0;
+  for(long i=tis->first_line; i<=tis->last_line; i++){
+    char* line = tis->input_lines->a[i];
+  
+    // while((nread = getline(&line, &len, g_stream)) != -1){
+    // fprintf(stderr, "# reading accession %ld\n", accession_count);
+    char* saveptr = line;
+    char* token = strtok_r(line, "\t \n\r", &saveptr);
+    char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
+    long marker_count = 0;
+    long accession_missing_data_count = 0;
+    char* genotypes = (char*)calloc((tis->markerid_count+1), sizeof(char));    
+    genotypes[tis->markerid_count] = '\0'; // terminate with null.
+
+    while(1){ // read dosages from one line.   
+      token = strtok_r(NULL, "\t \n\r", &saveptr);
+      if(token == NULL)	break;    
+      genotypes[marker_count] = token_to_dosage(token, &(tis->ploidy));
+      if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
+      marker_count++;
+    } // done reading dosages for all markers of this accession
+    if(marker_count != tis->markerid_count) {
+      fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, tis->markerid_count);
+      exit(EXIT_FAILURE); 
+    }
+    // double fraction_to_keep = 0.75;  
+    // if((double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){
+    if(1){
+      // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
+      if(accession_missing_data_count <= tis->max_acc_missing_data_fraction * tis->markerid_count){
+	Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, accession_missing_data_count);
+	for(long jjj=0; jjj<tis->markerid_count; jjj++){ //
+	  if(genotypes[jjj] == MISSING_DATA_CHAR){
+	    tis->marker_missing_data_counts->a[jjj]++;
+	    accession_missing_data_count++;
+	  }else{
+	    tis->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
+	  }
+	}   
+	push_to_vaccession(tis->accessions, the_accession);
+	accession_count++;
+      }else{
+	fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
+		acc_id, accession_missing_data_count, marker_count);
+	tis->n_bad_accessions++;
+      }
+    }
+    free(acc_id); // or cut out the middleman (acc_id)?
+    free(genotypes);
+  } // loop over lines 
+} // end of process_input_lines
 
 long str_to_long(char* str){ // using strtol and checking for various problems.
   char *end;

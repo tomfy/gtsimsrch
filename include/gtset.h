@@ -56,7 +56,22 @@ typedef struct{
   Vdouble* mafs; 
   Vlong** marker_dosage_counts; // counts of dosages for each marker
   Vlong* dosage_counts; // counts of dosages for whole
+  double agmr0;
 }GenotypesSet;
+
+typedef struct{
+  Vstr* input_lines;
+  long first_line;
+  long last_line;
+  long markerid_count;
+  long ploidy;
+  double max_acc_missing_data_fraction;
+  
+  Vlong* marker_missing_data_counts;
+  Vlong* marker_alt_allele_counts;
+  long n_bad_accessions;
+  Vaccession* accessions;
+}threaded_input_struct;
 
 // *****  functions  *****
 long int_power(long base, long power);
@@ -102,6 +117,7 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
 //GenotypesSet* read_genotypes_file_and_store(char* input_filename);
 
 void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction);
+void* process_input_lines(void* x); // for threaded processing of input lines.
 // void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
 char token_to_dosage(char* token, long* ploidy);
