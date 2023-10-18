@@ -59,8 +59,13 @@ my $full_duplicatesearch_output = 1;
 my $full_cluster_out = 1;
 my $input_format = 'vcf';
 my $ref_format = 'vcf';
-my $histogram_path = 'histogram'; # 
+my $histogram_path = 'histogram'; # might be e.g. 'perl /home/tomfy/Histogram_project/bin/histogram.pl'
 my $histogram_agmr0 = 0;
+my $histogram_color = undef;
+
+my $graphics = 'gnuplot';
+my $binwidth = 0.002;
+my $plot_xlabel = undef;
 
 print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
 my $distances_filename;
@@ -102,7 +107,10 @@ GetOptions(
 
 	   'histogram_path=s' => \$histogram_path,
 	   'show_agmr0!' => \$histogram_agmr0,
-	   
+	   'xlabel=s' => \$plot_xlabel,
+	   'binwidth|bw=s' => \$binwidth,
+	   'graphics=s' => \$graphics,
+	   'color=s' => \$histogram_color,
 	  );
 
 
@@ -214,11 +222,21 @@ print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
 my $histogram_filename = $filename_stem . '_distances_histogram';
-my $histogram_command = ($histogram_agmr0  and  $full_duplicatesearch_output)?
-  "$histogram_path -data $distances_filename:3/8 " :
+my $histogram_command =
+  #($histogram_agmr0  and  $full_duplicatesearch_output)?
+  #"$histogram_path -data $distances_filename:3/8 " :
   "$histogram_path -data $distances_filename:3 ";
-$histogram_command .= " -output $histogram_filename -bw 0.0025 -png -noscreen -nointeractive -h_key right ";
+$histogram_command .= " -output $histogram_filename -bw $binwidth -png -noscreen -nointeractive -h_key right ";
 $histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
+$histogram_command .= " -xlabel $plot_xlabel " if(defined $plot_xlabel);
+$histogram_command .= " -color $histogram_color " if(defined $histogram_color);
+if(lc $graphics eq 'gnuplot'){
+  $histogram_command .= ' -graphics gnuplot ';
+}elsif(lc $graphics eq 'gd'){
+  $histogram_command .= ' -graphics gd ';
+}else{
+  die "Graphics option $graphics is unknown. Options are 'gnuplot' and 'gd' (not case sensitive).\n";
+}
 # if($max_distance ne 'default'){
 #   my $hi = $max_distance + 0.01;
 #   $histogram_command .= " -hi $hi ";
