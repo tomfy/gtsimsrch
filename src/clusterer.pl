@@ -65,7 +65,7 @@ my $missing_data_char = 'X';
   # is at least this large.
 
   GetOptions(
-	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 x xx distance_est distance (duplicatesearch output)
+	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 distance  ... (duplicatesearch output)
 	     'cluster_distance|link_distance|dlink=s' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
 	     'output_file=s' => \$output_cluster_filename,
 
@@ -98,8 +98,14 @@ my $missing_data_char = 'X';
   my ($edge_weight, $id_closeidds) = store_distances($distances_filename, $id1_column, $id2_column, $d_column, $maxD);
   #######################################################################################################
   # get array of edges order by weight (distance), small to large.
+  # while(my ($e, $w) = each %$edge_weight){
+  #   print "$e $w\n";
+  # }
   my @sorted_edges = sort {$edge_weight->{$a} <=> $edge_weight->{$b} } keys %$edge_weight;
   print "# Number of edges stored ", scalar @sorted_edges, "\n";
+  # for my $ed (@sorted_edges){
+  #   print "edge:  $ed\n";
+  # }
 
   #######################################################################################################
   # if $link_max_distance not specified, attempt to find a reasonable value by looking at the distances
@@ -172,7 +178,7 @@ my $missing_data_char = 'X';
 				  #  $d, $e,
 				  #	  $cluster_q_category,
 				  $output_line_string);
-    if ($cluster_noncluster_gap/$cluster_max_d >= $min_minextra_maxintra_ratio) {
+    if ($cluster_max_d == 0  or  $cluster_noncluster_gap/$cluster_max_d >= $min_minextra_maxintra_ratio) {
       push @output_lines, $output_line_string;
       $count_cluster_accessions_out += $cluster_size;
     } else {
@@ -233,6 +239,8 @@ sub store_distances{
   my $d_column = shift; # (unit based) column number in which to find the distances.
   my $maxD = shift;
   $id1_col--; $id2_col--; $d_column--;
+  my $n_def = 0;
+  my $n_undef = 0;
   my %edge_weight = (); # keys are ordered pairs of accession ids representing graph edges, values are distances
   my %id_closeidds = (); # keys are ids, values array ref of array refs of ids and distances of other accessions.
   # all pairs found in duplicatesearch output are included. id1:[[$id2, $distance12], [$id3, $distance13], ...]
@@ -245,6 +253,13 @@ sub store_distances{
     #   print STDERR "$id1 $id2  $distance  $maxD\n";
     next if($distance > $maxD);
     my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
+    if(!defined $edge_verts){
+      print "id1: ", (defined $id1)? $id1 : 'undef', "\n";
+      print "id2: ", (defined $id2)? $id2 : 'undef', "\n";
+      $n_undef++;
+    }else{
+      $n_def++;
+    }
     if (!exists $id_closeidds{$id1}) {
       $id_closeidds{$id1} = [[$id2, $distance]];
     } else {
@@ -253,6 +268,7 @@ sub store_distances{
     $edge_weight{$edge_verts} = $distance;
   }
   close $fhin;
+  print "n def, undef: $n_def $n_undef\n"; #sleep(2);
   return (\%edge_weight, \%id_closeidds);
 }
 
@@ -277,11 +293,23 @@ sub construct_graph{
   my $edge_weight = shift; # hash ref; keys: (ordered) id pairs; values edge weight (distance)
   my $max_link_distance = shift;
   my $sorted_edges = shift; # sorted by weight (distance) small to large
+  print "number of keys of edge_weight: ", scalar keys %$edge_weight, "\n";
+  print "number of sorted edges: ", scalar @$sorted_edges, "\n";
+  # for(keys %$edge_weight){
+  #   print "ewkey: $_\n";
+  # }
+  # for(@$sorted_edges){
+  #   print "sewkey: $_\n";
+  # }
+  # exit;
   my $the_graph = Graph::Undirected->new;
   # while (my ($e, $w) = each %$edge_weight) {
   my $id_degree = {};
-  while (1) {
-    my $e = shift @$sorted_edges; # get the edge with least weight (i.e. closest id pair)
+  #while (1) {
+    for my $e (@$sorted_edges){
+   # my $e = shift @$sorted_edges; # get the edge with least weight (i.e. closest id pair)
+ #   my $xxx = ((defined $e)? "[$e]" : 'undef');
+ #   print "xxx: $xxx \n"; #sleep(1);
     my $w = $edge_weight->{$e};
     if ($w <= $max_link_distance) {
       my ($id1, $id2) = split(" ", $e);
