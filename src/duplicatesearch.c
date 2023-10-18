@@ -18,7 +18,7 @@
 #define DISTANCE_NORM_FACTOR (1.0) // if 0.5 max possible distance is 1 (if all dosage pairs are 0|2)
 // defaults
 #define DEFAULT_DIPLOID_CHUNK_SIZE  6
-#define DEFAULT_MAX_DISTANCE  0.45
+#define DEFAULT_MAX_DISTANCE  0.5
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
 #define DEFAULT_MIN_MAF  0.1
@@ -393,7 +393,7 @@ main(int argc, char *argv[])
   if(ploidy != 2) { fprintf(stderr, "# Ploidy of %ld detected. Non-diploid ploidy not implemented. Exiting.\n", ploidy); exit(EXIT_FAILURE); }
   // double t_after_read = clock_time(clock1);
   // 'rectification' not needed.
-  //  rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common that 2 for all markers.
+  // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common that 2 for all markers.
  
   filter_genotypesset(the_genotypes_set, out_stream);
   // double t_after_filter = clock_time(clock1);
@@ -431,7 +431,9 @@ main(int argc, char *argv[])
   // set_agmr0s(the_genotypes_set);
   double t_after_pop_marker_dosage_counts = clock_time(clock1);
   fprintf(stdout, "# Time for populate_marker_dosage_counts: %lf\n", t_after_pop_marker_dosage_counts - t_after_set_ABbits);
- 
+
+
+  agmr0(the_genotypes_set); // calculate the overall agmr0 for the genotypes set.
   /* if(max_est_dist < 0){ // get max_est_dist so as to do approx. n_ds_to_get distance calculations */
   /*   // get random sample of distances */
   /*   distance_random_sample_size = 2*n_accessions; */
@@ -885,8 +887,9 @@ void* process_query_range(void* x){
     Accession* q_gts = the_accessions->a[i_query];
     long q_md_chunk_count = q_gts->md_chunk_count;
 
-    double agmr_nought = // q_gts->agmr0;
-      agmr0_accvsall(the_genotypes_set, q_gts);
+    double agmr_nought = the_genotypes_set->agmr0;
+      // q_gts->agmr0;
+      // agmr0_accvsall(the_genotypes_set, q_gts);
     double min_matching_chunk_fraction = pow(1.0 - max_est_dist*agmr_nought, chunk_size);
    
     long i_match_max = i_query-1; // (td->triangle)? i_query-1 : td->last_match_idx;
@@ -925,7 +928,7 @@ void* process_query_range(void* x){
 	true_distance_time += postdistance_time - predistance_time;
 	if(agmr_norm <= max_est_dist){
 	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
-	  double est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size))/agmr_nought;
+	  double est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size)); // /agmr_nought;
 	  //	  double agmr_nought_b = agmr0_accvsall(the_genotypes_set, the_accessions->a[i_match]);
 	  push_to_vmci(query_vmcis[i_query],
 		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr, agmr_nought));
@@ -952,8 +955,9 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Accession* m_acc = the_accessions->a[the_mci->match_index];
       fprintf(ostream, "%s  %s  %8.6f %8.6f", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
       if(output_format != 1){
-	fprintf(ostream, "  %6.2f %ld %8.6f %8.6f",
-		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist, the_mci->agmr0);
+	double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
+	fprintf(ostream, "  %6.2f %ld %7.5f %7.5f ",
+		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist, agmr_norm); //the_mci->agmr0);
       }
       fprintf(ostream, "\n");
       distance_count++;
