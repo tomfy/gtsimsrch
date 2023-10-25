@@ -66,6 +66,7 @@ my $histogram_color = undef;
 my $graphics = 'gnuplot';
 my $binwidth = 0.002;
 my $plot_xlabel = undef;
+my $histogram_filename = undef;
 
 print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
 my $distances_filename;
@@ -111,6 +112,7 @@ GetOptions(
 	   'binwidth|bw=s' => \$binwidth,
 	   'graphics=s' => \$graphics,
 	   'color=s' => \$histogram_color,
+	   'histogram_filename=s' => \$histogram_filename,
 	  );
 
 
@@ -221,12 +223,12 @@ if($cluster_stdout =~ /Max link distance: (\S+)/){
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
-my $histogram_filename = $filename_stem . '_distances_histogram';
+if(!defined $histogram_filename){ $histogram_filename = $filename_stem . '_distances_histogram'; }
 my $histogram_command =
   #($histogram_agmr0  and  $full_duplicatesearch_output)?
   #"$histogram_path -data $distances_filename:3/8 " :
-  "$histogram_path -data $distances_filename:3 ";
-$histogram_command .= " -output $histogram_filename -bw $binwidth -png -noscreen -nointeractive -h_key right ";
+  "$histogram_path -data '$distances_filename" . ':3""' . "' ";
+$histogram_command .= " -output $histogram_filename -bw $binwidth -png -noscreen -nointeractive ";
 $histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
 $histogram_command .= " -xlabel $plot_xlabel " if(defined $plot_xlabel);
 $histogram_command .= " -color $histogram_color " if(defined $histogram_color);
