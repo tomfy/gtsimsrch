@@ -79,7 +79,7 @@ int main(int argc, char *argv[]){
   double min_maf = 0.1;
   double max_marker_md = 0.25;
   long ploidy = 2;
-  long n_markers_in_chunk = 5040;
+  long n_markers_in_chunk = 5040; // perhaps give this a different name?
   long min_chunk_size = 60;
      
  
@@ -284,9 +284,8 @@ int main(int argc, char *argv[]){
 
   Vstr* all_used_markerids = construct_vstr(1000);
   Vstr* all_used_genos = construct_vstr(1000);
-
   
-  
+  long total_lines_read = 0;
   while(nread >= 0){ // loop over chunks
     long line_count = 0;
     // read n_markers_in_chunk lines (or up to eof)
@@ -299,7 +298,8 @@ int main(int argc, char *argv[]){
       push_to_vstr(marker_lines, line_copy);
       line_count++;
     }
-   
+    total_lines_read += line_count;
+    fprintf(stdout, "lines read: %ld\n", total_lines_read);
     // ********************************************************
     // *****  Extract genotypes, and quality information  *****
     // *****  Filter if requested and store genotypes     *****
