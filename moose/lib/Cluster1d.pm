@@ -394,9 +394,9 @@ sub find_cluster_at_left{
   my @nlhqs = ();
   my $start_peak = -1; # when Q goes above 1.5*$Qmin this gets set to $nL
   my $end_peak = -1; # when $start_peak > 0 and Q returns to below $Qmin this gets set to $nL
-    my ($Ledge, $Redge) = (1, -1);
+  my ($Ledge, $Redge) = (1, -1);
   for my $i (8..int($n_data_pts/4 -1)) { # loop over different values of the L cluster (which has 4*$i pts)
-    my $nL = 4*$i;		# size of L cluster
+    my $nL = 4*$i;			 # size of L cluster
     last if($nL >= 0.85*$n_data_pts);
     #last if($nL >= 10000);
     my $Lq1 = 0.5*($txs[$i - 1] + $txs[$i]); # 1st quartile of L cluster
@@ -428,7 +428,7 @@ sub find_cluster_at_left{
       $optH = $H;		# 0.5*($txs[$nL -1 ] + $txs[$nL]);
     }
     #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-  #    print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
+    #    print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
     if ($Q >= $Qmin) {
       push @nlhqs, [$nL, $H, $Q];
       $start_peak = $nL if($start_peak > 0  and  $Q >= 1.5*$Qmin);
@@ -444,51 +444,51 @@ sub find_cluster_at_left{
 	}
       }
     }
-  #  print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
+    #  print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
   } # end of loop over possible L cluster sizes.
   # print STDERR "# start_peak, end_peak: $start_peak, $end_peak \n";
-#  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
-#  print "maxQ: $maxQ \n";
-my $H_mid_half_max = -1;
-if (scalar @nlhqs > 0) {
-  ($Ledge, $Redge) = (1, -1);
-  my ($nLmin, $nLmax) = (undef, undef);
-  my $nabove = 0;
-  for my $anlhq (@nlhqs) {
-    my ($nl, $h, $q) = @$anlhq;
-    #    print join(", ", @$anlhq), "\n";
-    if ($q >= 0.5*$maxQ) {
-      $nabove++;
-      if ($h < $Ledge) {
-	$Ledge = $h;
-	$nLmin = $nl;
-      }
-      if ($h > $Redge) {
-	$Redge = $h;
-	$nLmax = $nl;
+  #  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
+  #  print "maxQ: $maxQ \n";
+  my $H_mid_half_max = -1;
+  if (scalar @nlhqs > 0) {
+    ($Ledge, $Redge) = (1, -1);
+    my ($nLmin, $nLmax) = (undef, undef);
+    my $nabove = 0;
+    for my $anlhq (@nlhqs) {
+      my ($nl, $h, $q) = @$anlhq;
+      #    print join(", ", @$anlhq), "\n";
+      if ($q >= 0.5*$maxQ) {
+	$nabove++;
+	if ($h < $Ledge) {
+	  $Ledge = $h;
+	  $nLmin = $nl;
+	}
+	if ($h > $Redge) {
+	  $Redge = $h;
+	  $nLmax = $nl;
+	}
       }
     }
+    #    print "$nabove  $Ledge $Redge \n";
+    if ($nabove >= 1) {
+      $H_mid_half_max = 0.5*($Ledge+$Redge);
+    }		     # otherwise leave $H_mid_half_max as -1;
+  } else {	     # no pts with $Q > 2 leave $H_mid_half_max as -1;
   }
-  #    print "$nabove  $Ledge $Redge \n";
-  if ($nabove >= 1) {
-    $H_mid_half_max = 0.5*($Ledge+$Redge);
-  }		     # otherwise leave $H_mid_half_max as -1;
-} else {	     # no pts with $Q > 2 leave $H_mid_half_max as -1;
-}
   # return $optH value at which $maxQ occurs,
   # and $Ledge, $Redge, the Left and Right sides of the > half max range.
   my $halfN = 16;
   my $N = 2*$halfN;
   my $Qsum = 0;
   my ($Qsum_opt, $mid_opt) = (-1, undef);
-  for my $i (0..$N){
-$Qsum += $nlhqs[$i]->[2];
-}
-  for(my $i=1; $i+$N < scalar @nlhqs; $i++){
+  for my $i (0..$N) {
+    $Qsum += $nlhqs[$i]->[2];
+  }
+  for (my $i=1; $i+$N < scalar @nlhqs; $i++) {
     $Qsum += $nlhqs[$i+$N]->[2] - $nlhqs[$i-1]->[2];
     my $mid = $i+$halfN;
-   # print STDERR $mid, "  ", join("  ", @{$nlhqs[$mid]}), "  ", $Qsum/($N+1), "\n";
-    if($Qsum > $Qsum_opt){
+    # print STDERR $mid, "  ", join("  ", @{$nlhqs[$mid]}), "  ", $Qsum/($N+1), "\n";
+    if ($Qsum > $Qsum_opt) {
       $Qsum_opt = $Qsum;
       $mid_opt = $mid;
     }
@@ -498,7 +498,7 @@ $Qsum += $nlhqs[$i]->[2];
   return ($optH, $maxQ, $nlhqs[$mid_opt]->[1], $Qavg_opt, $Ledge, $Redge); # $H_mid_half_max);
 }
 
-  #########################################################
+#########################################################
 
 #   sub ir{
 #     my $txs = shift;
