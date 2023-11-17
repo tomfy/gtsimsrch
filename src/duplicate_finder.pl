@@ -223,7 +223,7 @@ if($cluster_stdout =~ /Max link distance: (\S+)/){
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
-if(!defined $histogram_filename){ $histogram_filename = $filename_stem . '_distances_histogram'; }
+if(!defined $histogram_filename){ $histogram_filename = $filename_stem . '_distances_histogram.png'; }
 my $histogram_command =
   #($histogram_agmr0  and  $full_duplicatesearch_output)?
   #"$histogram_path -data $distances_filename:3/8 " :
