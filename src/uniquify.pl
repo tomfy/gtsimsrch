@@ -24,7 +24,7 @@ my $max_acc_missing_data_fraction = 0.5;
 my $max_marker_missing_data_fraction = 0.25;
 my $min_maf = 0.08;
 my $output_dosages_filename = undef;
-my $max_distance = 0.15;
+my $max_distance = undef;
 my $cluster_max_distance = 'auto';
 my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
 my $vote = 0;
@@ -97,11 +97,13 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
-my $duplicatesearch_command = "duplicatesearch  -i $input_dosages_filename -e $max_distance ";
+my $duplicatesearch_command = "duplicatesearch  -in $input_dosages_filename ";
+$duplicatesearch_command .= " -distance $max_distance " if(defined $max_distance);
 $duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
 $duplicatesearch_command .= " -maf_min $min_maf ";
 $duplicatesearch_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
 
+print "$duplicatesearch_command \n";
 ###############################################################################
 
 
