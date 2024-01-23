@@ -9,13 +9,14 @@
 #include <assert.h>
 #include "gtset.h"
 #include "pedigree.h"
+//#include "various.h"
 //#define UNKNOWN -1
 //#define DOSAGES 0
 //#define GENOTYPES 1
 
 int do_checks = 0; // option -c sets this to 1 to do some checks.
 
-double hi_res_time(void);
+//double hi_res_time(void);
 
 // **********************************************************************************************
 // ***********************************  main  ***************************************************
@@ -388,8 +389,8 @@ main(int argc, char *argv[])
 // ******************  functions  ***************************
 // **********************************************************
 
-double hi_res_time(void){
-  return (double)clock()/(double)CLOCKS_PER_SEC;
-}
+/* double hi_res_time(void){ */
+/*   return (double)clock()/(double)CLOCKS_PER_SEC; */
+/* } */
 
 

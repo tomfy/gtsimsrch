@@ -2,6 +2,7 @@
 #include <limits.h>
 #include <math.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include "gtset.h"
 //#include "various.h"
 //#include "pedigree.h"
@@ -437,7 +438,7 @@ void* process_input_lines(void* x){
   
   long accession_count = 0;
   for(long i=tis->first_line; i<=tis->last_line; i++){
-    char* line = tis->input_lines->a[i];
+    char* line = tis->accession_lines->a[i];
   
     // while((nread = getline(&line, &len, g_stream)) != -1){
     // fprintf(stderr, "# reading accession %ld\n", accession_count);
@@ -1339,3 +1340,93 @@ Vidxid* construct_sorted_vidxid(const GenotypesSet* the_gtsset){
 /*   return result; */
 /* } */
 
+
+
+Vstr* threaded_input(FILE* in_stream, long n_lines_in_chunk, long markerid_count, double max_acc_md_fraction, long Nthreads, Vstr* marker_ids){
+  char* line = NULL;
+  size_t len = 0;
+  long nread = 0;
+  long total_lines_read = 0;
+  Vstr* accession_lines = construct_vstr(1000);
+  Vaccession* all_used_accessions = construct_vaccession(1000);
+  while(nread >= 0){ // loop over chunks
+    long line_count = 0;
+    // read n_markers_in_chunk lines (or up to eof)
+    while(
+	  (line_count < n_lines_in_chunk) &&
+	  ((nread = getline(&line, &len, in_stream)) != -1)
+	  ){
+      char* line_copy = strcpy( (char*)malloc((nread+1)*sizeof(char)), line);
+      chomp(line_copy);
+      push_to_vstr(accession_lines, line_copy);
+      line_count++;
+    }
+    total_lines_read += line_count;
+    fprintf(stdout, "lines read: %ld\n", total_lines_read);
+    // ********************************************************
+    // *****  Extract genotypes, and quality information  *****
+    // *****  Filter if requested and store genotypes     *****
+    // ********************************************************
+    
+    if(Nthreads == 0){ // process without creating any new threads
+      threaded_input_struct tis;
+      // tis.n_markers = n_markers;
+      tis.accession_lines = accession_lines; // Vstr*
+      tis.first_line = 0;
+      tis.last_line = n_lines_in_chunk - 1;
+      tis.max_acc_missing_data_fraction = max_acc_md_fraction;
+      //tis.marker_missing_data_counts;
+    
+      process_input_lines((void*)(&tis));
+      for(long im=0; im<marker_ids->size; im++){ // loop over stored markers
+	push_to_vaccession(all_used_accessions, tis.accessions->a[im]);
+	//	push_to_vstr(all_used_markerids, tis.marker_ids->a[im]);
+      }
+      // free(tis.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
+      //  free(tis.marker_ids->a);
+      free(tis.accessions); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_accessions.
+      free(tis.accessions->a);
+    }else{ // 1 or more pthreads
+      
+      threaded_input_struct* tis = (threaded_input_struct*)malloc(Nthreads*sizeof(threaded_input_struct));
+      for(long i_thread = 0; i_thread<Nthreads; i_thread++){
+	tis[i_thread].accession_lines = accession_lines; // Vstr*
+	tis[i_thread].first_line = (i_thread == 0)? 0 : tis[i_thread-1].last_line + 1;;
+	tis[i_thread].last_line = (long)((double)(i_thread+1)*(n_lines_in_chunk)/Nthreads - 1); //n_lines_in_chunk - 1;
+	tis[i_thread].max_acc_missing_data_fraction = max_acc_md_fraction;
+      }
+      tis[Nthreads-1].last_line = n_lines_in_chunk - 1;
+
+      pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
+      for(long i=0; i<Nthreads; i++){ // run the threads
+	int iret = pthread_create( thrids+i, NULL, process_input_lines, (void*) (tis+i));
+	if(iret > 0) fprintf(stderr, "# warning. pthread_create returned non-zero value. Thread %ld \n", (long)thrids[i]);
+      }
+      for(long i_thread=0; i_thread<Nthreads; i_thread++){ // wait for threads to terminate.
+	pthread_join(thrids[i_thread], NULL);
+      }
+    
+      // store results from this chunk
+      for(long ith=0; ith<Nthreads; ith++){ // loop over threads
+	for(long im=0; im<tis[ith].accessions->size; im++){ // loop over markers stored by thread ith
+	  push_to_vaccession(all_used_accessions, tis[ith].accessions->a[im]); //chunk_genos[ith]->a[im]);
+	  //push_to_vstr(all_used_markerids, tis[ith].marker_ids->a[im]);
+	}
+	//	free(tis[ith].marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
+	//      free(tis[ith].marker_ids->a);
+	free(tis[ith].accessions); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
+	free(tis[ith].accessions->a);
+      }
+     
+      free(tis);
+      free(thrids);
+    } // end >=1 pthreads branch
+
+    for(long im=0; im < accession_lines->size; im++){
+      free(accession_lines->a[im]); // free the c-strings containing the lines of this chunk.
+    }
+    accession_lines->size = 0; // done with this chunk, let next chunk overwrite marker_lines->a
+    // if(nread == -1) break; // eof reached
+  } // end of loop over chunks
+
+}

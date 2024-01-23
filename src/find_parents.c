@@ -14,7 +14,7 @@
 
 int do_checks = 0; // option -c sets this to 1 to do some checks.
 
-double hi_res_time(void);
+//double hi_res_time(void);
 
 void print_usage_info(FILE* stream);
 
@@ -482,9 +482,9 @@ main(int argc, char *argv[])
 // ******************  functions  ***************************
 // **********************************************************
 
-double hi_res_time(void){
-  return (double)clock()/(double)CLOCKS_PER_SEC;
-}
+/* double hi_res_time(void){ */
+/*   return (double)clock()/(double)CLOCKS_PER_SEC; */
+/* } */
 
 void print_usage_info(FILE* stream){
   // c: do checks,

@@ -46,7 +46,7 @@ char DSstr_to_dosage(char* tkn, double delta);
 void get_GT_GQ_GP_DS_indices(char* format, long* GTidx, long* GQidx, long* GPidx, long* DSidx);
 bool GP_to_quality_ok(char* token, double minGP);
 char* split_on_char(char* str, char c, long* iptr); 
-void chomp(char* str); // remove any trailing newlines from str
+//void chomp(char* str); // remove any trailing newlines from str
 void print_usage_info(FILE* ostream);
 double clock_time(clockid_t the_clock){
   struct timespec tspec;
@@ -681,13 +681,13 @@ char* split_on_char(char* str, char c, long* iptr){
   return str+i_begin;
 } 
 
-void chomp(char* str){ // remove any trailing newlines from str
-  long len = strlen(str);
-  while(str[len-1] == '\n'){
-    str[len-1] = '\0';
-    len--;
-  }
-}
+/* void chomp(char* str){ // remove any trailing newlines from str */
+/*   long len = strlen(str); */
+/*   while(str[len-1] == '\n'){ */
+/*     str[len-1] = '\0'; */
+/*     len--; */
+/*   } */
+/* } */
 
 void print_usage_info(FILE* ostream){
   fprintf(stdout, "Options:\n");

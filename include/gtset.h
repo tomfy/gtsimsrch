@@ -61,7 +61,7 @@ typedef struct{
 }GenotypesSet;
 
 typedef struct{
-  Vstr* input_lines;
+  Vstr* accession_lines;
   long first_line;
   long last_line;
   long markerid_count;

@@ -27,3 +27,4 @@ typedef struct{
 //double n_over_d(ND nd);
 double hi_res_time(void);
 double clock_ticks_to_seconds(clock_t nticks);
+void chomp(char* str); // remove any trailing newlines from str
