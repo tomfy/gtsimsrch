@@ -74,7 +74,8 @@ long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_c
     
   } // loop over chunks.
   the_gts->chunk_patterns = chunk_pats;
-  the_gts->md_chunk_count = gts_mdchunk_count;
+  // the_gts->md_chunk_count = gts_mdchunk_count;
+  the_gts->ok_chunk_count = n_chunks - gts_mdchunk_count;
   return gts_mdchunk_count;
 }
 
@@ -866,8 +867,10 @@ four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2){
     unsigned long long isSo = ~(iA ^ jB) & isOi & isOj;
     unsigned long long isDx = (isOi & isXj) | (isOj & isXi);
     unsigned long long isSx = isXi & isXj;
-    //   Ndo  i.e. number of markers with both homozyg, but different (i.e. 02 and 20)
-      rval.l1 += __builtin_popcountll(isDo);
+    // D: difference, S: same, o: homozyg, x: (at least 1) heterozyg.
+    //   Ndo  i.e. number of markers with both homozyg, but different
+    //     (i.e. 02 and 20)
+      rval.l1 += __builtin_popcountll(isDo); 
       //   Nso   00, 22
       rval.l2 += __builtin_popcountll(isSo);
       //    Ndx  01, 10, 12, 21

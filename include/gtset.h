@@ -22,7 +22,8 @@ typedef struct{
   long index; // the index in the accessions array of GenotypesSet
   Vchar* genotypes;
   Vlong* chunk_patterns;
-  long md_chunk_count;
+  //  long md_chunk_count; // the number of chunks with missing data
+  long ok_chunk_count; // the number of chunks with no missing data = n_chunks - md_chunk_count
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
   Vlong* alt_homozygs; //
