@@ -52,8 +52,8 @@ my $missing_data_char = 'X';
   my $output_cluster_filename = "distance_cluster.out";
   my $pow = 1; # cluster transformed values tx_i = pow(x_i, $pow), or if $pow is 'log' tx_i = log(x_i)
 
-  my $id1_column = 1;
-  my $id2_column = 2;
+  my $id1_column = 1; # unit-based
+  my $id2_column = 2; # unit-based
   my $d_column = 3; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
@@ -78,16 +78,18 @@ my $missing_data_char = 'X';
 	     'prune_factor=f' => \$prune_factor,
 	     'full_output!' => \$full_output,
 	    );
-  print "# Getting accessions ids from columns: $id1_column, $id2_column \n";
-  print "# Clustering based on distances in column: $d_column\n";
-  # $column--;
+
   if (!defined $distances_filename) {
-    
+    print STDERR "Input file must be specified.\n";
     print STDERR "Basic usage example: \n", "clusterer -in duplicatesearch.out  -out cluster.out \n";
     print STDERR "by default distance_cluster will attempt to automatically decide the max distance between duplicates.\n",
       " but you can specify it with the cluster_distance option, e.g.  -cluster_distance 0.06 \n";
     exit;
   }
+  
+  print "# Getting accessions ids from columns: $id1_column, $id2_column \n";
+  print "# Clustering based on distances in column: $d_column\n";
+  print STDERR "Pair distances filename: $distances_filename \n";
 
   #######################################################################################################
   # store all distances in the distances file in hash refs $edge_weight and id_closeidds
