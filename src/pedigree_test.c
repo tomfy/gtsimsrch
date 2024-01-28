@@ -43,6 +43,7 @@ main(int argc, char *argv[])
     
     double ploidy = 2;
     double epsilon = 0.01;
+    long Nthreads = 0;
     // ***** process command line *****
     if (argc < 2) {
       fprintf(stderr, "Usage:  %s -g <genotypes_file>  -p <pedigree_file> \n", argv[0]);
@@ -209,7 +210,7 @@ main(int argc, char *argv[])
     // ***************  read the genotypes file  *******************************
     double t_a = hi_res_time();
     GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
-    add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
+    add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction, Nthreads); // load the new set of accessions
     double t_b = hi_res_time();
        fprintf(stdout, "# Done reading genotypes file. %ld accessions:\n", the_genotypes_set->n_accessions);
      fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);

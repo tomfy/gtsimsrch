@@ -306,7 +306,7 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
   return the_gtsset;
 }
 
-void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction){
+void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction, long Nthreads){
   FILE* g_stream = fopen(input_filename, "r");
   if (g_stream == NULL) {
     perror("fopen");
@@ -344,6 +344,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   if(the_genotypes_set->marker_missing_data_counts == NULL){    
     the_genotypes_set->marker_missing_data_counts = construct_vlong_zeroes(marker_ids->size);
     the_genotypes_set->marker_alt_allele_counts = construct_vlong_zeroes(marker_ids->size);
+    //  fprintf(stderr, "XXXXXXXXXXXXXX: %ld \n", the_genotypes_set->marker_missing_data_counts->a[0]);
     
     the_genotypes_set->marker_dosage_counts = (Vlong**)malloc((MAX_PLOIDY+1)*sizeof(Vlong*));
     for(long i=0; i<=MAX_PLOIDY; i++){
@@ -355,6 +356,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   // i.e. in case of using reference set, make sure the set of markers is the same in both data sets.
   if(the_genotypes_set->marker_ids  == NULL){
     the_genotypes_set->marker_ids = marker_ids;
+    fprintf(stderr, "the_genotypes_set->marker_ids->size: %ld \n", the_genotypes_set->marker_ids->size);
   }else{
     if(the_genotypes_set->marker_ids->size != marker_ids->size){
       fprintf(stderr, "# Data sets have different numbers of markers: %5ld  %5ld. Exiting.\n", the_genotypes_set->marker_ids->size, marker_ids->size);
@@ -371,6 +373,8 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     }
     free_vstr(marker_ids);
   }
+
+  if(Nthreads == -1){ // old, unthreaded way
 
   // Read in the rest of the lines, construct Accession for each line
   long accession_count = 0;
@@ -404,7 +408,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	for(long jjj=0; jjj<markerid_count; jjj++){ //
 	  if(genotypes[jjj] == MISSING_DATA_CHAR){
 	    the_genotypes_set->marker_missing_data_counts->a[jjj]++;
-	    accession_missing_data_count++;
+	    // accession_missing_data_count++; // not needed; has no effect?
 	  }else{
 	    the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
 	  }
@@ -420,25 +424,127 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     free(acc_id); // or cut out the middleman (acc_id)?
     free(genotypes);
   } // done reading all lines
+  }else{ // threaded!
+    threaded_input(g_stream, 5040, max_acc_missing_data_fraction, Nthreads, marker_ids, the_genotypes_set);
+  }
   fclose(g_stream);
   // fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
   //	  the_genotypes_set->n_bad_accessions, accession_count);
   free(line); // only needs to be freed once.
   the_genotypes_set->n_accessions = the_genotypes_set->accessions->size;
   the_genotypes_set->n_markers = the_genotypes_set->marker_ids->size;
+  fprintf(stderr, "the_genotypes_set->marker_ids->size: %ld   %ld\n", the_genotypes_set->marker_ids->size, the_genotypes_set->n_markers);
   if(DBUG && do_checks) check_genotypesset(the_genotypes_set);
 }
 
-void* process_input_lines(void* x){
+void threaded_input(FILE* in_stream, long n_lines_in_chunk, double max_acc_md_fraction, long Nthreads, Vstr* marker_ids, GenotypesSet* the_genotypes_set){
+  char* line = NULL;
+  size_t len = 0;
+  long nread = 0;
+  long total_lines_read = 0;
+  Vstr* accession_lines = construct_vstr(1000);
+  Vaccession* all_used_accessions = construct_vaccession(1000);
+  while(nread >= 0){ // loop over chunks
+    long line_count = 0;
+    // read n_markers_in_chunk lines (or up to eof)
+    while(
+	  (line_count < n_lines_in_chunk) &&
+	  ((nread = getline(&line, &len, in_stream)) != -1)
+	  ){
+      char* line_copy = strcpy( (char*)malloc((nread+1)*sizeof(char)), line);
+      chomp(line_copy);
+      push_to_vstr(accession_lines, line_copy);
+      line_count++;
+    }
+    total_lines_read += line_count;
+    fprintf(stdout, "line_count: %ld   total lines read: %ld\n", line_count, total_lines_read);
+
+    // ********************************************************
+    // *****  Extract genotypes, and quality information  *****
+    // *****  Filter if requested and store genotypes     *****
+    // ********************************************************
+    
+    if(Nthreads == 0){ // process without creating any new threads
+      threaded_input_struct tis;
+      tis.accession_lines = accession_lines; // Vstr*
+      tis.first_line = 0;
+      tis.last_line = line_count - 1;
+      tis.markerid_count = marker_ids->size;
+      tis.max_acc_missing_data_fraction = max_acc_md_fraction;
+      tis.n_bad_accessions = 0;
+      
+      // fprintf(stderr, "Nthreads=0; before process_input_lines.\n");
+      input_lines_1thread((void*)(&tis));
+      //  fprintf(stderr, "Nthreads=0; after process_input_lines.\n");
+
+      for(long im=0; im<marker_ids->size; im++){ // loop over stored markers
+	the_genotypes_set->marker_alt_allele_counts->a[im] += tis.marker_alt_allele_counts->a[im];
+	the_genotypes_set->marker_missing_data_counts->a[im] += tis.marker_missing_data_counts->a[im];
+      }
+      for(long ia=0; ia<tis.accessions->size; ia++){
+	push_to_vaccession(the_genotypes_set->accessions, tis.accessions->a[ia]);
+      }
+      	the_genotypes_set->n_bad_accessions += tis.n_bad_accessions;
+      free(tis.accessions); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_accessions.
+      free(tis.accessions->a);
+    }else{ // 1 or more pthreads
+      
+      threaded_input_struct* tis = (threaded_input_struct*)malloc(Nthreads*sizeof(threaded_input_struct));
+      for(long i_thread = 0; i_thread<Nthreads; i_thread++){
+	tis[i_thread].accession_lines = accession_lines; // Vstr*
+	tis[i_thread].first_line = (i_thread == 0)? 0 : tis[i_thread-1].last_line + 1;;
+	tis[i_thread].last_line = (long)((double)(i_thread+1)*(line_count)/Nthreads - 1); //n_lines_in_chunk - 1;
+	tis[i_thread].markerid_count = marker_ids->size;
+	tis[i_thread].max_acc_missing_data_fraction = max_acc_md_fraction;
+	tis[i_thread].n_bad_accessions = 0;
+      }
+      tis[Nthreads-1].last_line = line_count - 1;
+
+      pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
+      for(long i=0; i<Nthreads; i++){ // run the threads
+	int iret = pthread_create( thrids+i, NULL, input_lines_1thread, (void*) (tis+i));
+	if(iret > 0) fprintf(stderr, "# warning. pthread_create returned non-zero value. Thread %ld \n", (long)thrids[i]);
+      }
+      for(long i_thread=0; i_thread<Nthreads; i_thread++){ // wait for threads to terminate.
+	pthread_join(thrids[i_thread], NULL);
+      }
+    
+      // store results from this chunk
+      for(long ith=0; ith<Nthreads; ith++){ // loop over threads
+	for(long im=0; im<marker_ids->size; im++){ // loop over stored markers
+	  the_genotypes_set->marker_alt_allele_counts->a[im] += tis[ith].marker_alt_allele_counts->a[im];
+	  the_genotypes_set->marker_missing_data_counts->a[im] += tis[ith].marker_missing_data_counts->a[im];
+	}
+	for(long ia=0; ia<tis[ith].accessions->size; ia++){ // loop over markers stored by thread ith
+	  push_to_vaccession(the_genotypes_set->accessions, tis[ith].accessions->a[ia]); //chunk_genos[ith]->a[im]);
+	}
+	the_genotypes_set->n_bad_accessions += tis[ith].n_bad_accessions;
+	free(tis[ith].accessions); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
+	free(tis[ith].accessions->a);
+      }    
+      free(tis);
+      free(thrids);
+    } // end >=1 pthreads branch
+
+    for(long im=0; im < accession_lines->size; im++){
+      free(accession_lines->a[im]); // free the c-strings containing the lines of this chunk.
+    }
+    accession_lines->size = 0; // done with this chunk, let next chunk overwrite marker_lines->a
+  } // end of loop over chunks
+}
+
+
+void* input_lines_1thread(void* x){ // process 1 thread's set of lines
   threaded_input_struct* tis = (threaded_input_struct*)x;
-  tis->marker_missing_data_counts = construct_vlong(tis->markerid_count);
-  tis->marker_alt_allele_counts = construct_vlong(tis->markerid_count);
+  tis->marker_missing_data_counts = construct_vlong_zeroes(tis->markerid_count);
+  tis->marker_alt_allele_counts = construct_vlong_zeroes(tis->markerid_count);
   tis->n_bad_accessions = 0;
   tis->accessions = construct_vaccession(tis->last_line - tis->first_line + 1);
   
   long accession_count = 0;
   for(long i=tis->first_line; i<=tis->last_line; i++){
     char* line = tis->accession_lines->a[i];
+    // fprintf(stderr, "line: %s\n", line);
   
     // while((nread = getline(&line, &len, g_stream)) != -1){
     // fprintf(stderr, "# reading accession %ld\n", accession_count);
@@ -452,11 +558,13 @@ void* process_input_lines(void* x){
 
     while(1){ // read dosages from one line.   
       token = strtok_r(NULL, "\t \n\r", &saveptr);
-      if(token == NULL)	break;    
+      if(token == NULL)	break;
+      // fprintf(stderr, "token: %s\n", token);
       genotypes[marker_count] = token_to_dosage(token, &(tis->ploidy));
       if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
       marker_count++;
     } // done reading dosages for all markers of this accession
+    //  fprintf(stderr, "# line number: %ld ; marker_count, markerid_count: %ld %ld \n", i, marker_count, tis->markerid_count);
     if(marker_count != tis->markerid_count) {
       fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, tis->markerid_count);
       exit(EXIT_FAILURE); 
@@ -485,8 +593,11 @@ void* process_input_lines(void* x){
     }
     free(acc_id); // or cut out the middleman (acc_id)?
     free(genotypes);
-  } // loop over lines 
-} // end of process_input_lines
+  } // loop over lines
+  /* for(long j=0; j<tis->markerid_count; j++){ */
+  /*   fprintf(stderr, "%ld  %ld\n", j, tis->marker_missing_data_counts->a[j]); */
+  /* }fprintf(stderr, "\n"); */
+} // end of  input_lines_1thread
 
 long str_to_long(char* str){ // using strtol and checking for various problems.
   char *end;
@@ -584,6 +695,20 @@ double ragmr(GenotypesSet* the_gtsset){
   return ragmr;
 }
 
+void print_genotypesset_stats(GenotypesSet* gtss){
+  fprintf(stderr, "max_marker_missing_data_fraction: %8.4f\n", gtss->max_marker_missing_data_fraction);
+  fprintf(stderr, "min_minor_allele_frequency: %8.4f\n", gtss->min_minor_allele_frequency);
+  fprintf(stderr, "n_accessions: %ld  %ld\n", gtss->n_accessions, gtss->accessions->size);
+  fprintf(stderr, "n bad, ref accessions: %ld %ld \n", gtss->n_bad_accessions, gtss->n_ref_accessions);
+  fprintf(stderr, "n_markers: %ld %ld \n", gtss->n_markers, gtss->marker_ids->size);
+  fprintf(stderr, "sizes, marker_md_counts %ld,  marker_alt_allele_counts %ld\n",
+	  gtss->marker_missing_data_counts->size, gtss->marker_alt_allele_counts->size);
+  if(gtss->mafs != NULL) fprintf(stderr, "sizes, mafs %ld \n", gtss->mafs->size);
+									 //, marker_dosage_counts: %ld\n", gtss->mafs->size, gtss->marker_dosage_counts);
+  if(gtss->dosage_counts != NULL) fprintf(stderr, "size of dosage_counts %ld \n", gtss->dosage_counts->size);
+  fprintf(stderr, "agmr0: %8.5f\n", gtss->agmr0);
+}
+
 void check_genotypesset(GenotypesSet* gtss){
   // recalculates the maf and missing data of each marker,
   // checks that these are same as values stored in gtss
@@ -608,6 +733,7 @@ void check_genotypesset(GenotypesSet* gtss){
     assert(an_acc->missing_data_count == accmdcount);
   }
   for(long j=0; j<gtss->n_markers; j++){
+    //fprintf(stderr, "j, %ld;  mdcounts: %ld %ld \n", j, marker_md_counts[j], gtss->marker_missing_data_counts->a[j]);
     assert(marker_md_counts[j] == gtss->marker_missing_data_counts->a[j]);
     assert(marker_alt_allele_counts[j] == gtss->marker_alt_allele_counts->a[j]);
   }
@@ -640,7 +766,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
     }
     max_marker_md_fraction = factor*(double)median_md_count/(double)n_accs;
   } // end of optionally setting max_marker_md_fraction to multiple of median
-  
+ 
   // identify the markers to keep:
   long n_markers_to_keep = 0;
   Vlong* md_ok = construct_vlong_zeroes(marker_md_counts->size); // set to 1 if number of missing data gts is small enough
@@ -770,14 +896,83 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
   fprintf(stderr, "##### n_markers_rectified: %ld\n", n_markers_rectified);
 }
 
-void set_Abits_Bbits(GenotypesSet* the_genotypesset){ // diploid only
-  unsigned long long x = 1, bits[64];
-  for(long j=0; j<64; j++, x = x<<1){
-    bits[j] = x; // bits[i] is an unsigned long long with the ith bit set (i.e. 1, with all others 0)
+void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads){ // diploid only
+  if(Nthreads < 0){ // unthreaded
+    unsigned long long x = 1, bits[64];
+    for(long j=0; j<64; j++, x = x<<1){
+      bits[j] = x; // bits[i] is an unsigned long long with the ith bit set (i.e. 1, with all others 0)
+    }
+
+    for(long i_acc =0; i_acc<the_genotypesset->accessions->size; i_acc++){
+      Accession* the_acc = the_genotypesset->accessions->a[i_acc];
+      long n_markers = the_acc->genotypes->length;
+      long n_ulls = n_markers/64; // Abits, Bbits will each have this many longs
+      n_ulls++; // add another ull which will have only some bits used (because n markers may not be multiple of chunk size)
+      Vull* Abits = construct_vull_zeroes(n_ulls);
+      Vull* Bbits = construct_vull_zeroes(n_ulls);
+      Abits->size = n_ulls;
+      Bbits->size = n_ulls;
+      for(long i_ull=0; i_ull<n_ulls; i_ull++){
+	unsigned long long A=0, B=0;
+	for(long j=0; j<64; j++){ // loop over the bits 
+	  long i_gt = 64*i_ull + j;
+	  char gt = (i_gt < n_markers)? the_acc->genotypes->a[i_gt] : 'X';
+	  if(gt == '0'){ // 00
+	    // leave the bit as 0 in both A and B.
+	  }else if(gt == '1'){ // 01
+	    B |= bits[j];
+	 
+	  }else if(gt == '2'){ // 11
+	    A |= bits[j];
+	    B |= bits[j];
+	  }else{ // missing data; 10
+	    A |= bits[j];
+	  }
+	  // fprintf(stderr, "# acc: %s  %ld  %c  %llu  %llu\n", the_acc->id->a, i_gt, gt, A, B);
+	}
+	Abits->a[i_ull] = A;
+	Bbits->a[i_ull] = B;
+	/* fprintf(stderr, "# acc id: %s\n", the_acc->id->a); */
+	/* fprintf(stderr, "# A: %llu\n", A); */
+	/* fprintf(stderr, "# B: %llu\n", B); */
+      }
+      the_acc->Abits = Abits;
+      the_acc->Bbits = Bbits;
+    }
+  }else if(Nthreads == 0){
+    threaded_setAB_struct tsAB;
+    tsAB.gtss = the_genotypesset;
+    tsAB.first = 0;
+    tsAB.last = the_genotypesset->accessions->size - 1;
+    //  fprintf(stderr, "XXXXXXXX calling set_Abits_Bbits_1thread...\n"); //getchar();
+    set_Abits_Bbits_1thread((void*) &tsAB);
+  }else{ // Nthreads >= 1
+    threaded_setAB_struct* tsAB = (threaded_setAB_struct*)malloc(Nthreads*sizeof(threaded_setAB_struct));
+    pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
+    for(long ith=0; ith < Nthreads; ith++){
+      tsAB[ith].gtss = the_genotypesset;
+      tsAB[ith].first = (ith == 0)? 0 : tsAB[ith-1].last + 1;    
+      tsAB[ith].last = (ith == Nthreads-1)? the_genotypesset->accessions->size - 1 : tsAB[ith].first + (long)(the_genotypesset->accessions->size/Nthreads) - 1;
+    
+      
+      int iret = pthread_create( thrids+ith, NULL, set_Abits_Bbits_1thread, (void*) (tsAB+ith));
+      if(iret > 0) fprintf(stderr, "# warning. pthread_create returned non-zero value. Thread %ld \n", (long)thrids[ith]);
+    }
+    for(long i_thread=0; i_thread<Nthreads; i_thread++){ // wait for threads to terminate.
+      pthread_join(thrids[i_thread], NULL);
+    }
+  }
+}
+
+void* set_Abits_Bbits_1thread(void* x){
+  threaded_setAB_struct* tsAB =  (threaded_setAB_struct*)x;
+   unsigned long long xx = 1, bits[64];
+  for(long j=0; j<64; j++, xx = xx<<1){
+    bits[j] = xx; // bits[i] is an unsigned long long with the ith bit set (i.e. 1, with all others 0)
   }
 
-  for(long i_acc =0; i_acc<the_genotypesset->accessions->size; i_acc++){
-    Accession* the_acc = the_genotypesset->accessions->a[i_acc];
+  for(long i_acc = tsAB->first; i_acc <= tsAB->last; i_acc++){
+    Accession* the_acc = tsAB->gtss->accessions->a[i_acc];
     long n_markers = the_acc->genotypes->length;
     long n_ulls = n_markers/64; // Abits, Bbits will each have this many longs
     n_ulls++; // add another ull which will have only some bits used (because n markers may not be multiple of chunk size)
@@ -812,7 +1007,7 @@ void set_Abits_Bbits(GenotypesSet* the_genotypesset){ // diploid only
     the_acc->Abits = Abits;
     the_acc->Bbits = Bbits;
   }
-}
+} // end of one_thread_set_Abits_Bbits
 
 
 void store_homozygs(GenotypesSet* the_gtsset){ // for each accession,
@@ -1340,93 +1535,3 @@ Vidxid* construct_sorted_vidxid(const GenotypesSet* the_gtsset){
 /*   return result; */
 /* } */
 
-
-
-Vstr* threaded_input(FILE* in_stream, long n_lines_in_chunk, long markerid_count, double max_acc_md_fraction, long Nthreads, Vstr* marker_ids){
-  char* line = NULL;
-  size_t len = 0;
-  long nread = 0;
-  long total_lines_read = 0;
-  Vstr* accession_lines = construct_vstr(1000);
-  Vaccession* all_used_accessions = construct_vaccession(1000);
-  while(nread >= 0){ // loop over chunks
-    long line_count = 0;
-    // read n_markers_in_chunk lines (or up to eof)
-    while(
-	  (line_count < n_lines_in_chunk) &&
-	  ((nread = getline(&line, &len, in_stream)) != -1)
-	  ){
-      char* line_copy = strcpy( (char*)malloc((nread+1)*sizeof(char)), line);
-      chomp(line_copy);
-      push_to_vstr(accession_lines, line_copy);
-      line_count++;
-    }
-    total_lines_read += line_count;
-    fprintf(stdout, "lines read: %ld\n", total_lines_read);
-    // ********************************************************
-    // *****  Extract genotypes, and quality information  *****
-    // *****  Filter if requested and store genotypes     *****
-    // ********************************************************
-    
-    if(Nthreads == 0){ // process without creating any new threads
-      threaded_input_struct tis;
-      // tis.n_markers = n_markers;
-      tis.accession_lines = accession_lines; // Vstr*
-      tis.first_line = 0;
-      tis.last_line = n_lines_in_chunk - 1;
-      tis.max_acc_missing_data_fraction = max_acc_md_fraction;
-      //tis.marker_missing_data_counts;
-    
-      process_input_lines((void*)(&tis));
-      for(long im=0; im<marker_ids->size; im++){ // loop over stored markers
-	push_to_vaccession(all_used_accessions, tis.accessions->a[im]);
-	//	push_to_vstr(all_used_markerids, tis.marker_ids->a[im]);
-      }
-      // free(tis.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
-      //  free(tis.marker_ids->a);
-      free(tis.accessions); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_accessions.
-      free(tis.accessions->a);
-    }else{ // 1 or more pthreads
-      
-      threaded_input_struct* tis = (threaded_input_struct*)malloc(Nthreads*sizeof(threaded_input_struct));
-      for(long i_thread = 0; i_thread<Nthreads; i_thread++){
-	tis[i_thread].accession_lines = accession_lines; // Vstr*
-	tis[i_thread].first_line = (i_thread == 0)? 0 : tis[i_thread-1].last_line + 1;;
-	tis[i_thread].last_line = (long)((double)(i_thread+1)*(n_lines_in_chunk)/Nthreads - 1); //n_lines_in_chunk - 1;
-	tis[i_thread].max_acc_missing_data_fraction = max_acc_md_fraction;
-      }
-      tis[Nthreads-1].last_line = n_lines_in_chunk - 1;
-
-      pthread_t* thrids = (pthread_t*)malloc(Nthreads*sizeof(pthread_t));
-      for(long i=0; i<Nthreads; i++){ // run the threads
-	int iret = pthread_create( thrids+i, NULL, process_input_lines, (void*) (tis+i));
-	if(iret > 0) fprintf(stderr, "# warning. pthread_create returned non-zero value. Thread %ld \n", (long)thrids[i]);
-      }
-      for(long i_thread=0; i_thread<Nthreads; i_thread++){ // wait for threads to terminate.
-	pthread_join(thrids[i_thread], NULL);
-      }
-    
-      // store results from this chunk
-      for(long ith=0; ith<Nthreads; ith++){ // loop over threads
-	for(long im=0; im<tis[ith].accessions->size; im++){ // loop over markers stored by thread ith
-	  push_to_vaccession(all_used_accessions, tis[ith].accessions->a[im]); //chunk_genos[ith]->a[im]);
-	  //push_to_vstr(all_used_markerids, tis[ith].marker_ids->a[im]);
-	}
-	//	free(tis[ith].marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
-	//      free(tis[ith].marker_ids->a);
-	free(tis[ith].accessions); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
-	free(tis[ith].accessions->a);
-      }
-     
-      free(tis);
-      free(thrids);
-    } // end >=1 pthreads branch
-
-    for(long im=0; im < accession_lines->size; im++){
-      free(accession_lines->a[im]); // free the c-strings containing the lines of this chunk.
-    }
-    accession_lines->size = 0; // done with this chunk, let next chunk overwrite marker_lines->a
-    // if(nread == -1) break; // eof reached
-  } // end of loop over chunks
-
-}

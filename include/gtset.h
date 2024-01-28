@@ -74,6 +74,12 @@ typedef struct{
   Vaccession* accessions;
 }threaded_input_struct;
 
+typedef struct{
+  GenotypesSet* gtss;
+  long first; // first acc idx
+  long last;
+}threaded_setAB_struct;
+
 // *****  functions  *****
 long int_power(long base, long power);
 long str_to_long(char* str);
@@ -117,8 +123,9 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
 //GenotypesSet* read_dosages_file_and_store(char* input_filename, double delta);
 //GenotypesSet* read_genotypes_file_and_store(char* input_filename);
 
-void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction);
-void* process_input_lines(void* x); // for threaded processing of input lines.
+void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction, long Nthreads);
+void threaded_input(FILE* in_stream, long n_lines_in_chunk, double max_acc_md_fraction, long Nthreads, Vstr* marker_ids, GenotypesSet* the_genotypes_set);
+void* input_lines_1thread(void* x); // for threaded processing of input lines.
 // void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
 char token_to_dosage(char* token, long* ploidy);
@@ -126,11 +133,13 @@ char token_to_dosage(char* token, long* ploidy);
 
 void check_gtsset(GenotypesSet* gtsset);
 //GenotypesSet* construct_genotypesset(Vaccession* accessions, Vstr* marker_ids, Vlong* md_counts, double delta, double max_marker_md_fraction);
+void print_genotypesset_stats(GenotypesSet* gtss);
 void check_genotypesset(GenotypesSet* gtss);
 // GenotypesSet* construct_filtered_genotypesset(const GenotypesSet* the_gtsset, double max_md_fraction);
 void filter_genotypesset(GenotypesSet* the_genotypes_set, FILE* ostream);
 void rectify_markers(GenotypesSet* the_gtsset);
-void set_Abits_Bbits(GenotypesSet* the_genotypesset); // diploid only
+void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid only
+void* set_Abits_Bbits_1thread(void* x);
 void store_homozygs(GenotypesSet* the_gtsset);
 void set_agmr0s(GenotypesSet* the_gtsset);
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);

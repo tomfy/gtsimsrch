@@ -40,6 +40,7 @@ main(int argc, char *argv[])
   bool oldway = false;
     
   double ploidy = 2;
+  long Nthreads = 0;
   // ***** process command line *****
   if (argc < 2) {
     fprintf(stderr, "Usage:  %s -in <dosages_file> [-out <output_filename> -xhgmr_max <max_xhgmr>] \n", argv[0]);
@@ -189,7 +190,7 @@ main(int argc, char *argv[])
   // ***************  read the genotypes file  *******************************
   double t_a = hi_res_time();
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
-  add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction); // load the new set of accessions
+  add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction, Nthreads); // load the new set of accessions
   double t_b = hi_res_time();
   fprintf(stdout, "# Done reading genotypes file. %ld accessions will be analyzed.\n", the_genotypes_set->n_accessions);
   fprintf(stdout, "# %ld accessions were excluded from analysis due to > %5.2lf percent missing data.\n",
@@ -204,7 +205,7 @@ main(int argc, char *argv[])
   store_homozygs(the_genotypes_set);
   populate_marker_dosage_counts(the_genotypes_set);
   check_genotypesset(the_genotypes_set);
-  set_Abits_Bbits(the_genotypes_set);
+  set_Abits_Bbits(the_genotypes_set, Nthreads);
   double t_d = hi_res_time();
   fprintf(stdout, "# Time to rectify genotype data: %6.3f sec.\n", t_d - t_c);
   fflush(stdout);
