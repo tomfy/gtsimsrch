@@ -33,7 +33,7 @@ my $simspec_file = '';
 # so zero for these 'Null' markers,
 # and the next line specifies 2 markers with effect size 0.08
 
-
+my $gcta_command = 'xgcta64';
 my $n_unique_acc = 600; # number of unique accessions simulated
 my $n_dupe_acc = 400; # number of duplicate accessions
 my $error_rate = 0.01; # when an accession is duplicated, errors at this rate are added to the duplicates and the original
@@ -52,6 +52,7 @@ my $serial_number = 1; # starting serial number
 
 	    'serial_number=i' => \$serial_number,
 	    'n_reps=i' => \$n_reps,
+	    'gcta_command=s' => \$gcta_command,
 	   );
 
 for(1..$n_reps){
@@ -65,10 +66,10 @@ system "plink1.9  --simulate-qt $simspec_file  --simulate-n $n_unique_acc  --out
 system "plink1.9  --bfile sim_temp  --recode  --out sim_temp ";
 
 # make the phenotype file from .fam file
-system "sel_columns '1,2,6' < sim_temp.fam > sim_temp.phen ";
+system "perl ~/gtsimsrch/src/sel_columns.pl '1,2,6' < sim_temp.fam > sim_temp.phen ";
 
 # make the alleles file
-system "sel_columns '2,5,6' < sim_temp.bim  > alleles ";
+system "perl ~/gtsimsrch/src/sel_columns.pl '2,5,6' < sim_temp.bim  > alleles ";
 
 # make the duplicates, errors added to both unique and duplicate accessions
 my $ped_file = "sim_temp.ped";
@@ -81,7 +82,7 @@ my $ubin_file = $ufile . "_bin";
 system "plink1.9  --file $ufile  --out $ubin_file ";
 my $uphen_file = $ufile . ".phen";
 
-system "gcta64  --mlma --bfile $ubin_file  --pheno $uphen_file --out $ufile  --thread-num 2";
+system "$gcta_command  --mlma --bfile $ubin_file  --pheno $uphen_file --out $ufile  --thread-num 2";
 
 my $udmap_file = $udfile . ".map";
 system "ln -s $map_file $udmap_file";
@@ -89,7 +90,7 @@ my $udbin_file = $udfile . "_bin";
 system "plink1.9  --file $udfile  --out $udbin_file ";
 my $udphen_file = $udfile . ".phen";
 
-system "gcta64  --mlma --bfile $udbin_file  --pheno $udphen_file --out $udfile  --thread-num 2";
+system "$gcta_command  --mlma --bfile $udbin_file  --pheno $udphen_file --out $udfile  --thread-num 2";
 
 unlink $umap_file;
 unlink $udmap_file;
