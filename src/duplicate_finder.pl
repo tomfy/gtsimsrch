@@ -4,6 +4,7 @@ use Getopt::Long;
 use File::Basename 'dirname';
 use List::Util qw(min max sum);
 use File::Spec 'splitpath';
+use Time::HiRes qw( clock_gettime CLOCK_MONOTONIC );
 
 use Cwd 'abs_path';
 my ( $bindir, $libdir );
@@ -29,6 +30,8 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 # duplicatesearch (default) or ( -plink ) plink, plnkout2dsout
 # clusterer.pl
 
+{
+my $command_str = "# command:  $0  " . join(" ", @ARGV);
 my $field_to_use = 'GT'; # Presently GT is only option, must be present in vcf file.
 # unimplemented alternatives: DS (alternative allele dosage e.g. 2), AD (allele depths, e.g.'136:25' ).
 
@@ -50,10 +53,9 @@ my $plink_default_max_distance = 0.175;
 my $chunk_size = 6;		# relevant only to duplicatesearch
 my $rng_seed = -1; # default: duplicatesearch will get seed from clock
 my $max_distance = 'default'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'default' use duplicatesearch's default.
-#  'auto' seems to not work very well; not recommended. 'auto' -> get random sample of dists, use to choose $max_distance.
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data.
-my $max_accession_missing_data_fraction = 0.5; # Accessions with > missing data than this are excluded from analysis.
+my $max_accession_missing_data_fraction = 0.2; # Accessions with > missing data than this are excluded from analysis.
 my $min_marker_maf = 0.08; # this is a good value for the yam 941 accession set.
 my $full_duplicatesearch_output = 1;
 my $full_cluster_out = 1;
@@ -62,6 +64,7 @@ my $ref_format = 'vcf';
 my $histogram_path = 'histogram'; # might be e.g. 'perl /home/tomfy/Histogram_project/bin/histogram.pl'
 my $histogram_agmr0 = 0;
 my $histogram_color = undef;
+my $nthreads = undef; # use default number of threads of duplicatesearch or plink
 
 my $graphics = 'gnuplot';
 my $binwidth = 0.002;
@@ -85,8 +88,8 @@ GetOptions(
 	  # 'ref_format=s' => \$ref_format, # default is 'vcf', anything else -> dosage 
 
 	   # used by vcf_to_gts:
-	   'min_gp|gp_min=f' => \$minGP, 
-	   'alt_marker_ids!' => \$use_alt_marker_ids,
+	   'min_gp|gp_min=f' => \$minGP, # if input file is vcf, and GP field present in vcf file, will filter on with this min value
+	   'alt_marker_ids!' => \$use_alt_marker_ids, # -alt_marker_ids  -> construct marker id from chromosome number (col 1) and position (col 2)
 	   #	   'GQmin=f' => \$minGQ,      # min genotype quality. Not implemented.
 	   #       'delta=f' => \$delta,      # if
 
@@ -101,6 +104,7 @@ GetOptions(
 	   'max_accession_md_fraction|accession_max_md_fraction=f' => \$max_accession_missing_data_fraction,
 	   'min_maf|maf_min=f' => \$min_marker_maf,
 	   'full_duplicatesearch_output!' => $full_duplicatesearch_output,
+	   'threads|nthreads=i' => \$nthreads,
 
 	   # used by clusterer:
 	   'cluster_distance=f' => \$cluster_distance,
@@ -115,7 +119,8 @@ GetOptions(
 	   'histogram_filename=s' => \$histogram_filename,
 	  );
 
-
+my $t0 = clock_gettime(CLOCK_MONOTONIC);
+my ($t1, $t2, $t3, $t4, $t5);
 $input_format = determine_input_format($input_filename);
 die "Input file $input_filename has unknown format.\n" if($input_format eq 'UNKNOWN');
 if(defined $ref_filename){
@@ -143,11 +148,14 @@ if ($plink) {			#####  PLINK  #####
   my $plink_out_filename = $genotypes_filename . "_bin";
 
   my $plink_command1 = "plink1.9 --vcf $input_filename --double-id --out $filename_stem --vcf-min-gp $minGP ";
+  $plink_command1 .= "  --threads $nthreads " if(defined $nthreads);
   print  "# plink command 1: $plink_command1\n";
   system "$plink_command1"; # produces 3 files ending in .bed , .bin , and .fam
-  my $plink_command2 = "plink1.9 --bfile $filename_stem --out $filename_stem --distance-matrix ";
+ # my $plink_command2 = "plink1.9 --bfile $filename_stem --out $filename_stem --distance-matrix ";
+   my $plink_command2 = "plink1.9 --bfile $filename_stem --out $filename_stem --distance 1-ibs flat-missing square";
   $plink_command2 .= " --maf $min_marker_maf --geno $max_marker_missing_data_fraction --mind $max_accession_missing_data_fraction ";
-
+  $plink_command2 .= "  --threads $nthreads " if(defined $nthreads);
+  print  "# plink command 2: $plink_command2\n";
   system "$plink_command2"; # produces files with endings .mdist (distance matrix), and .mdist.id (marker ids)
 
   $distances_filename = $filename_stem . ".dists";
@@ -163,6 +171,8 @@ if ($plink) {			#####  PLINK  #####
   }
 
 } else {			#####  DUPLICATESEARCH  #####
+  $t1 = clock_gettime(CLOCK_MONOTONIC);
+  print STDERR "# time to determine file format, etc.:  ", $t1 - $t0, "\n";
   if ($input_format eq 'vcf') {
     my $vcf2gts_command = $bindir . "/vcf_to_gts -input $input_filename -pmin $minGP "; # for now uses GT field, can filter on GP
     $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
@@ -171,6 +181,8 @@ if ($plink) {			#####  PLINK  #####
     print  "######### running vcf_to_gts ##########\n";
     system "$vcf2gts_command";
     print  "#########   vcf_to_gts done  ##########\n\n";
+    $t2 = clock_gettime(CLOCK_MONOTONIC);
+    print STDERR "# time for vcf_to_gts: ", $t2 - $t1, "\n";
   } else { # format was not 'vcf', assume input file has dosage format directly readable by duplicatesearch
     $genotypes_filename = $input_filename;
   }
@@ -199,10 +211,13 @@ if ($plink) {			#####  PLINK  #####
   $ds_command .= " -marker_max_missing_data $max_marker_missing_data_fraction ";
   $ds_command .= " -chunk_size $chunk_size -accession_max_missing_data $max_accession_missing_data_fraction ";
   $ds_command .= " -seed $rng_seed " if($rng_seed > 0);
+  $ds_command .= " -threads $nthreads " if(defined $nthreads);
   print  "# duplicatesearch command: $ds_command\n";
   print  "######### running duplicatesearch ##########\n";
   system "$ds_command";
   print  "#########  duplicatesearch done  ##########\n\n";
+  $t3 = clock_gettime(CLOCK_MONOTONIC);
+  print STDERR "# time for duplicatesearch: ", $t3 - $t2, "\n";
 }
 
 print  "######### running clusterer ##########\n";
@@ -219,7 +234,8 @@ my $vline_xpos = undef;
 if($cluster_stdout =~ /Max link distance: (\S+)/){
   $vline_xpos = $1;
 }
-
+ $t4 = clock_gettime(CLOCK_MONOTONIC);
+  print STDERR "# time for clusterer: ", $t4 - $t3, "\n";
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
@@ -228,7 +244,7 @@ my $histogram_command =
   #($histogram_agmr0  and  $full_duplicatesearch_output)?
   #"$histogram_path -data $distances_filename:3/8 " :
   "$histogram_path -data '$distances_filename" . ':3""' . "' ";
-$histogram_command .= " -output $histogram_filename -bw $binwidth -png -noscreen -nointeractive ";
+ #if(lc $graphics eq 'gd');
 $histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
 $histogram_command .= " -xlabel $plot_xlabel " if(defined $plot_xlabel);
 $histogram_command .= " -color $histogram_color " if(defined $histogram_color);
@@ -236,6 +252,7 @@ if(lc $graphics eq 'gnuplot'){
   $histogram_command .= ' -graphics gnuplot ';
 }elsif(lc $graphics eq 'gd'){
   $histogram_command .= ' -graphics gd ';
+  $histogram_command .= " -output $histogram_filename -bw $binwidth "; #  -png -noscreen -nointeractive "
 }else{
   die "Graphics option $graphics is unknown. Options are 'gnuplot' and 'gd' (not case sensitive).\n";
 }
@@ -247,6 +264,7 @@ print "about to run command: [$histogram_command]\n";
 system "$histogram_command";
 print "#########  done histogramming  ##########\n\n";
 
+}
 
 sub determine_input_format{
   my $input_filename = shift;
