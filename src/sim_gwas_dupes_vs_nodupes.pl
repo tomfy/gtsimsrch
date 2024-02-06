@@ -33,7 +33,7 @@ my $simspec_file = '';
 # so zero for these 'Null' markers,
 # and the next line specifies 2 markers with effect size 0.08
 
-my $gcta_command = 'xgcta64';
+my $gcta_command = 'gcta64';
 my $n_unique_acc = 600; # number of unique accessions simulated
 my $n_dupe_acc = 400; # number of duplicate accessions
 my $error_rate = 0.01; # when an accession is duplicated, errors at this rate are added to the duplicates and the original
@@ -52,7 +52,7 @@ my $serial_number = 1; # starting serial number
 
 	    'serial_number=i' => \$serial_number,
 	    'n_reps=i' => \$n_reps,
-	    'gcta_command=s' => \$gcta_command,
+	    'gcta_path=s' => \$gcta_command,
 	   );
 
 for(1..$n_reps){
