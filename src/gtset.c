@@ -1398,8 +1398,9 @@ ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny){
   return result;
 } 
 
-void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
+void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){ 
   fprintf(fh, "# max_marker_missing_data_fraction: %8.4lf \n", the_gtsset->max_marker_missing_data_fraction);
+  fprintf(fh, "# min_minor_allele_frequency: %8.4lf \n", the_gtsset->min_minor_allele_frequency);
   fprintf(fh, "MARKER  ");
   for(long i=0; i<the_gtsset->n_markers; i++){
     fprintf(fh, "%s ", the_gtsset->marker_ids->a[i]);
