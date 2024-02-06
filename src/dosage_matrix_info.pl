@@ -34,9 +34,11 @@ while (<>) {
     $cume_X_count += $X_count;
     $n_accessions++;
     my $ok_count = $marker_count - $X_count;
-    my $alt_allele_freq = ($ok_count > 0)? ($one_count + 2*$two_count)/$ok_count : -1;
+    my $alt_allele_freq = ($ok_count > 0)? ($one_count + 2*$two_count)/(2*$ok_count) : -1;
     my $maf = ($alt_allele_freq <= 0.5)? $alt_allele_freq : 1.0 - $alt_allele_freq;
-    printf(STDOUT "%6ld %36s   %7ld %7ld %7ld %7ld   %7ld   %8.4f\n", $n_accessions, $acc_id, $zero_count, $one_count, $two_count, $X_count, $marker_count, $maf); 
+    
+    printf(STDOUT "%6ld %36s   %7ld %7ld %7ld %7ld   %7ld   %8.4f\n", $n_accessions, $acc_id, $zero_count, $one_count, $two_count, $X_count, $marker_count, $maf);
+   # print STDOUT "#           ", $one_count + 2*$two_count, "  ", $ok_count, "  ", $alt_allele_freq, "\n"
   }
 }
 print "# n_accessions: $n_accessions  n_markers: $n_marker_ids\n";
