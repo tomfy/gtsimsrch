@@ -16,7 +16,7 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 
 # runs duplicatesearch, then clusterer, and outputs a file
 # with the same format as duplicatesearch input, but now with just one
-# line representing each cluster.
+# line representing each cluster of duplicates.
 
 my $input_dosages_filename = undef;
 #my $do_remove_bad_accessions = shift // m
@@ -28,6 +28,9 @@ my $max_distance = undef;
 my $cluster_max_distance = 'auto';
 my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
 my $vote = 0;
+my $missing_str = "X";
+my $filter_out = 1; # output the filtered set of markers, as well removing duplicates
+my $rng_seed = undef; # default is to let duplicatesearch get seed from clock
 
 GetOptions(
 	   'input_file=s' => \$input_dosages_filename,
@@ -36,9 +39,12 @@ GetOptions(
 	   'marker_max_md_fraction=f' => \$max_marker_missing_data_fraction,
 	   'distance_max=f' => \$max_distance,
 	   'min_maf|maf_min=f' => \$min_maf,
-	   'cluster_max_distance=s' => \$cluster_max_distance,
+	   'cluster_max_distance=f' => \$cluster_max_distance,
 	   'fraction=f' => \$cluster_fraction,
 	   'vote!' => \$vote,
+	   'missing_str=s' => \$missing_str,
+	   'filterout|filter_out!' => \$filter_out,
+	   'seed|rng_seed=i' => \$rng_seed,
 	  );
 
 if (!defined $input_dosages_filename) {
@@ -102,6 +108,13 @@ $duplicatesearch_command .= " -distance $max_distance " if(defined $max_distance
 $duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
 $duplicatesearch_command .= " -maf_min $min_maf ";
 $duplicatesearch_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
+$duplicatesearch_command .= " -seed $rng_seed " if(defined $rng_seed);
+my $filtered_output_filename;
+if ($filter_out) {
+  $filtered_output_filename = "filtered_" . $input_dosages_filename;
+  $duplicatesearch_command .= " -filtered_out $filtered_output_filename";
+}
+
 
 print "$duplicatesearch_command \n";
 ###############################################################################
@@ -111,8 +124,10 @@ print "$duplicatesearch_command \n";
 system "$duplicatesearch_command";
 ###############################################################################
 
+####   Run clusterer.pl    #####################################################
+
 my $cluster_command = $bindir . "/clusterer.pl " . " -in duplicatesearch.out -out cluster.out ";
-  $cluster_command .= " -cluster $cluster_max_distance  -nofull ";
+$cluster_command .= " -cluster $cluster_max_distance  -nofull ";
 print $cluster_command, "\n";
 #exit();
 system $cluster_command;
@@ -143,6 +158,7 @@ close $fh_clusters;
 print STDERR "before storing dosages\n";
 
 # store individual lines of dosage file in hash
+$input_dosages_filename = $filtered_output_filename if($filter_out);
 open my $fh_dosages, "<", "$input_dosages_filename";
 open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
 
@@ -151,12 +167,16 @@ my %id_gts  = ();  # key: ids; value: array ref of dosages (0,1,2,NA)
 my $first_line = <$fh_dosages>;
 print $fhout $first_line;
 while (my $line = <$fh_dosages>) {
-  next if($line =~ /^\s*#/);	# skip comments
+  if ($line =~ /^\s*(#|MARKER)/) {
+    print $fhout $line;
+    next;
+  }
   my @cols = split(" ", $line);
   my $id = shift @cols;
   if (exists $clusterids{$id}) {
     $id_gts{$id} = \@cols;
   } else {
+    # print STDERR "ABCD: $id \n";
     print $fhout $line;
   }
 }
@@ -170,54 +190,42 @@ print STDERR "after storing dosages\n";
 my @duplicate_lines = ();
 ####   Cluster members vote on correct genotypes   ############################
 open  $fh_clusters, "<", "cluster.out";
-if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then output just representative id with 'elected' dosages. 
-  while (my $line = <$fh_clusters>) { # each line is one cluster
-    next if($line =~ /^\s*#/);
-    my @cols = split(" ", $line);
-    my $cluster_size = shift @cols;
-    my $min_d = shift @cols;
-    my $max_d = shift @cols;
-    my $n_bad = shift @cols;
+if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then output just representative id with 'elected' dosages.
+  print STDERR "VOTE.\n";
+} else {
+  print STDERR "DON'T VOTE.\n";
+}
+while (my $line = <$fh_clusters>) { # each line is one cluster
+  next if($line =~ /^\s*#/);
+
+  my @cols = split(" ", $line);
+  next if(scalar @cols  < 11);
+  my $cluster_size = shift @cols;
+
+  my $min_d = shift @cols;
+  my $avg_d = shift @cols;
+  my $max_d = shift @cols;
+  my $min_intraextra_d = shift @cols;
+
+  my $n_near1 = shift @cols;
+  my $n_near2 = shift @cols;
+  my $n_big_intra_d = shift @cols;
+  my $n_missing_dist = shift @cols;
+
+  if ($vote  and  $cluster_fraction == 0) {
     my $rep_id = $cols[0];   # id of the representative of the cluster
-
-    #  print STDERR "done storing cluster of size $cluster_size \n";
-    # print STDERR "before vote\n";
+    my $cluster_id = $rep_id . "_size" . $cluster_size;
     my $elected_gts = vote(\@cols, \%id_gts);
-    #print STDERR "Done with cluster vote. size of elected_gts: ", scalar @$elected_gts, "\n";
-    #  print STDERR "done with cluster vote \n";
-    print $fhout "$rep_id  ", join(" ", @$elected_gts), "\n";
-  }
-
-} else { # output representative, and fraction $cluster_fraction of other cluster members
-  while (my $line = <$fh_clusters>) { # each line is one cluster
-    next if($line =~ /^\s*#/);
-   
-    my @cols = split(" ", $line);
-    # print join("  ", @cols), "\n";
-    next if(scalar @cols  < 10);
-    my $cluster_size = shift @cols;
-    my $min_d = shift @cols;
-    my $avg_d = shift @cols;
-    my $max_d = shift @cols;
-    my $min_intraextra_d = shift @cols;
-    my $n_near1 = shift @cols;
-    my $n_near2 = shift @cols;
-    my $n_big_intra_d = shift @cols;
-    my $n_missing_dist = shift @cols;
-    my $rep_id = shift @cols; # id of the representative of the cluster
-    # print "rep_id: $rep_id\n";
-    #  print STDERR "done storing cluster of size $cluster_size \n";
-    # print STDERR "before vote\n";
-    #my $elected_gts = vote(\@cols, \%id_gts);
-    #print STDERR "Done with cluster vote. size of elected_gts: ", scalar @$elected_gts, "\n";
-    #  print STDERR "done with cluster vote \n";
-    print $fhout "$rep_id  ", join(" ", @{$id_gts{$rep_id}}), "\n"; # output representative and its dosages.
-    for my $an_id (@cols) {
-     # if (rand() < $cluster_fraction) {
-     # print $fhout
-	my $dupe_acc_line = 'DDDD' . "$an_id  " . join(" ", @{$id_gts{$an_id}}) . "\n"; # other cluster members and dosages.
-      push @duplicate_lines, $dupe_acc_line;
+    print $fhout "$cluster_id  ", join(" ", @$elected_gts), "\n";
     
+  } else { # don't vote - just use the first one
+    my $rep_id = shift @cols; # id of the representative of the cluster
+    my $cluster_id = $rep_id . "_size" . $cluster_size;
+    print $fhout "$cluster_id  ", join(" ", @{$id_gts{$rep_id}}), "\n"; # output representative and its dosages.
+    
+    for my $an_id (@cols) {
+      my $dupe_acc_line = 'DDDD_' . "$an_id  " . join(" ", @{$id_gts{$an_id}}) . "\n"; # other cluster members and dosages.
+      push @duplicate_lines, $dupe_acc_line;
     }
   }
 }
@@ -226,7 +234,7 @@ close $fh_clusters;
 # output some fraction of duplicates:
 @duplicate_lines = shuffle @duplicate_lines;
 my $n_duplicates_to_output = int($cluster_fraction * scalar @duplicate_lines + 0.5);
-for my $i (1..$n_duplicates_to_output){
+for my $i (1..$n_duplicates_to_output) {
   print $fhout $duplicate_lines[$i];
 }
 close $fhout;
@@ -273,49 +281,83 @@ sub vote{
   my $n_markers = scalar @$first_dosages;
   my @elected_dosages = (0) x $n_markers;
   my $cluster_size = scalar @$cluster_ids;
+
+  # my $md_count_novote_2 = 0;
+  # my $md_count_vote_2 = 0;
+  # my $md_count_novote_gt2 = 0;
+  # my $md_count_vote_gt2 = 0;
+  
   if ($cluster_size > 2) {
     my @marker_votes = ();;
     for (1..$n_markers) {
       push @marker_votes, [0, 0, 0, 0];
     }
-    for my $an_id (@$cluster_ids) {
+    for my $an_id (@$cluster_ids) { # loop over accessions in cluster
       my $dosages = $id_dosages->{$an_id}; # array ref of dosages for $an_id
       while (my($i, $d) = each @$dosages) {
-	$d = 3 if($d eq 'NA');
+	if ($d eq $missing_str) {
+	  $d = 3;
+	#  $md_count_novote_gt2++; # count the missing gts in the cluster
+	}
 	$marker_votes[$i]->[$d]++;
       }
-      while (my($i, $mv) = each @marker_votes) {
-	my $e = 'NA';
-	#   print STDERR "    $i  ", join(" ", @$mv), "\n";
-	for my $j (0..2) {
-	  my $vote = $mv->[$j]; # the number of votes for dosage = $j for marker $i
-	  if (2*$vote > $cluster_size) { # must have > 50% for one dosage, or 'NA'
-	    $e = $j;
-	    last;
-	  }
-	}
-	$elected_dosages[$i] = $e;
-      }
     }
+    while (my($i, $mv) = each @marker_votes) {
+      my $e = $missing_str;
+      
+      for my $j (0..2) {
+	my $votes = $mv->[$j]; # the number of votes for dosage = $j for marker $i
+	if (2*$votes > $cluster_size) { # must have > 50% for one dosage, or $missing_str
+	  $e = $j;
+	  last;
+	}
+      }
+    #  $md_count_vote_gt2++ if($e eq $missing_str);
+      $elected_dosages[$i] = $e;
+      #   print STDERR "$cluster_size    $i  ", join(" ", @$mv), "    $e \n" if($cluster_size > 20  and  $mv->[3] > 0);
+    }
+     my $X_count = sum(map( (($_ eq 'X')? 1 : 0), @elected_dosages)); #  =~ tr/X/X/;
+   # print STDERR "$cluster_size  $first_id   $md_count_novote_gt2    ", $md_count_novote_gt2/$cluster_size, "  $md_count_vote_gt2   $X_count\n";
   } else {			# cluster size == 2
+  #  printf(STDERR "%30s  %s\n", $first_id, join(" ", @{$first_dosages}[0..63]));
+    my $second_id = $cluster_ids->[1];
+  #  printf(STDERR "%30s  %s\n", $second_id, join(" ", @{$id_dosages->{$second_id}}[0..63]));
+ #   my ($okagree_count, $oneX_count, $XX_count, $disagree_count) = (0, 0, 0, 0);
     while (my($i, $d1) = each @$first_dosages) {
-      my $second_id = $cluster_ids->[1];
+
       my $d2 = $id_dosages->{$second_id}->[$i];
+  #    $md_count_novote_2++ if($d1 eq $missing_str);
+  #    $md_count_novote_2++ if($d2 eq $missing_str);
       if ($d1 eq $d2) {
 	$elected_dosages[$i] = $d1;
-      } elsif ($d1 eq 'NA') { # d1 is NA, use d2 (which might also be NA)
+#	if($d1 eq $missing_str){
+# 	  $XX_count++;
+# #	  $md_count_vote_2++;
+# 	}else{
+# 	  $okagree_count++;
+# 	}
+      } elsif ($d1 eq $missing_str) { # d1 is missing, use d2 (which is not missing)
 	$elected_dosages[$i] = $d2;
-      } elsif ($d2 eq 'NA') {	# d2 is NA, use d1 (which is not NA)
+	#  $oneX_count++;
+      } elsif ($d2 eq $missing_str) {	# d2 is missing, use d1 (which is not missing)
+#	$oneX_count++;
 	$elected_dosages[$i] = $d1;
-      } else {		    # neither is NA, and they disagree; use NA
-	$elected_dosages[$i] = 'NA';
+      } else {		    # neither is missing, and they disagree; use $missing_str
+	$elected_dosages[$i] = $missing_str;
+#	$md_count_vote_2++;
+#	$disagree_count++;
       }
     }
-  } 
+  #  printf(STDERR "%30s  %s\n", $first_id . '_grp', join(" ", @elected_dosages[0..63]));
+  # my $X_count = sum(map( (($_ eq 'X')? 1 : 0), @elected_dosages)); #  =~ tr/X/X/;
+  #   my $nv_Xcount = $oneX_count + 2*$XX_count;
+  #   my $v_Xcount = $XX_count + $disagree_count;
+  #   print STDERR "$cluster_size  $first_id   $md_count_novote_2    ", $md_count_novote_2/$cluster_size, "  $md_count_vote_2   $X_count   ", scalar @$first_dosages,  "  $okagree_count  $oneX_count  $XX_count  $disagree_count  $nv_Xcount $v_Xcount\n";
+  } # end cluster size == 2 branch
   return \@elected_dosages;
 }
 
 sub usage_message{
-  print "Usage: uniquify -i <input filename> [-o <output filename>] [-m <max allowed fraction missing data>].\n";
+  print "Usage: uniquify -i <input filename> [-o <output filename>] [-m <max allowed fraction marker missing data>].\n";
 }
 
