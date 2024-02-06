@@ -27,14 +27,21 @@ my $simspec_file = '';
 # 499 Null3  0.05 0.95 0.0  0
 # 2 Q2  0.05 0.95  0.07  0
 # 499 Null4  0.05 0.95 0.0  0
+# So, e.g. top line means:
+# 499 markers, with ID Null1 maf between 0.05 and 0.095
+# the next col is the size of the effect on the phenotypes (in some units I don't really understand)
+# so zero for these 'Null' markers,
+# and the next line specifies 2 markers with effect size 0.08
 
 
+my $n_unique_acc = 600; # number of unique accessions simulated
+my $n_dupe_acc = 400; # number of duplicate accessions
+my $error_rate = 0.01; # when an accession is duplicated, errors at this rate are added to the duplicates and the original
 
-my $n_unique_acc = 600;
-my $n_dupe_acc = 400;
-my $error_rate = 0.01;
+my $n_reps = 10; # number of replicates, each one produces data sets with and without duplicates, and a gwas analysis
+# of each of those. In particular there will be files with names like:
+# u600_x.mlma  and u600d400_x.mlma where x is an integer ranging from 1 to $n_reps.
 
-my $n_reps = 10;
 my $serial_number = 1; # starting serial number
 
  GetOptions(
