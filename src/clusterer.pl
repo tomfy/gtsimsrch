@@ -45,7 +45,8 @@ my $missing_data_char = 'X';
 # line representing each cluster.
 
 {				# beginning of 'main'
-
+  my $command_str = "# command:  $0  " . join(" ", @ARGV);
+  
   my $distances_filename = undef;
   my $link_max_distance = 'auto'; # construct graph with edges between pairs of accessions iff their distance is <= this.
   my $maxD = 1; # just ignore pairs separated by greater distance than this.
@@ -196,7 +197,7 @@ my $missing_data_char = 'X';
   die if($N_clusters_out + $count_rejected_clusters != scalar @clusters);
   print "# Found $N_clusters_out acceptable clusters containing $count_cluster_accessions_out accessions.\n";
   open my $fhout, ">", "$output_cluster_filename" or die "Couldn't open $output_cluster_filename for writing.\n";
-  
+  print $fhout $command_str, "\n";
   print $fhout "# Graph max edge length: $link_max_distance. \n";
   print $fhout "# Found $N_clusters_out acceptable clusters, containing $count_cluster_accessions_out accessions.\n";
   print $fhout "# col 1: cluster size.\n";

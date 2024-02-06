@@ -18,7 +18,7 @@
 #define DISTANCE_NORM_FACTOR (1.0) // if 0.5 max possible distance is 1 (if all dosage pairs are 0|2)
 // defaults
 #define DEFAULT_DIPLOID_CHUNK_SIZE  6
-#define DEFAULT_MAX_DISTANCE  0.5
+#define DEFAULT_MAX_DISTANCE  0.2
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
 #define DEFAULT_MIN_MAF  0.1
@@ -172,8 +172,9 @@ main(int argc, char *argv[])
   double max_est_dist = DEFAULT_MAX_DISTANCE; 
   long output_format = 1; // 1 ->  acc_id1 acc_id2 agmr hgmr; otherwise add 3 more columns: usable_chunks matching_chunks est_distance agmr0
   char default_output_filename[] = "duplicatesearch.out";
-  bool print_filtered_gtset = false;
-  bool shuffle_accessions = true; 
+  char* filtered_output_filename = NULL;
+  //  bool print_filtered_gtset = true;
+  bool shuffle_accessions = false; 
 
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
@@ -195,6 +196,7 @@ main(int argc, char *argv[])
   FILE *ref_in_stream = NULL;
   char* output_filename = default_output_filename;
   FILE* out_stream = NULL;
+  
     
   int c;
   while(1){
@@ -203,6 +205,7 @@ main(int argc, char *argv[])
       {"input",   required_argument, 0,  'i'}, // filename of new data set
       {"reference", required_argument, 0, 'r'}, // filename of reference data set (optional)
       {"output",  required_argument, 0,  'o'}, // output filename
+      {"filtered_out", required_argument, 0, 'F'}, // 
       {"format", required_argument, 0, 'f'},
 	
       {"marker_max_missing_data", required_argument, 0, 'm'}, // markers with > this fraction missing data will not be used.
@@ -215,7 +218,8 @@ main(int argc, char *argv[])
       {"passes", required_argument, 0, 'n'}, // use each marker in ~passes chunks		
       {"unshuffled",    no_argument, 0,  'u' }, // default is to shuffle the order of the accessions in output
       {"threads", required_argument, 0,  't'}, // number of threads to use
-      {"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
+      {"seed", required_argument, 0, 's'}, // rng seed.
+      
 
       {"help", no_argument, 0, 'h'},
       {0,         0,                 0,  0 }
@@ -244,6 +248,9 @@ main(int argc, char *argv[])
       break;
     case 'o':
       output_filename = optarg;
+      break;
+         case 'F':
+      filtered_output_filename = optarg;
       break;
     case 'n': 
       n_passes = (long)atoi(optarg);
@@ -359,11 +366,8 @@ main(int argc, char *argv[])
   if(max_marker_missing_data_fraction < 0) max_marker_missing_data_fraction = 1.5/chunk_size;
   fprintf(rparam_stream, "# Max. marker missing data fraction: %5.3lf\n", max_marker_missing_data_fraction);
   fprintf(rparam_stream, "# Max. accession missing data fraction: %5.3lf\n", max_accession_missing_data_fraction);
-  if(max_est_dist > 0){
-    fprintf(rparam_stream, "# Max. estimated distance: %5.3lf\n", max_est_dist);
-  }else{
-    fprintf(rparam_stream, "# Max. estimated distance will be set automatically.\n");
-  }
+  fprintf(rparam_stream, "# Max. estimated distance: %5.3lf\n", max_est_dist);
+  
   fclose(rparam_stream);
   fprintf(stdout, "%s", rparam_buf);
   fprintf(out_stream, "%s", rparam_buf);
@@ -413,8 +417,12 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
   fprintf(out_stream, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
 
-  if(print_filtered_gtset){
-    FILE* fh_gtsout = fopen("filtered_gtset.out", "w");
+  if(filtered_output_filename != NULL ){ // if  -filtered_out <filtered_output_filename> 
+    if( strlen(filtered_output_filename) == 0){ // in case empty string specified as filename, use default
+      filtered_output_filename = "filtered_dosages.out";
+    }
+    // if(print_filtered_gtset){ 
+    FILE* fh_gtsout = fopen(filtered_output_filename, "w");
     print_genotypesset(fh_gtsout, the_genotypes_set);
     fclose(fh_gtsout);
   }
@@ -435,7 +443,8 @@ main(int argc, char *argv[])
   double t_after_pop_marker_dosage_counts = clock_time(clock1);
   fprintf(stdout, "# Time for populate_marker_dosage_counts: %lf\n", t_after_pop_marker_dosage_counts - t_after_set_ABbits);
 
-  agmr0(the_genotypes_set); // calculate the overall agmr0 for the genotypes set.
+  // agmr0(the_genotypes_set); // calculate the overall agmr0 for the genotypes set. 
+  the_genotypes_set->agmr0 = 1;
   /* if(max_est_dist < 0){ // get max_est_dist so as to do approx. n_ds_to_get distance calculations */
   /*   // get random sample of distances */
   /*   distance_random_sample_size = 2*n_accessions; */
