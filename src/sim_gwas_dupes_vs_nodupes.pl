@@ -36,23 +36,27 @@ my $simspec_file = '';
 my $gcta_command = 'gcta64';
 my $n_unique_acc = 600; # number of unique accessions simulated
 my $n_dupe_acc = 400; # number of duplicate accessions
-my $error_rate = 0.01; # when an accession is duplicated, errors at this rate are added to the duplicates and the original
+my $error_rate = 0.01; # when an accession is duplicated, genotype errors at this rate are added to the duplicates and the original
+my $phenotype_noise_sigma = 1;
 
 my $n_reps = 10; # number of replicates, each one produces data sets with and without duplicates, and a gwas analysis
 # of each of those. In particular there will be files with names like:
 # u600_x.mlma  and u600d400_x.mlma where x is an integer ranging from 1 to $n_reps.
 
 my $serial_number = 1; # starting serial number
+my $thread_number = 6;
 
  GetOptions(
 	    'simspec_file=s' => \$simspec_file,
 	    'n_acc|n_uniq=s' => \$n_unique_acc,
 	    'n_dupe=s' => \$n_dupe_acc,
 	    'error_rate=f' => \$error_rate,
+	    'sigma=f' => \$phenotype_noise_sigma,
 
 	    'serial_number=i' => \$serial_number,
 	    'n_reps=i' => \$n_reps,
 	    'gcta_path=s' => \$gcta_command,
+	    'nthread|n_thread=i' => \$thread_number,
 	   );
 
 for(1..$n_reps){
@@ -73,7 +77,8 @@ system "perl ~/gtsimsrch/src/sel_columns.pl '2,5,6' < sim_temp.bim  > alleles ";
 
 # make the duplicates, errors added to both unique and duplicate accessions
 my $ped_file = "sim_temp.ped";
-system "perl ~/gtsimsrch/src/rand_dupe_no_dupe.pl  $ped_file sim_temp.phen  alleles  $ufile $udfile $n_unique_acc $n_dupe_acc $error_rate ";
+system "perl ~/gtsimsrch/src/rand_dupe_no_dupe.pl  $ped_file sim_temp.phen  alleles  $ufile $udfile $n_unique_acc $n_dupe_acc $error_rate $phenotype_noise_sigma ";
+
 
 my $umap_file = $ufile . ".map";
 my $map_file = "sim_temp.map";
@@ -82,7 +87,7 @@ my $ubin_file = $ufile . "_bin";
 system "plink1.9  --file $ufile  --out $ubin_file ";
 my $uphen_file = $ufile . ".phen";
 
-system "$gcta_command  --mlma --bfile $ubin_file  --pheno $uphen_file --out $ufile  --thread-num 2";
+system "$gcta_command  --mlma --bfile $ubin_file  --pheno $uphen_file --out $ufile  --thread-num $thread_number";
 
 my $udmap_file = $udfile . ".map";
 system "ln -s $map_file $udmap_file";
@@ -90,7 +95,17 @@ my $udbin_file = $udfile . "_bin";
 system "plink1.9  --file $udfile  --out $udbin_file ";
 my $udphen_file = $udfile . ".phen";
 
-system "$gcta_command  --mlma --bfile $udbin_file  --pheno $udphen_file --out $udfile  --thread-num 2";
+system "$gcta_command  --mlma --bfile $udbin_file  --pheno $udphen_file --out $udfile  --thread-num $thread_number";
+
+
+#my $umap_file = $ufile . ".map";
+#my $map_file = "sim_temp.map";
+#system "ln -s $map_file $umap_file";
+#my $ubin_file = $ufile . "_bin";
+#system "plink1.9  --file $ufile  --out $ubin_file ";
+my $uphen_file = 'avg_' . $ufile . ".phen";
+my $avg_ufile = 'avg_' . $ufile;
+system "$gcta_command  --mlma --bfile $ubin_file  --pheno $uphen_file --out $avg_ufile  --thread-num $thread_number";
 
 unlink $umap_file;
 unlink $udmap_file;

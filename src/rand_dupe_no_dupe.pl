@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
-use List::Util qw(shuffle);
+use List::Util qw(shuffle min max sum);
+use Math::CDF qw (qnorm);
 
 my $genofile = shift;		# .ped format
 my $phenofile = shift;         # id id  phenotype
@@ -15,6 +16,7 @@ my $nduplicate = shift // 150;
 #print STDERR "$nunique  $nduplicate \n";
 #sleep(1);
 my $pnoise = shift // 0.01; # shift // 0.1;
+my $sigma = shift // 0.5; # stddev of the normal noise to add to the phenotypes (which seem to be simulated with a stddev of 1)
 
 #%accid_ped_line = ();
 
@@ -22,6 +24,7 @@ my $u_noisy = 1;
 
 # store genotypes from file
 my %accid_gts = ();
+my %accid_blups = (); # keys: accession ids, values: array ref with phenotypes of duplicate group members (incl. groups of size 1)
 open my $fhin, "<", "$genofile";
 while (<$fhin>) {
   if (/^\s*(\S+)(.*)$/) {
@@ -37,7 +40,10 @@ open $fhin, "<", "$phenofile";	#
 while (<$fhin>) {
   my ($ida, $idb, $blup) = split(" ", $_);
   #print STDERR "$ida $idb $blup\n";
-  $accid_blup{$ida} = $blup if(exists $accid_gts{$ida}); # don't store if no genotypes
+  if(exists $accid_gts{$ida}){ # don't store if no genotypes
+  $accid_blup{$ida} = $blup;
+    $accid_blups{$ida} = [$blup];
+}
 }
 close $fhin;
 print "# number of accession with both genotypes and phenotypes: ", scalar keys %accid_blup, "\n";
@@ -68,6 +74,7 @@ my @orig_u_blup_strings = ();
 
 my @u_ped_strings = ();
 my @u_blup_strings = ();
+my @u_avg_blup_strings = ();
 
 my $unique_gtstr = '';
 my $unique_blupstr = '';
@@ -89,8 +96,9 @@ my $unique_blupstr = '';
   push @u_ped_strings, $noisy_u_ped_string;
 
   push @orig_u_blup_strings,  "$id $id  " . $accid_blup{$id} . "\n";
-  # add noise to blups here - not implemented 
-  push @u_blup_strings,  "$id $id  " . $accid_blup{$id} . "\n";
+  my $noisy_blup = add_noise_to_blup($accid_blup{$id}, $sigma);
+  push @u_blup_strings,  "$id $id  $noisy_blup \n";
+  
 }
 
 #print STDERR scalar @u_ped_strings, "\n"; sleep(1);
@@ -100,7 +108,7 @@ my $unique_blupstr = '';
 my $ugtfilename = $ufilename . ".ped";
 my $uphfilename = $ufilename . ".phen";
 open my $fhout, ">", $ugtfilename;
-print $fhout join('', @u_ped_strings);
+print $fhout join('', @u_ped_strings); # have had errors added. good.
 close $fhout;
 open $fhout, ">", $uphfilename;
 print $fhout join('', @u_blup_strings);
@@ -117,19 +125,26 @@ for my $idupe (1..$nduplicate) {
   my $irand = int(rand($nunique));
   #print STDERR "$irand  ", scalar @u_ped_strings, "\n";
   my $ped_line = $orig_u_ped_strings[$irand];
-  my $blup_str = $u_blup_strings[$irand];
+  my $blup_str = $orig_u_blup_strings[$irand];
 #  print STDERR "$irand  ", $blup_str // 'undef ', "\n";
   my ($x, $y, $blup) = split(" ", $blup_str);
   my @cols = split(" ", $ped_line);
-  my $id = $cols[0] . '_D' . $dupe_number;
+  
+  my $id = $cols[0];
+  my $dupe_id = $id . '_D' . $dupe_number;
   #print STDERR "#last col index:  ", $#cols, "\n";
   my @noisy_cols = @{ add_errors_to_ped_line(\@cols, \@allelepairs, $pnoise) };
   #$noisy_cols[0] = $id;
   #$noisy_cols[1] = $id;
-  my $dupe_ped_line = "$id $id  0 0 0 -9 " . join(" ", @noisy_cols) . "\n";
+  my $dupe_ped_line = "$dupe_id $dupe_id  0 0 0 -9 " . join(" ", @noisy_cols) . "\n";
  # print STDERR "Dupe. AGMRs:  ", agmr($ped_line, $dupe_ped_line), "\n";
   push @dupe_ped_lines, $dupe_ped_line;
-  push @dupe_blup_lines, "$id $id  $blup\n";
+  my $noisy_blup = add_noise_to_blup($blup, $sigma);
+  push @dupe_blup_lines, "$dupe_id $dupe_id  $noisy_blup\n";
+  # if(! exists $accid_blups{$id}){
+  #   $accid_blups{$id} = [];
+  # }
+  push @{$accid_blups{$id}}, $noisy_blup; # store the noisy blups of 
   $dupe_number++;
 }
 
@@ -155,7 +170,16 @@ system "cat $ugtfilename $dgtfilename  > $udgtfilename";
 system "cat $uphfilename $dphfilename  > $udphfilename";
 
 unlink $dgtfilename;
-unlink $dphfilename;
+  unlink $dphfilename;
+
+my $avg_phfilename = 'avg_' . $ufilename . ".phen";
+open $fhout, ">", $avg_phfilename;
+  while(my ($accid, $blps) = each %accid_blups){
+    my $avg_blup = sum(@{$blps})/(scalar @$blps);
+    my $blup_line = "$accid $accid  $avg_blup\n";
+    print $fhout $blup_line;
+  }
+close $fhout;
 
 sub add_errors_to_ped_line{	# switch some of the genotypes
   my $car = shift;		# array ref
@@ -204,4 +228,11 @@ sub agmr{
   }
   return $agmr;
 }
+
+sub add_noise_to_blup{
+  my $blup_in = shift;
+  my $sigma = shift;
+  return $blup_in + $sigma*qnorm(rand());
+}
+  
   
