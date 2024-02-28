@@ -16,8 +16,11 @@ while (<>) {
   next if(/^\s*#/);
   if (/^MARKER/) {
     my @cols = split(" ", $_);
+    # while(my($ii, $xx) = each @cols){
+    #   print STDERR "###   $xx  $ii  $ii \n";
+    # }
     $n_marker_ids = scalar @cols - 1;
-#    print "# n marker ids: $n_marker_ids\n";
+    print "# n marker ids: $n_marker_ids\n";
   } else {
     s/^\s*(\S+)//; # delete first field (accession id)
    my $acc_id = $1;
