@@ -333,6 +333,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
 	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
 	markerid_count++;
+	// fprintf(stderr, "### %30s  %ld %ld \n", mrkr_id, markerid_count, marker_ids->size); 
       }
       break;
     }else{ 
@@ -356,7 +357,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   // i.e. in case of using reference set, make sure the set of markers is the same in both data sets.
   if(the_genotypes_set->marker_ids  == NULL){
     the_genotypes_set->marker_ids = marker_ids;
-    fprintf(stderr, "the_genotypes_set->marker_ids->size: %ld \n", the_genotypes_set->marker_ids->size);
+    // fprintf(stderr, "the_genotypes_set->marker_ids->size: %ld \n", the_genotypes_set->marker_ids->size);
   }else{
     if(the_genotypes_set->marker_ids->size != marker_ids->size){
       fprintf(stderr, "# Data sets have different numbers of markers: %5ld  %5ld. Exiting.\n", the_genotypes_set->marker_ids->size, marker_ids->size);
@@ -457,7 +458,7 @@ void threaded_input(FILE* in_stream, long n_lines_in_chunk, double max_acc_md_fr
       line_count++;
     }
     total_lines_read += line_count;
-    fprintf(stdout, "line_count: %ld   total lines read: %ld\n", line_count, total_lines_read);
+    // fprintf(stdout, "line_count: %ld   total lines read: %ld\n", line_count, total_lines_read);
 
     // ********************************************************
     // *****  Extract genotypes, and quality information  *****
@@ -813,7 +814,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
   double raw_minor_allele_freq = (double)altallelesum_all/(marker_md_counts->size*n_accs*the_gtsset->ploidy);
   double filtered_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
 
-  fprintf(stdout, "# Before filtering of markers %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
+  fprintf(stdout, "# Before filtering of markers %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3f\n",
 	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);   
   fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
   	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
