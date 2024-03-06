@@ -15,11 +15,11 @@
 
 #include "gtset.h"
 
-#define DISTANCE_NORM_FACTOR (1.0) // if 0.5 max possible distance is 1 (if all dosage pairs are 0|2)
+#define DISTANCE_NORM_FACTOR (1.0) // 
 // defaults
-#define DEFAULT_DIPLOID_CHUNK_SIZE  6
+#define DEFAULT_DIPLOID_CHUNK_SIZE  7
 #define DEFAULT_MAX_DISTANCE  0.2
-#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
+#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.2
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
 #define DEFAULT_MIN_MAF  0.1
 // #define DEFAULT_D_RANDOM_SAMPLE_SIZE  20000
@@ -160,6 +160,8 @@ main(int argc, char *argv[])
   struct timespec tspec;
   double t_start = clock_time(clock1);
   unsigned rand_seed = time(0); // (unsigned)tspec.tv_nsec;
+  double t_setup = 0;
+  double t_distances = 0;
 
   
   long ploidy = 2; // Polyploid case not implemented
@@ -174,7 +176,8 @@ main(int argc, char *argv[])
   char default_output_filename[] = "duplicatesearch.out";
   char* filtered_output_filename = NULL;
   //  bool print_filtered_gtset = true;
-  bool shuffle_accessions = false; 
+  bool shuffle_accessions = false;
+  bool get_all_distances = false;
 
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
@@ -212,11 +215,12 @@ main(int argc, char *argv[])
       {"maf_min", required_argument, 0, 'l'}, //
       {"accession_max_missing_data", required_argument, 0, 'a'},
       {"distance_max",  required_argument,  0,  'd'}, // max. estimated distance (agmr)
+      {"all_distances", no_argument, 0, 'x'},  // do all distances
       //	{"max_distance",  required_argument,  0,  'd'}, // min. 'estimated genotype probability'
 
       {"chunk_size", required_argument, 0, 'k'}, // number of markers per chunk. D
       {"passes", required_argument, 0, 'n'}, // use each marker in ~passes chunks		
-      {"unshuffled",    no_argument, 0,  'u' }, // default is to shuffle the order of the accessions in output
+      {"shuffle_accessions",    no_argument, 0,  'u' }, // default is to not shuffle the order of the accessions
       {"threads", required_argument, 0,  't'}, // number of threads to use
       {"seed", required_argument, 0, 's'}, // rng seed.
       
@@ -321,7 +325,10 @@ main(int argc, char *argv[])
       }
       break;
     case 'u' :
-      shuffle_accessions = false;
+      shuffle_accessions = true;
+      break;
+       case 'x' :
+      get_all_distances = true;
       break;
     case 'h':
       print_usage_info(stderr);
@@ -331,7 +338,7 @@ main(int argc, char *argv[])
       fprintf(stderr, "? case in command line processing switch.\n");
       if ((optopt == 'i') || (optopt == 'r') || (optopt == 'o') ||
 	  (optopt == 'p') || (optopt == 'n') || (optopt == 'k') ||
-	  (optopt == 'e') || (optopt == 's') || (optopt == 'x')  || (optopt == 'a') )
+	  (optopt == 'e') || (optopt == 's') || (optopt == 'a') )
 	fprintf (stderr, "  Option -%c requires an argument.\n", optopt);
       else if (isprint (optopt))
 	fprintf (stderr, "  Unknown option `-%c'.\n", optopt);
@@ -392,7 +399,7 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Done reading dosages from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_bad_accessions, the_genotypes_set->n_markers);
   
-  if(shuffle_accessions) shuffle_order_of_accessions(the_genotypes_set); // this helps to spread load evenly over threads 
+  if(shuffle_accessions) shuffle_order_of_accessions(the_genotypes_set); // I thought this might help to spread load evenly over threads, but no.
     
   ploidy = the_genotypes_set->ploidy;
   if(ploidy != 2) { fprintf(stderr, "# Ploidy of %ld detected. Non-diploid ploidy not implemented. Exiting.\n", ploidy); exit(EXIT_FAILURE); }
@@ -423,14 +430,17 @@ main(int argc, char *argv[])
     }
     // if(print_filtered_gtset){ 
     FILE* fh_gtsout = fopen(filtered_output_filename, "w");
+    fprintf(stderr, "before print_genotypesset.\n");
     print_genotypesset(fh_gtsout, the_genotypes_set);
+     fprintf(stderr, "after print_genotypesset.\n");
     fclose(fh_gtsout);
   }
 
   double t_after_input = clock_time(clock1);
   fprintf(stdout, "# Time to load & filter dosage data: %6.3lf sec.\n", t_after_input - t_start);
   // *****  done reading, filtering, and storing input  **********
-
+  //t_setup += (t_after_input - t_start);
+  
   check_genotypesset(the_genotypes_set);
 
   double t_after_chk = clock_time(clock1);
@@ -438,10 +448,34 @@ main(int argc, char *argv[])
   set_Abits_Bbits(the_genotypes_set, Nthreads);
   double t_after_set_ABbits = clock_time(clock1);
   fprintf(stdout, "# Time for set_Abits_Bbits: %lf\n", t_after_set_ABbits - t_after_chk);
+  
+  if(get_all_distances){ //
+    double t_before_x = clock_time(clock1);
+    FILE* fh_accidsout = fopen("accIds", "w");
+    FILE* fh_dmatrixout = fopen("dMatrix", "w");
+    for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
+      Accession* q_acc = the_genotypes_set->accessions->a[iq];
+      fprintf(fh_accidsout, "%s\n", q_acc->id->a);
+      for(long imatch = 0; imatch < the_genotypes_set->accessions->size; imatch++){
+	four_longs bfcs = bitwise_agmr_hgmr(q_acc, the_genotypes_set->accessions->a[imatch]);  // bfcs: {count_02, count_00_22, count_01_12, count_11}
+	long b_agmr_num = bfcs.l1 + bfcs.l3;
+	long b_agmr_denom = b_agmr_num + bfcs.l2 + bfcs.l4;
+	//	long b_hgmr_num = bfcs.l1;
+	//	long b_hgmr_denom = bfcs.l1 + bfcs.l2;
+	double agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1;
+	//	hgmr = (b_hgmr_denom > 0)? (double)b_hgmr_num / (double)b_hgmr_denom : -1;	
+	fprintf(fh_dmatrixout, "%6.4f ", agmr);
+      }
+      fprintf(fh_dmatrixout, "\n");
+    }
+    fprintf(stderr, "# time for full distance matrix:  %6.3f\n", clock_time(clock1) - t_before_x);
+  }
+  
   populate_marker_dosage_counts(the_genotypes_set);
   // set_agmr0s(the_genotypes_set);
   double t_after_pop_marker_dosage_counts = clock_time(clock1);
   fprintf(stdout, "# Time for populate_marker_dosage_counts: %lf\n", t_after_pop_marker_dosage_counts - t_after_set_ABbits);
+ 
 
   // agmr0(the_genotypes_set); // calculate the overall agmr0 for the genotypes set. 
   the_genotypes_set->agmr0 = 1;
@@ -506,6 +540,7 @@ main(int argc, char *argv[])
   double t_after_cpi = clock_time(clock1);
   fprintf(stdout, "# Time to construct & populate chunk_pattern_idxs: %6.3f\n", t_after_cpi - t_after_pop_marker_dosage_counts);
   //  exit(0);
+   t_setup += t_after_cpi - t_start;
   
    double chunk_match_count = count_chunk_matches(the_cpi);
    double total_possible_chunk_matches = n_chunks * 0.5*(double)n_accessions*(n_accessions-1);
@@ -523,11 +558,13 @@ main(int argc, char *argv[])
    long distance_calculations_performed;
    Vmci** query_vmcis = find_matches(the_genotypes_set, the_cpi, Nthreads, max_est_dist, &distance_calculations_performed); //, n_maf_categories, maf_category_marker_indices);
   double t_after_find_matches = clock_time(clock1);
+  t_distances = t_after_find_matches - t_after_cpi;
   fprintf(stdout, "# Time to find %ld candidate matches and distances: %6.3f\n",
 	  distance_calculations_performed, t_after_find_matches - t_after_cpi);
   long output_pairs_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# Number of accession pairs output: %ld\n", output_pairs_count);
   fclose(out_stream);
+  fprintf(stderr, "# time for setup:  %7.3f,  time for distances:  %7.3f,  time for output:  %7.3f\n", t_setup, t_distances, clock_time(clock1) - t_after_find_matches);
    fprintf(stderr, "# total duplicatesearch run time (before cleanup): %9.3f\n", clock_time(clock1) - t_start);
    //getchar();
 
@@ -827,7 +864,7 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
     query_vmcis[i] = construct_vmci(4);
   }
 
-  if(Nthreads <= 0){ // i.e. no pthreads
+  if(Nthreads <= 0){ // i.e. not using pthreads
     TD* td = (TD*)malloc(1*sizeof(TD));
     td[0].thread_number = 0;
     td[0].the_genotypes_set = the_genotypes_set;
@@ -982,9 +1019,9 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Accession* m_acc = the_accessions->a[the_mci->match_index];
       fprintf(ostream, "%s  %s  %8.6f %8.6f", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
       if(output_format != 1){
-	double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
-	fprintf(ostream, "  %6.2f %ld %7.5f %7.5f ",
-		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist, agmr_norm); //the_mci->agmr0);
+	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
+	fprintf(ostream, "  %6.2f %ld %7.5f ", // %7.5f ",
+		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist); //, agmr_norm); //the_mci->agmr0);
       }
       fprintf(ostream, "\n");
       distance_count++;
@@ -1019,7 +1056,7 @@ void print_usage_info(FILE* ostream){
   fprintf(ostream, "  -k  -chunk_size <integer> number of markers per chunk). Default: %d\n", DEFAULT_DIPLOID_CHUNK_SIZE);
   fprintf(ostream, "  -s  -seed <integer> random number generator seed. Default: get seed from clock. \n");
   fprintf(ostream, "  -n  -passes <integer> The number of chunks to use is  (int)n_markers/chunk_size \n");
-  fprintf(ostream, "  -u  -unshuffle  Leave the order of accessions as in input file. Default is to shuffle the order.\n");
+  //  fprintf(ostream, "  -u  -shuffle  Shuffle the order of accessions as in input file. Default is to leave as in input.\n");
   fprintf(ostream, "  -t  -threads <integer> The number of threads to use. Default is to set automatically based on the number of cores.\n");
   fprintf(ostream, "  -h  -help  print this usage information. \n");
 }
