@@ -282,6 +282,14 @@ Vdouble* construct_vdouble_from_array(long size, double* array){ // intialize wi
   return the_vdouble;
 }
 
+Vdouble* construct_vdouble_zeroes(long size){
+  Vdouble* the_vdouble = (Vdouble*)malloc(1*sizeof(Vdouble));
+  the_vdouble->capacity = size;
+  the_vdouble->size = size;
+  the_vdouble->a = (double*)calloc(size, sizeof(double));
+  return the_vdouble;
+}
+
 Vdouble* copy_vdouble(Vdouble* the_vdouble){
   Vdouble* the_copy = (Vdouble*)malloc(1*sizeof(Vdouble));
   the_copy->capacity = the_vdouble->capacity;

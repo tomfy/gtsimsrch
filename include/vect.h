@@ -99,6 +99,7 @@ void free_vchar(const Vchar* the_vchar);
 // ***** Vdouble *****
 Vdouble* construct_vdouble(long cap); // construct empty Vdouble with capacity cap.
 Vdouble* construct_vdouble_from_array(long size, double* array); // intialize with array of known size
+Vdouble* construct_vdouble_zeroes(long size); // use calloc, set both capacity and size to size
 Vdouble* copy_vdouble(Vdouble* the_vdouble);
 Vdouble* push_to_vdouble(Vdouble* the_vdouble, double x);
 double pop_from_vdouble(Vdouble* the_vdouble);
