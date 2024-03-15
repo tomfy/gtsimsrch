@@ -22,14 +22,7 @@
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.2
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
 #define DEFAULT_MIN_MAF  0.1
-// #define DEFAULT_D_RANDOM_SAMPLE_SIZE  20000
 #define BITWISE true
-
-//long nnnn = 0;
-//double fcmc_time = 0;
-//double fcmc_time2 = 0;
-//double TXX = 0;
-//double AGMR0;
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -146,6 +139,9 @@ double clock_time(clockid_t a_clock){
 
 // *************************  end of declarations  **********************************************
 
+bool get_all_est_agmrs;
+Vdouble** estimated_agmrs;
+
 
 // **********************************************************************************************
 // ****************************** main **********************************************************
@@ -178,7 +174,8 @@ main(int argc, char *argv[])
   //  bool print_filtered_gtset = true;
   bool shuffle_accessions = false;
   bool get_all_distances = false;
-
+  get_all_est_agmrs = false;
+  
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
   // long distance_random_sample_size = DEFAULT_D_RANDOM_SAMPLE_SIZE;
@@ -216,6 +213,7 @@ main(int argc, char *argv[])
       {"accession_max_missing_data", required_argument, 0, 'a'},
       {"distance_max",  required_argument,  0,  'd'}, // max. estimated distance (agmr)
       {"all_distances", no_argument, 0, 'x'},  // do all distances
+      {"est_all_distances", no_argument, 0, 'e'},
       //	{"max_distance",  required_argument,  0,  'd'}, // min. 'estimated genotype probability'
 
       {"chunk_size", required_argument, 0, 'k'}, // number of markers per chunk. D
@@ -223,6 +221,7 @@ main(int argc, char *argv[])
       {"shuffle_accessions",    no_argument, 0,  'u' }, // default is to not shuffle the order of the accessions
       {"threads", required_argument, 0,  't'}, // number of threads to use
       {"seed", required_argument, 0, 's'}, // rng seed.
+      
       
 
       {"help", no_argument, 0, 'h'},
@@ -327,8 +326,11 @@ main(int argc, char *argv[])
     case 'u' :
       shuffle_accessions = true;
       break;
-       case 'x' :
+    case 'x' :
       get_all_distances = true;
+      break;
+    case 'e' :
+      get_all_est_agmrs = true;
       break;
     case 'h':
       print_usage_info(stderr);
@@ -448,14 +450,20 @@ main(int argc, char *argv[])
   set_Abits_Bbits(the_genotypes_set, Nthreads);
   double t_after_set_ABbits = clock_time(clock1);
   fprintf(stdout, "# Time for set_Abits_Bbits: %lf\n", t_after_set_ABbits - t_after_chk);
-  
-  if(get_all_distances){ //
-    double t_before_x = clock_time(clock1);
+
+  if(get_all_distances  ||  get_all_est_agmrs){
     FILE* fh_accidsout = fopen("accIds", "w");
-    FILE* fh_dmatrixout = fopen("dMatrix", "w");
     for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
       Accession* q_acc = the_genotypes_set->accessions->a[iq];
       fprintf(fh_accidsout, "%s\n", q_acc->id->a);
+    }
+  }
+  if(get_all_distances){ //
+    double t_before_x = clock_time(clock1);   
+    FILE* fh_dmatrixout = fopen("agmrMatrix", "w");
+    for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
+      Accession* q_acc = the_genotypes_set->accessions->a[iq];
+      // fprintf(fh_accidsout, "%s\n", q_acc->id->a);
       for(long imatch = 0; imatch < the_genotypes_set->accessions->size; imatch++){
 	four_longs bfcs = bitwise_agmr_hgmr(q_acc, the_genotypes_set->accessions->a[imatch]);  // bfcs: {count_02, count_00_22, count_01_12, count_11}
 	long b_agmr_num = bfcs.l1 + bfcs.l3;
@@ -464,17 +472,24 @@ main(int argc, char *argv[])
 	//	long b_hgmr_denom = bfcs.l1 + bfcs.l2;
 	double agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1;
 	//	hgmr = (b_hgmr_denom > 0)? (double)b_hgmr_num / (double)b_hgmr_denom : -1;	
-	fprintf(fh_dmatrixout, "%6.4f ", agmr);
+	fprintf(fh_dmatrixout, "%5.3f ", agmr);
       }
       fprintf(fh_dmatrixout, "\n");
     }
     fprintf(stderr, "# time for full distance matrix:  %6.3f\n", clock_time(clock1) - t_before_x);
-  }
   
+  }
+  if(get_all_est_agmrs){ // allocate memory for estimated_agmrs matrix 
+    estimated_agmrs = (Vdouble**)malloc(the_genotypes_set->n_accessions*sizeof(Vdouble*));
+    for(long i=0; i < the_genotypes_set->n_accessions; i++){
+      estimated_agmrs[i] = construct_vdouble_zeroes(the_genotypes_set->n_accessions); // estimated_agmrs[i]->a[j] will be est agmr between accessions i and j
+    }
+  }
+  double t_before_pop_marker_dosage_counts = clock_time(clock1);
   populate_marker_dosage_counts(the_genotypes_set);
   // set_agmr0s(the_genotypes_set);
   double t_after_pop_marker_dosage_counts = clock_time(clock1);
-  fprintf(stdout, "# Time for populate_marker_dosage_counts: %lf\n", t_after_pop_marker_dosage_counts - t_after_set_ABbits);
+  fprintf(stdout, "# Time for populate_marker_dosage_counts: %lf\n", t_after_pop_marker_dosage_counts - t_before_pop_marker_dosage_counts);
  
 
   // agmr0(the_genotypes_set); // calculate the overall agmr0 for the genotypes set. 
@@ -508,6 +523,7 @@ main(int argc, char *argv[])
 
   Vaccession* the_accessions = the_genotypes_set->accessions;
   set_vaccession_chunk_patterns(the_accessions, marker_indices, n_chunks, chunk_size, ploidy);
+  // getchar();
   Chunk_pattern_idxs* the_cpi = construct_chunk_pattern_idxs(n_chunks, chunk_size, ploidy);
   double chunk_pair_md_count = 0;
  
@@ -539,6 +555,7 @@ main(int argc, char *argv[])
   
   double t_after_cpi = clock_time(clock1);
   fprintf(stdout, "# Time to construct & populate chunk_pattern_idxs: %6.3f\n", t_after_cpi - t_after_pop_marker_dosage_counts);
+  // getchar();
   //  exit(0);
    t_setup += t_after_cpi - t_start;
   
@@ -564,9 +581,21 @@ main(int argc, char *argv[])
   long output_pairs_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
   fprintf(stdout, "# Number of accession pairs output: %ld\n", output_pairs_count);
   fclose(out_stream);
+  if(get_all_est_agmrs){
+    FILE* fh_estagmrs = fopen("estAgmrMatrix", "w");
+    long N = estimated_agmrs[0]->size;
+    // fprintf(stderr, "NNNNNNNNNNNN: %ld\n", N);
+    for(long iq = 0; iq < estimated_agmrs[0]->size; iq++){
+      for(long im = 0; im < estimated_agmrs[0]->size; im++){
+      fprintf(fh_estagmrs, "%5.3lf ", estimated_agmrs[iq]->a[im]);
+      }
+      fprintf(fh_estagmrs, "\n");
+  }
+    fclose(fh_estagmrs);
+  }
   fprintf(stderr, "# time for setup:  %7.3f,  time for distances:  %7.3f,  time for output:  %7.3f\n", t_setup, t_distances, clock_time(clock1) - t_after_find_matches);
    fprintf(stderr, "# total duplicatesearch run time (before cleanup): %9.3f\n", clock_time(clock1) - t_start);
-   //getchar();
+   // getchar();
 
   // *****  clean up  *****
   /* long cume_s = 0;  */
@@ -668,12 +697,14 @@ void free_pattern_idxs(Pattern_idxs* pat_ids){
 
 Chunk_pattern_idxs* construct_chunk_pattern_idxs(long n_chunks, long chunk_size, long ploidy){ // needed size is known at construct time, so one param for both cap and size
   Chunk_pattern_idxs* chunk_pat_ids = (Chunk_pattern_idxs*)malloc(1*sizeof(Chunk_pattern_idxs));
+
   chunk_pat_ids->capacity = n_chunks;
   chunk_pat_ids->size = n_chunks;
   chunk_pat_ids->chunk_size = chunk_size;
   long n_patterns = int_power(ploidy+1, chunk_size);
   chunk_pat_ids->n_patterns = n_patterns;
   chunk_pat_ids->a = (Pattern_idxs**)malloc(n_chunks*sizeof(Pattern_idxs*));
+ 
   for(int i=0; i< chunk_pat_ids->size; i++){
     chunk_pat_ids->a[i] = construct_pattern_idxs(n_patterns);
   }
@@ -941,8 +972,11 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
   td->distance_count = 0;
 
   for(long i_query = td->the_genotypes_set->n_ref_accessions + td->thread_number; i_query < the_accessions->size; i_query += td->Nthreads){
-      
-    Accession* q_gts = the_accessions->a[i_query];
+    if(get_all_est_agmrs){
+      estimated_agmrs[i_query]->a[i_query] = 0;
+      // fprintf(stderr, "before set est_agmrs diagonals.\n");
+    }
+      Accession* q_gts = the_accessions->a[i_query];
      double agmr_nought = the_genotypes_set->agmr0;
     double min_matching_chunk_fraction = (max_est_dist*agmr_nought < 1.0)? pow(1.0 - max_est_dist*agmr_nought, chunk_size) : 0.0;
     double q_ok_chunk_fraction_x_mmcf = min_matching_chunk_fraction*(double)q_gts->ok_chunk_count/(double)n_chunks;
@@ -951,6 +985,23 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
     long* chunk_match_counts = find_chunk_match_counts(q_gts, the_cpi); //, td->first_match_idx, i_match_max);
     for (long i_match = 0; i_match <= i_match_max; i_match++){ // compare the query just to other accessions with smaller indices.
       // est. usable chunks: (double)((n_chunks-q_md_chunk_count)*(n_chunks-match_md_chunk_count))/(double)n_chunks;
+      if(get_all_est_agmrs){
+	// fprintf(stderr, "before set est_agmrs iq, im: %ld %ld.\n", i_query, i_match);
+
+	long matching_chunk_count = chunk_match_counts[i_match];
+	if(matching_chunk_count == 0) matching_chunk_count = 1;
+	double usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
+	//	     min_matching_chunk_count/min_matching_chunk_fraction;
+	double est_dist;
+	if(matching_chunk_count > usable_chunk_count){
+	  est_dist = 0.001;
+	}else{
+	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
+	  est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size)); // /agmr_nought;
+	}
+	estimated_agmrs[i_query]->a[i_match] = est_dist;
+	estimated_agmrs[i_match]->a[i_query] = est_dist;
+      }
       //  double min_matching_chunk_count = q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count;
       if( chunk_match_counts[i_match] >= q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count ){ // min_matching_chunk_count
 	//	double predistance_time = clock_time(clock2);
