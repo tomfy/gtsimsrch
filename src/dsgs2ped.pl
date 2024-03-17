@@ -18,7 +18,7 @@ while(<>){
 while(my($i, $mid) = each @marker_ids){
   my $chrom = 100;
   my $position = -100;
-  if($mid =~ /^S([0-9]+)_([0-9]+)/){
+  if($mid =~ /^(?:S|chr)([0-9]+)(?:_|:)([0-9]+)/){
     $chrom = $1;
     $position = $2;
   }
