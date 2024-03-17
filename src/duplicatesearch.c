@@ -23,6 +23,7 @@
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
 #define DEFAULT_MIN_MAF  0.1
 #define BITWISE true
+#define MATRIX_DISTINCT_VALUES 100
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -126,6 +127,7 @@ Vmci** find_matches(const GenotypesSet* the_genotypes_set,
 
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
 void print_command_line(FILE* ostream, int argc, char** argv);
+void print_matrix_line_txt(FILE* fh, long size, unsigned char* values, long n_distinct_values);
 // *****  functions to pass to pthread_create  ********
 void* populate_cpi_1thread(void* x);
 void* check_est_distances_1thread(void* x);
@@ -140,7 +142,8 @@ double clock_time(clockid_t a_clock){
 // *************************  end of declarations  **********************************************
 
 bool get_all_est_agmrs;
-Vdouble** estimated_agmrs;
+// Vdouble** estimated_agmrs;
+unsigned char** est_agmrs; 
 
 
 // **********************************************************************************************
@@ -179,7 +182,8 @@ main(int argc, char *argv[])
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
   // long distance_random_sample_size = DEFAULT_D_RANDOM_SAMPLE_SIZE;
-  
+
+  char agmr_matrix_format = 'T'; // 'B' binary, 'T' text
   char* rparam_buf;
   size_t rparam_len;
   FILE* rparam_stream = open_memstream(&rparam_buf, &rparam_len);
@@ -214,6 +218,7 @@ main(int argc, char *argv[])
       {"distance_max",  required_argument,  0,  'd'}, // max. estimated distance (agmr)
       {"all_distances", no_argument, 0, 'x'},  // do all distances
       {"est_all_distances", no_argument, 0, 'e'},
+      {"matrix_out_format", required_argument, 0, 'M'}, 
       //	{"max_distance",  required_argument,  0,  'd'}, // min. 'estimated genotype probability'
 
       {"chunk_size", required_argument, 0, 'k'}, // number of markers per chunk. D
@@ -322,6 +327,9 @@ main(int argc, char *argv[])
 	fprintf(stderr, "option v (output_format) requires an integer argument >= 1\n");
 	exit(EXIT_FAILURE);
       }
+      break;
+        case 'M': 
+	  agmr_matrix_format = toupper(optarg[0]);
       break;
     case 'u' :
       shuffle_accessions = true;
@@ -480,9 +488,11 @@ main(int argc, char *argv[])
   
   }
   if(get_all_est_agmrs){ // allocate memory for estimated_agmrs matrix 
-    estimated_agmrs = (Vdouble**)malloc(the_genotypes_set->n_accessions*sizeof(Vdouble*));
+    //estimated_agmrs = (Vdouble**)malloc(the_genotypes_set->n_accessions*sizeof(Vdouble*));
+    est_agmrs = (unsigned char**)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char*));
     for(long i=0; i < the_genotypes_set->n_accessions; i++){
-      estimated_agmrs[i] = construct_vdouble_zeroes(the_genotypes_set->n_accessions); // estimated_agmrs[i]->a[j] will be est agmr between accessions i and j
+      //estimated_agmrs[i] = construct_vdouble_zeroes(the_genotypes_set->n_accessions); // estimated_agmrs[i]->a[j] will be est agmr between accessions i and j
+      est_agmrs[i] = (unsigned char*)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char));
     }
   }
   double t_before_pop_marker_dosage_counts = clock_time(clock1);
@@ -582,16 +592,19 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Number of accession pairs output: %ld\n", output_pairs_count);
   fclose(out_stream);
   if(get_all_est_agmrs){
-    FILE* fh_estagmrs = fopen("estAgmrMatrix", "w");
-    long N = estimated_agmrs[0]->size;
-    // fprintf(stderr, "NNNNNNNNNNNN: %ld\n", N);
-    for(long iq = 0; iq < estimated_agmrs[0]->size; iq++){
-      for(long im = 0; im < estimated_agmrs[0]->size; im++){
-      fprintf(fh_estagmrs, "%5.3lf ", estimated_agmrs[iq]->a[im]);
+    if(agmr_matrix_format == 'B'){ // binary
+      FILE* fh_binestagmrs = fopen("binEstAgmrMatrix", "wb");
+      for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
+        fwrite(est_agmrs[iq], the_genotypes_set->accessions->size, 1, fh_binestagmrs);
       }
-      fprintf(fh_estagmrs, "\n");
-  }
-    fclose(fh_estagmrs);
+      fclose(fh_binestagmrs);
+    }else{ // output as text
+      FILE* fh_estagmrs = fopen("estAgmrMatrix", "w");
+      for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
+	print_matrix_line_txt(fh_estagmrs, the_genotypes_set->accessions->size, est_agmrs[iq], MATRIX_DISTINCT_VALUES);
+      }
+      fclose(fh_estagmrs);
+    }
   }
   fprintf(stderr, "# time for setup:  %7.3f,  time for distances:  %7.3f,  time for output:  %7.3f\n", t_setup, t_distances, clock_time(clock1) - t_after_find_matches);
    fprintf(stderr, "# total duplicatesearch run time (before cleanup): %9.3f\n", clock_time(clock1) - t_start);
@@ -973,7 +986,8 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 
   for(long i_query = td->the_genotypes_set->n_ref_accessions + td->thread_number; i_query < the_accessions->size; i_query += td->Nthreads){
     if(get_all_est_agmrs){
-      estimated_agmrs[i_query]->a[i_query] = 0;
+      //estimated_agmrs[i_query]->a[i_query] = 0;
+      est_agmrs[i_query][i_query] = 0;
       // fprintf(stderr, "before set est_agmrs diagonals.\n");
     }
       Accession* q_gts = the_accessions->a[i_query];
@@ -993,14 +1007,19 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	double usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
 	//	     min_matching_chunk_count/min_matching_chunk_fraction;
 	double est_dist;
+	unsigned char edi; 
 	if(matching_chunk_count > usable_chunk_count){
 	  est_dist = 0.001;
+	  edi = 0;
 	}else{
 	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	  est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size)); // /agmr_nought;
+	  edi = (unsigned char)(est_dist*MATRIX_DISTINCT_VALUES);
 	}
-	estimated_agmrs[i_query]->a[i_match] = est_dist;
-	estimated_agmrs[i_match]->a[i_query] = est_dist;
+	/* estimated_agmrs[i_query]->a[i_match] = est_dist; */
+	/* estimated_agmrs[i_match]->a[i_query] = est_dist; */
+	est_agmrs[i_query][i_match] = edi;
+	est_agmrs[i_match][i_query] = edi;
       }
       //  double min_matching_chunk_count = q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count;
       if( chunk_match_counts[i_match] >= q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count ){ // min_matching_chunk_count
@@ -1264,6 +1283,59 @@ four_longs agmr_hgmr_diploid(Accession* gtset1, Accession* gtset2){
   = {count_02, count_00_22, count_01_12, count_11};
   return result;
 }
+
+void print_matrix_line_txt(FILE* fh, long size, unsigned char* values, long n_distinct_values){
+  if(n_distinct_values > 256) n_distinct_values = 256;
+  long n_digits = (n_distinct_values <= 10)? 1 : (n_distinct_values <= 100)? 2 : 3;
+  n_digits++; // do this if printing the decimal point.
+  
+  long n_chars = 4; // number of characters used for each value in the numbers array 
+  static const char numbers[405] =
+   "   0 .01 .02 .03 .04 .05 .06 .07 .08 .09 .10 .11 .12 .13 .14 .15 .16 .17 .18 .19 .20"
+       " .21 .22 .23 .24 .25 .26 .27 .28 .29 .30 .31 .32 .33 .34 .35 .36 .37 .38 .39 .40"
+       " .41 .42 .43 .44 .45 .46 .47 .48 .49 .50 .51 .52 .53 .54 .55 .56 .57 .58 .59 .60"
+       " .61 .62 .63 .64 .65 .66 .67 .68 .69 .70 .71 .72 .73 .74 .75 .76 .77 .78 .79 .80"
+       " .81 .82 .83 .84 .85 .86 .87 .88 .89 .90 .91 .92 .93 .94 .95 .96 .97 .98 .99 1.0";
+
+  /* static const char numbers[1025] =  */
+    /* "   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20" */
+    /* "  21  22  23  24  25  26  27  28  29  30  31  32  33  34  35  36  37  38  39  40" */
+    /* "  41  42  43  44  45  46  47  48  49  50  51  52  53  54  55  56  57  58  59  60" */
+    /* "  61  62  63  64  65  66  67  68  69  70  71  72  73  74  75  76  77  78  79  80" */
+    /* "  81  82  83  84  85  86  87  88  89  90  91  92  93  94  95  96  97  98  99 100" */
+    /* " 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120" */
+    /* " 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140" */
+    /* " 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160" */
+    /* " 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180" */
+    /* " 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200" */
+    /* " 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220" */
+    /* " 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240" */
+    /* " 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255"; */
+
+    // long n_chars_out = n_digits + 1;
+  long n_chars_to_skip = n_chars - n_digits - 1; // 
+  
+  char*  string = (char*)malloc((n_chars*size + 1)*sizeof(char));
+  long jjj = 0; //
+  for(long i = 0; i<size; i++){
+    /* for(long j=0; j<n_chars-n_chars_out; j++){ */
+    /*   string[jjj + j] = ' '; */
+    /* } */
+    for(long j=n_chars_to_skip; j<n_chars; j++, jjj++){
+      //fprintf(stderr, "i,j,jjj  %ld %ld %ld  %ld  %ld   [%c]\n", i, j, jjj,
+      //	      (long)values[i], (long)(n_chars*values[i] +j), numbers[n_chars*values[i] + j]);
+      string[jjj] = numbers[n_chars*values[i] + j];
+    }
+    //jjj += n_chars_out;
+  }
+  // fprintf(stderr, "%ld\n", jjj);
+  string[jjj] = '\0';
+  // fprintf(stderr, "[%s]\n", string);
+  fprintf(fh, "%s\n", string);
+  free(string);
+}
+
+
 
 
 /* long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){ */
