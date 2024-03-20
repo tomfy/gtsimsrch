@@ -1,16 +1,36 @@
 #!/usr/bin/perl -w
 use strict;
+use Getopt::Long;
+use List::Util qw(min max sum shuffle);
+use File::Spec qw(splitpath);
+use File::Basename 'dirname';
+
+use Cwd 'abs_path';
+my $bindir;
+BEGIN {     # this has to go in Begin block so happens at compile time
+  $bindir =
+    dirname( abs_path(__FILE__) ) ; # the directory containing this script
+}
 
 # make a manhattan plot from a gwas output file with this format:
 # 1       S1_84637        84637   H       L       0.0608919       -0.00179986     0.0912604       0.984265
 # col 1 is chromosome number, and col 3 is position within the chromosome.
 # col 9 is the p value.
 
-my $causal_snp_file = shift // undef;
+my $causal_snp_file = undef;
 my $out_file = 'posp';
 my $persist = 1;
 my $width = 1000;
 my $height = 700;
+my $terminal = 'x11';
+
+GetOptions(
+	   'causal_snps_file=s' => \$causal_snp_file,
+	   'output_file=s' => \$out_file,
+	   'terminal=s' => \$terminal,
+	   'width=i' => \$width,
+	   'height=i' => \$height,
+	   );
 
 my %causalsnp = ();
 if(defined $causal_snp_file){
@@ -51,5 +71,5 @@ for my $achrom (@chroms){
   $chrom_start_position += $max_position_on_chrom;
 }
 
-system "gnuplot -c ~/gtsimsrch/src/manhattan.gnuplot $width $height $out_file $n_snps $chrom_start_position $persist";
-
+my $manhattan_path = $bindir . '/manhattan.gnuplot ';
+system "gnuplot -c $manhattan_path  $width $height $out_file $n_snps $chrom_start_position $persist $terminal";
