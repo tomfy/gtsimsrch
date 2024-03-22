@@ -1051,12 +1051,15 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 		//	double postdistance_time = clock_time(clock2);
 		//	true_distance_time += postdistance_time - predistance_time;
 	if(agmr <= max_est_dist*agmr_nought){
-	   long matching_chunk_count = chunk_match_counts[i_match];
+	   double matching_chunk_count = chunk_match_counts[i_match];
+	   matching_chunk_count += (double)rand()/(RAND_MAX);
 	   double usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
 	   //	     min_matching_chunk_count/min_matching_chunk_fraction;
 	   double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	  double est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size)); // /agmr_nought;
 	  //	  double agmr_nought_b = agmr0_accvsall(the_genotypes_set, the_accessions->a[i_match]);
+	  est_dist += 0.0025*(((double)rand())/RAND_MAX -0.5);
+	  if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX);
 	  push_to_vmci(query_vmcis[i_query],
 		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr, agmr_nought));
 	

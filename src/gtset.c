@@ -803,6 +803,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
 	push_to_vlong(filtered_alt_allele_counts, alt_allele_counts->a[i]);
       }else{
 	maf_too_low_count++;
+	// fprintf(stderr, "min/max allele_counts: %f %f  alt_allele_count: %ld\n", min_min_allele_count, max_min_allele_count, alt_allele_counts->a[i]);
       }
     }else{
       too_much_missing_data_count++;
