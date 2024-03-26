@@ -521,10 +521,13 @@ void* process_marker_range(void* x){
     double maf = (double)alt_allele_count/(td->ploidy*(n_accessions-md_count));
     if(maf > 0.5) maf = 1.0 - maf;
     if((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker
+      // fprintf(stderr, "keep. marker: %s   max, actual mdf: %lf  %lf  min, actual maf: %lf %lf \n", marker_id->a, td->maxmd, mdf, td->minmaf, maf);
       push_to_vstr(td->gntps, one_marker_gts);
       push_to_vstr(marker_ids, marker_id->a);
       free(marker_id); // but don't free marker_id->a
     }else{ // this marker is not used
+      // fprintf(stderr, "reject. marker: %s  max,actual mdf: %lf  %lf  min,actual maf: %lf %lf \n", marker_id->a, td->maxmd, mdf, td->minmaf, maf);
+
       free(one_marker_gts); 
       free_vchar(marker_id);
     }
@@ -693,7 +696,7 @@ void print_usage_info(FILE* ostream){
   fprintf(stdout, "Options:\n");
   fprintf(stdout, "  -input       Input vcf filename (required).\n");
   fprintf(stdout, "  -out         Output filename (default: vcftogts.out)\n");
-  fprintf(stdout, "  -threads     Number of threads to use. (Default: automatic, from get_nprocs.\n");
+  fprintf(stdout, "  -threads     Number of threads to use. (Default: automatic, based on get_nprocs.\n");
   fprintf(stdout, "  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
   fprintf(stdout, "  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
   fprintf(stdout, "  -pmin        Min. estimated genotype probibility (if GP field present; default: 0.9)\n");
