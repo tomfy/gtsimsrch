@@ -143,7 +143,8 @@ double clock_time(clockid_t a_clock){
 
 bool get_all_est_agmrs;
 // Vdouble** estimated_agmrs;
-unsigned char** est_agmrs; 
+//unsigned char**
+double** est_agmrs; 
 
 
 // **********************************************************************************************
@@ -227,8 +228,6 @@ main(int argc, char *argv[])
       {"threads", required_argument, 0,  't'}, // number of threads to use
       {"seed", required_argument, 0, 's'}, // rng seed.
       
-      
-
       {"help", no_argument, 0, 'h'},
       {0,         0,                 0,  0 }
     };
@@ -489,10 +488,12 @@ main(int argc, char *argv[])
   }
   if(get_all_est_agmrs){ // allocate memory for estimated_agmrs matrix 
     //estimated_agmrs = (Vdouble**)malloc(the_genotypes_set->n_accessions*sizeof(Vdouble*));
-    est_agmrs = (unsigned char**)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char*));
+    //est_agmrs = (unsigned char**)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char*));
+    est_agmrs = (double**)malloc(the_genotypes_set->n_accessions*sizeof(double**));
     for(long i=0; i < the_genotypes_set->n_accessions; i++){
       //estimated_agmrs[i] = construct_vdouble_zeroes(the_genotypes_set->n_accessions); // estimated_agmrs[i]->a[j] will be est agmr between accessions i and j
-      est_agmrs[i] = (unsigned char*)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char));
+      //est_agmrs[i] = (unsigned char*)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char));
+        est_agmrs[i] = (double*)malloc(the_genotypes_set->n_accessions*sizeof(double*));
     }
   }
   double t_before_pop_marker_dosage_counts = clock_time(clock1);
@@ -601,7 +602,11 @@ main(int argc, char *argv[])
     }else{ // output as text
       FILE* fh_estagmrs = fopen("estAgmrMatrix", "w");
       for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
-	print_matrix_line_txt(fh_estagmrs, the_genotypes_set->accessions->size, est_agmrs[iq], MATRIX_DISTINCT_VALUES);
+	// print_matrix_line_txt(fh_estagmrs, the_genotypes_set->accessions->size, est_agmrs[iq], MATRIX_DISTINCT_VALUES);
+	for(long im = 0; im <  the_genotypes_set->accessions->size; im++){
+	  fprintf(fh_estagmrs, "%7.5f ", est_agmrs[iq][im]);
+	}
+	fprintf(fh_estagmrs, "\n");
       }
       fclose(fh_estagmrs);
     }
@@ -1018,8 +1023,8 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	}
 	/* estimated_agmrs[i_query]->a[i_match] = est_dist; */
 	/* estimated_agmrs[i_match]->a[i_query] = est_dist; */
-	est_agmrs[i_query][i_match] = edi;
-	est_agmrs[i_match][i_query] = edi;
+	est_agmrs[i_query][i_match] = est_dist; // edi;
+	est_agmrs[i_match][i_query] = est_dist; // edi;
       }
       //  double min_matching_chunk_count = q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count;
       if( chunk_match_counts[i_match] >= q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count ){ // min_matching_chunk_count
@@ -1337,8 +1342,6 @@ void print_matrix_line_txt(FILE* fh, long size, unsigned char* values, long n_di
   fprintf(fh, "%s\n", string);
   free(string);
 }
-
-
 
 
 /* long print_results_a(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){ */
