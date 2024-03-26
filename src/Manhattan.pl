@@ -16,6 +16,8 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 # 1       S1_84637        84637   H       L       0.0608919       -0.00179986     0.0912604       0.984265
 # col 1 is chromosome number, and col 3 is position within the chromosome.
 # col 9 is the p value.
+# if   -causal_snps_file  <snp id filename>
+# will make the snps listed in snp_id_filename a different color.
 
 my $causal_snp_file = undef;
 my $out_file = 'posp';
@@ -23,6 +25,9 @@ my $persist = 1;
 my $width = 1000;
 my $height = 700;
 my $terminal = 'x11';
+my $png_filename = "mnhttn.png";
+my $title = undef;
+my $gwas_output_file = undef;
 
 GetOptions(
 	   'causal_snps_file=s' => \$causal_snp_file,
@@ -30,6 +35,9 @@ GetOptions(
 	   'terminal=s' => \$terminal,
 	   'width=i' => \$width,
 	   'height=i' => \$height,
+	   'png_filename=s' => \$png_filename,
+	   'title=s' => \$title,
+	   'gwas_out_file=s' => \$gwas_output_file,
 	   );
 
 my %causalsnp = ();
@@ -44,7 +52,8 @@ while(<$fh_causal>){
 
 my $n_snps = 0;
 my %chrom__pos_p = ();
-while(<>){
+open my $fh_gwas, "<", "$gwas_output_file";
+while(<$fh_gwas>){
   next if(/^\s*(Chr|#)/);
   my @cols = split(" ", $_);
   my ($chrom, $id, $pos, $p) = @cols[0,1,2,8];
@@ -71,5 +80,9 @@ for my $achrom (@chroms){
   $chrom_start_position += $max_position_on_chrom;
 }
 
+if(!defined $title){
+  $title = $gwas_output_file;
+}
+
 my $manhattan_path = $bindir . '/manhattan.gnuplot ';
-system "gnuplot -c $manhattan_path  $width $height $out_file $n_snps $chrom_start_position $persist $terminal";
+system "gnuplot -c $manhattan_path  $width $height $out_file $n_snps $chrom_start_position $persist $terminal $png_filename $title";
