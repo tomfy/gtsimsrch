@@ -1012,17 +1012,19 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	double usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
 	//	     min_matching_chunk_count/min_matching_chunk_fraction;
 	double est_dist;
-	unsigned char edi; 
+	//unsigned char edi; 
 	if(matching_chunk_count > usable_chunk_count){
 	  est_dist = 0.001;
-	  edi = 0;
+	  //edi = 0;
 	}else{
 	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
 	  est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size)); // /agmr_nought;
-	  edi = (unsigned char)(est_dist*MATRIX_DISTINCT_VALUES);
+	  //edi = (unsigned char)(est_dist*MATRIX_DISTINCT_VALUES);
 	}
 	/* estimated_agmrs[i_query]->a[i_match] = est_dist; */
 	/* estimated_agmrs[i_match]->a[i_query] = est_dist; */
+		  est_dist += 0.005*(((double)rand())/RAND_MAX -0.5);
+	  if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX);
 	est_agmrs[i_query][i_match] = est_dist; // edi;
 	est_agmrs[i_match][i_query] = est_dist; // edi;
       }
