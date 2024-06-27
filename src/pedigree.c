@@ -669,7 +669,19 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     i++;
   }
   Pedigree_stats* pedigree_stats = (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
-  
+  //  pedigree_stats->agmr12 = {0, -1};
+  //  pedigree_stats->par1_hgmr = {0, -1};
+  /* ND par1_R; */
+  /* ND par2_hgmr; */
+  /* ND par2_R; */
+  /* ND z; // (n00_1 + n22_1)/(n00_x + n22_x) */
+  /* ND d; */
+  /* // ND pseudo_hgmr; */
+  /* ND xhgmr1; */
+  /* ND xhgmr2; */
+  /* ND d_22; // both parents homozyg, delta = 2  */
+  /* ND d_21; // both parents homozyg, delta = 1 */
+  /* ND d_11; // one  */
   long n_0 = // 15 triples consistent with true parents-offspring relationship,
     // with no genotyping errors
     n_00_0 + n_01_0 + n_01_1 + n_02_1 +
@@ -790,7 +802,9 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   pedigree_stats->par2_hgmr = hgmr2_nd; 
   ND R2_nd = {rx01or2_numer, rx01or2_denom};
   pedigree_stats->par2_R = R2_nd;
-  
+
+  // fprintf(stderr, "#  %ld  %ld  %ld \n", n_0, n_1, n_2);
+  // fprintf(stderr, "#  %ld  %ld %ld  %ld %ld\n", n_00_2, n_01_2, n_10_2, n_02_2, n_20_2);
   ND d_nd = {n_1 + n_2, n_0 + n_1 + n_2};
   pedigree_stats->d = d_nd;
 
@@ -799,6 +813,106 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
 
   return pedigree_stats;
 }
+
+Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){
+
+  //four_longs rval = {0, 0, 0, 0};
+  long n_forbidden_0_2 = 0, n_00_1_22_1 = 0, n_total = 0, n_00_22 = 0;
+  unsigned long long i0, j0, k0,  i1, j1, k1,  i2, j2, k2, missing;
+  /* long n_00_0 = 0, n_00_1 = 0, n_00_2 = 0; */
+  /* long n_01_0 = 0, n_01_1 = 0, n_01_2 = 0; */
+  /* long n_02_0 = 0, n_02_1 = 0, n_02_2 = 0; */
+  /* long n_10_0 = 0, n_10_1 = 0, n_10_2 = 0; */
+  /* long n_11_0 = 0, n_11_1 = 0, n_11_2 = 0; */
+  /* long n_12_0 = 0, n_12_1 = 0, n_12_2 = 0; */
+  /* long n_20_0 = 0, n_20_1 = 0, n_20_2 = 0; */
+  /* long n_21_0 = 0, n_21_1 = 0, n_21_2 = 0; */
+  /* long n_22_0 = 0, n_22_1 = 0, n_22_2 = 0; */
+  long n_0x_2 = 0;
+  for(long i_long = 0; i_long < par1->Abits->size; i_long++){
+    unsigned long long iA = par1->Abits->a[i_long]; // i : parent 1
+    unsigned long long iB = par1->Bbits->a[i_long];
+    unsigned long long jA = par2->Abits->a[i_long]; // j : parent 2
+    unsigned long long jB = par2->Bbits->a[i_long];
+    unsigned long long kA = prog->Abits->a[i_long]; // k : progeny
+    unsigned long long kB = prog->Bbits->a[i_long];
+    
+    missing = (iA & ~iB) | (jA & ~jB) | (kA & ~kB); // one of the three is missing.
+    //  i02 = ~(iA ^ iB); // is i homozyg?
+    //  j02 = ~(jA ^ jB); // is j homozyg?
+    i0 = ~(iA | iB); // is i ref homozyg?
+    j0 = ~(jA | jB); // is j ref homozyg?
+    k0 = ~(kA | kB); // is j ref homozyg?
+    // i1 = ~iA & iB; // is i heterozyg?
+    // j1 = ~jA & jB; // is j heterozyg?
+    k1 = ~kA & kB; // is j heterozyg?
+    i2 = iA & iB; // is i alt homozyg?
+    j2 = jA & jB; // is j alt homozyg?
+    k2 = kA & kB; // is j alt homozyg?
+
+    unsigned long long is2_0x = k2 & (i0 | j0) & ~missing; // 2_0x, 2_x0
+    unsigned long long is0_2x = k0 & (i2 | j2) & ~missing; // 0_2x, 0_x2
+    unsigned long long is00_22 = (i0 & j0) | (i2 & j2);
+    unsigned long long is1_00_1_22 = k1 /*((i0 & j0) | (i2 & j2))*/ & is00_22 & ~missing;
+    // unsigned long long isOK_11 = (i1 & j1) & ~missing;
+
+    /* unsigned long long is2_00 = k2 & i0 & j0; */
+    /* unsigned long long is1_00 = k1 & i0 & j0; */
+    /* unsigned long long is0_00 = k0 & i0 & j0; */
+    
+    /* unsigned long long is2_01 = k2 & i0 & j1; */
+    /* unsigned long long is2_10 = k2 & i1 & j0; */
+    /* unsigned long long is2_02 = k2 & i0 & j2; */
+    /* unsigned long long is2_20 = k2 & i2 & j0; */
+    
+    //  unsigned long long
+    //  unsigned long long
+    // rval.l1
+    n_forbidden_0_2 += __builtin_popcountll(is2_0x) + __builtin_popcountll(is0_2x); // forbidden and prog is 0 or 2
+    n_00_1_22_1 +=  __builtin_popcountll(is1_00_1_22); // forbidden and either 00_1 or 22_1
+    n_00_22 += __builtin_popcountll(is00_22);
+      n_total += 64 - __builtin_popcountll(missing);
+      /* n_0x_2 += __builtin_popcountll(is2_0x); */
+      /* rval.l2 += __builtin_popcountll(missing); */
+      /* rval.l3 += 64; */
+      /* rval.l4 += __builtin_popcountll(isOK_11); */
+
+      /* n_00_2 += __builtin_popcountll(is2_00); */
+      /* n_01_2 += __builtin_popcountll(is2_01); */
+      /*  n_10_2 += __builtin_popcountll(is2_10); */
+
+      /*  n_02_2 += __builtin_popcountll(is2_02); */
+      /*   n_20_2 += __builtin_popcountll(is2_20); */
+    /* unsigned long long isDo = (iA ^ jB) & isOi & isOj; // both homozyg, and different (02 or 20) */
+    /* unsigned long long isSo = ~(iA ^ jB) & isOi & isOj; // both homozyg, and same. (00 or 22) */
+    /* unsigned long long isDx = (isOi & isXj) | (isOj & isXi); // one homozyg, one heterozyg  (01, 10, 12, 21) */
+    /* unsigned long long isSx = isXi & isXj; // both heterozyg (11) */
+    /* // D: difference, S: same, o: homozyg, x: (at least 1) heterozyg. */
+    /*   //   Ndo  i.e. number of markers with both homozyg, but different (i.e. 02 and 20) */
+    /*   rval.l1 += __builtin_popcountll(isDo);  */
+    /*   //   Nso   00, 22 */
+    /*   rval.l2 += __builtin_popcountll(isSo); */
+    /*   //    Ndx  01, 10, 12, 21 */
+    /*   rval.l3 += __builtin_popcountll(isDx); */
+    /*   //    Nsx   11 */
+    /*   rval.l4 += __builtin_popcountll(isSx); */
+
+  }
+  	/* fprintf(stderr, "#  %ld %ld %ld %ld %ld   %ld  %ld  %ld \n", */
+	/* 	n_00_2, n_01_2, n_10_2, n_02_2, n_20_2, */
+	/* 	n_00_2 + n_01_2 + n_10_2 + n_02_2 + n_20_2, n_0x_2, n_forbidden); /\**\/ */
+  //  long z_numer = n_00_1 + n_22_1;
+  //  long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0; // = n_00_x + n_22_x
+	
+  Pedigree_stats* pedigree_stats = (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
+  //long n_denom = rval.l3 - rval.l2; // count everything except if one of the 3 accessions has missing data
+  ND d_nd = {n_forbidden_0_2 + n_00_1_22_1, n_total};
+  //ND z_nd = {n_00_1_22_1, n_00_22};
+  pedigree_stats->d = (ND) {n_forbidden_0_2 + n_00_1_22_1, n_total};
+  pedigree_stats->z = (ND) {n_00_1_22_1, n_00_22};
+  return pedigree_stats;
+}
+
 
 /* Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, //  */
 /* 				long* d0counts, long* d1counts, long* d2counts){ // Pedigree* the_pedigree, GenotypesSet* the_gtsset){ */
@@ -1187,6 +1301,7 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_vped){ // , long n_a
 }
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){
+  // for each of 9 quantities of interest, print denominator and ratio (numerator/denominator)
   print_d_r(fh, the_pedigree_stats->agmr12);
   print_d_r(fh, the_pedigree_stats->par1_hgmr);
   print_d_r(fh, the_pedigree_stats->par1_R);

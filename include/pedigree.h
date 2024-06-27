@@ -46,6 +46,7 @@ typedef struct{
 Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mparent);
 //double hgmr(char* gts1, char* gts2);
 Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy); // just initializing to 0's
+Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_d);

@@ -919,15 +919,15 @@ void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads){ // diploid 
 	for(long j=0; j<64; j++){ // loop over the bits 
 	  long i_gt = 64*i_ull + j;
 	  char gt = (i_gt < n_markers)? the_acc->genotypes->a[i_gt] : 'X';
-	  if(gt == '0'){ // 00
+	  if(gt == '0'){ // 00 i.e. A=0, B=0
 	    // leave the bit as 0 in both A and B.
-	  }else if(gt == '1'){ // 01
-	    B |= bits[j];
+	  }else if(gt == '1'){ // 01  A=0, B=1
+	    B |= bits[j]; // set jth bit of B
 	 
-	  }else if(gt == '2'){ // 11
+	  }else if(gt == '2'){ // 11  A=1, B=1
 	    A |= bits[j];
 	    B |= bits[j];
-	  }else{ // missing data; 10
+	  }else{ // missing data; 10  A=1, B=0
 	    A |= bits[j];
 	  }
 	  // fprintf(stderr, "# acc: %s  %ld  %c  %llu  %llu\n", the_acc->id->a, i_gt, gt, A, B);
@@ -1022,7 +1022,7 @@ void store_homozygs(GenotypesSet* the_gtsset){ // for each accession,
       if(acc->genotypes->a[j] == MISSING_DATA_CHAR) continue;
       long dosage = (long)(acc->genotypes->a[j] - 48); // 0, 1, ..., ploidy
       if( dosage == the_gtsset->ploidy){ // if dosage == ploidy
-	push_to_vlong(acc->alt_homozygs, j);	
+	push_to_vlong(acc->alt_homozygs, j); // store index of alt homozyg marker	
       }else if(dosage == 0){
 	push_to_vlong(acc->ref_homozygs, j);
       }
@@ -1078,6 +1078,9 @@ four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2){
   }
   return rval;
 }
+
+
+
 
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset){ // get q and d 'hgmr' for all accession pairs
   long good_count = 0;

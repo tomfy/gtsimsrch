@@ -52,7 +52,7 @@ typedef struct{
   double d;
 }Ld;
 
-typedef struct{
+typedef struct{ 
   long capacity;
   long size;
   Ld** a;

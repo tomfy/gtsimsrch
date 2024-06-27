@@ -38,6 +38,7 @@ main(int argc, char *argv[])
   long max_candidate_parents = 80;
   bool quick_xhgmr = true;
   bool oldway = false;
+  bool bitwise = false;
     
   double ploidy = 2;
   long Nthreads = 0;
@@ -73,6 +74,7 @@ main(int argc, char *argv[])
       {"candidate_parents_max", required_argument, 0, 'p'},
       {"xhgmr_max", required_argument, 0, 'x'},
       {"help", no_argument, 0, 'h'},
+      {"bitwise", no_argument, 0, 'b'},
       {0,         0,                 0,  0 }
     };
      
@@ -136,6 +138,9 @@ main(int argc, char *argv[])
 	fprintf(stderr, "option x (max_xhgmr) requires an real argument >= 0\n");
 	exit(EXIT_FAILURE);
       }
+      break;
+    case 'b':
+      bitwise = true;
       break;
     case 'h':
       print_usage_info(stderr);
@@ -290,7 +295,8 @@ main(int argc, char *argv[])
   /*   fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n", */
   /* 	    max_candidate_parents, count_accs_w_too_many_cand_parents); */
   /* }else{ */
-  
+
+  // check all n_acc choose 2 pairs of accessions to find potential parent-progeny pairs.
   // new way   
   double t0 = hi_res_time();
   long n_xhgmrs_calculated = 0;
@@ -299,7 +305,8 @@ main(int argc, char *argv[])
 
   Vld** progeny_cplds = (Vld**)malloc(n_acc*sizeof(Vld*)); // candidate parent
   for(long ii=0; ii<n_acc; ii++){
-    progeny_cplds[ii] = construct_vld(2*max_candidate_parents);
+    progeny_cplds[ii] = construct_vld(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii
+    // for each candidate progeny-parent pair, store 
   }
   for(long ii=0; ii<n_acc; ii++){
     if(ii % 100  == 0) fprintf(stderr, "# ii: %ld\n", ii);
@@ -307,15 +314,13 @@ main(int argc, char *argv[])
     for(long jj=ii+1; jj<n_acc; jj++){
       Accession* A2 = the_genotypes_set->accessions->a[jj];
       ND the_xhgmr = {0, 0};
-      if(0){
+      if(!bitwise){
 	the_xhgmr = xhgmr(the_genotypes_set, A1, A2, quick_xhgmr);
 	n_xhgmrs_calculated++;
 	if(the_xhgmr.d > 0){
 	  double dbl_xhgmr = (double)the_xhgmr.n/the_xhgmr.d;
 	  if(dbl_xhgmr <= max_xhgmr){
 	    n_xhgmrs_le_max++;
-	    // push_to_vlong(cand_pppairs[ii], jj);
-	    //  push_to_vlong(cand_pppairs[jj], ii);
 	    push_to_vld(progeny_cplds[ii], jj, dbl_xhgmr);
 	    push_to_vld(progeny_cplds[jj], ii, dbl_xhgmr);
 	  }
@@ -342,9 +347,15 @@ main(int argc, char *argv[])
   fprintf(stdout, "# n xhgmrs calculated: %ld ;  <= %8.5f :  %ld\n", n_xhgmrs_calculated, max_xhgmr, n_xhgmrs_le_max);
   fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0);
 
+  // *********************************************************************************************************************** //
+
+  // evaluate parent1-parent2-progeny triples:
+
+  double t_x = hi_res_time();
+
   long count_accs_w_no_cand_parents = 0;
   long count_accs_w_too_many_cand_parents = 0;
-  exit(0);
+  // exit(0);
   // long capacity = 10000;
   //  Pedigree_stats** pedstats_array = (Pedigree_stats**)malloc(capacity*sizeof(Pedigree_stats*));
   // long n_ppairs_stored = 0;
@@ -353,7 +364,7 @@ main(int argc, char *argv[])
     
   for(long i=0; i<n_acc; i++){ // progeny accessions
     Accession* prog = the_genotypes_set->accessions->a[i]; // the progeny accession, for which we seek parents.
-    Vld* cppps = progeny_cplds[i]; // these are the indices of candidate parents to accession 'prog'. 
+    Vld* cppps = progeny_cplds[i]; // cppps: candidate parent progeny pairs. These are the indices (and xhgmrs) of candidate parents to accession 'prog',. 
     long ncandpairs = cppps->size;
     //   fprintf(stdout, "%ld  %20s  %ld \n", i, prog->id->a, ncandpairs);
     if(ncandpairs == 0){
@@ -363,7 +374,7 @@ main(int argc, char *argv[])
       sort_vld_by_d(cppps);
       cppps->size = max_candidate_parents;
       count_accs_w_too_many_cand_parents++;
-      fprintf(stderr, "# %ld %7.4f  %ld %7.4f \n", cppps->a[0]->l, cppps->a[0]->d, cppps->a[1]->l, cppps->a[1]->d); 
+      // fprintf(stderr, "# %ld %7.4f  %ld %7.4f \n", cppps->a[0]->l, cppps->a[0]->d, cppps->a[1]->l, cppps->a[1]->d); 
     }
       
     for(long ii=0; ii<cppps->size; ii++){
@@ -372,11 +383,25 @@ main(int argc, char *argv[])
       for(long jj=ii; jj<cppps->size; jj++){
 	long par2idx = cppps->a[jj]->l;
 	Accession* par2 = the_genotypes_set->accessions->a[par2idx];
-	Pedigree_stats* the_ps = triple_counts( par1->genotypes->a,  par2->genotypes->a, prog->genotypes->a, ploidy );
+	Pedigree_stats* the_ps = (0)?
+	  triple_counts( par1->genotypes->a,  par2->genotypes->a, prog->genotypes->a, ploidy ) :
+	// Pedigree_stats* the_bw_ps = 
+	  bitwise_triple_counts(par1, par2, prog);
 	Pedigree* the_pedigree = construct_pedigree(prog, par1, par2);
 	the_pedigree->pedigree_stats = the_ps;
-	the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog, 0); // do full (not 'quick') xhgmr
-	the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog, 0); // do full (not 'quick') xhgmr
+	//	the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog, 0); // do full (not 'quick') xhgmr
+	//	the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog, 0); // do full (not 'quick') xhgmr
+	//Pedigree_stats* wxyz =
+	/* long n_forbidden = wxyz.l1; */
+	/* long n_missing = wxyz.l2; */
+	/* long n_total = wxyz.l3; */
+	/* long n_any_11 = wxyz.l4; */
+		/* fprintf(stderr, " %ld   %ld  %ld  %ld  %ld  %8.4f   %ld %ld\n", */
+		/* n_forbidden, n_any_11, n_missing, n_total, n_total-n_missing, */
+		/* (n_total > n_missing)? (double)n_forbidden/(n_total - n_missing) : -1, */
+		/* the_ps->d.n, the_ps->d.d); /\**\/ */
+	//	fprintf(stderr, "%ld  %ld    %ld  %ld\n", the_ps->d.n, the_ps->d.d, the_bw_ps->d.n, the_bw_ps->d.d);
+	
 	if(oldway){
 	  
 	  fprintf(o_stream, "%s %s %s  %ld  ", prog->id->a, par1->id->a, par2->id->a, ncandpairs);
@@ -407,6 +432,8 @@ main(int argc, char *argv[])
 	}
       } // end loop over parent 2
     } // end loop over parent 1
+
+    // *************************************************************************************************** //
     if(!oldway){ // sort pedstats_array, output best parent pairs for this offspring accession
       //	fprintf(stderr, "### n_ppairs_stored: %ld\n", n_ppairs_stored);
       if(pedigrees->size > 0){
@@ -427,11 +454,14 @@ main(int argc, char *argv[])
 	  Accession* par1 = pedigrees->a[iii]->F;
 	  Accession* par2 = pedigrees->a[iii]->M;
 	  Pedigree_stats* the_ps = pedigrees->a[iii]->pedigree_stats;
-	  if(iii == 0) fprintf(o_stream, "%s ", prog->id->a);
-	  if(iii<2){
-	    fprintf(o_stream, "%s %s  %ld  ", par1->id->a, par2->id->a, ncandpairs);
-	    print_pedigree_stats(o_stream, the_ps);
-	    long N_22 = the_ps->d_22.n; // n_00_2 + n_22_0
+	  if(iii == 0) fprintf(o_stream, "%s  %ld   ", prog->id->a, ncandpairs); // output progeny id
+	  if(iii<2){ // for up to three candidate parent pairs 
+	    fprintf(o_stream, "%s %s  ", par1->id->a, par2->id->a); // output candidate pair of parents
+	    //  print_pedigree_stats(o_stream, the_ps); // output denom and numerator/denominator for each of 9 quantities
+	    // print_pedigree_stats_min(o_stream, the_ps); // minimal output
+	    fprintf(o_stream, "%ld %8.6f %ld %8.6f ", the_ps->d.d, (the_ps->d.d > 0)? (double)the_ps->d.n/the_ps->d.d : -1,
+		    the_ps->z.d, (the_ps->z.d > 0)? (double)the_ps->z.n/the_ps->z.d : -1);
+	    /*  long N_22 = the_ps->d_22.n; // n_00_2 + n_22_0
 	    long D_22 = the_ps->d_22.d; // n_00_x + n_22_x
 	    long N_21 = the_ps->d_21.n; // n_02_0 + n_02_2 + n_20_0 + n_20_2 + n_00_1 + n_22_1
 	    long D_21 = the_ps->d_21.d; // n_00_x + n_02_x + n_20_x + n_22
@@ -445,7 +475,8 @@ main(int argc, char *argv[])
 	    print_d_r(o_stream, xxx);
 	    ND xxxx = {N_21 + the_ps->d_11.n, D_21 + the_ps->d_11.d};
 	    print_d_r(o_stream, xxxx);
-	    fprintf(o_stream, "  ");
+	    /**/
+	    // fprintf(o_stream, "  \n");
 	  } 
 	  // free(pedstats_array[iii]);
 	}
@@ -455,6 +486,7 @@ main(int argc, char *argv[])
     }
     pedigrees->size = 0;
   } // end loop over offspring accessions
+  fprintf(stderr, "# time for triple calculation: %8.3f\n", hi_res_time() - t_x);
   fprintf(o_stream, "# candidate parents have xghmr <= %8.5f\n", max_xhgmr);
   fprintf(o_stream, "# number of accessions with no candidate parents found: %ld\n", count_accs_w_no_cand_parents);
   fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n",
