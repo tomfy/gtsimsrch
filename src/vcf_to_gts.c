@@ -696,15 +696,17 @@ void print_usage_info(FILE* ostream){
   fprintf(stdout, "Options:\n");
   fprintf(stdout, "  -input       Input vcf filename (required).\n");
   fprintf(stdout, "  -out         Output filename (default: vcftogts.out)\n");
-  fprintf(stdout, "  -threads     Number of threads to use. (Default: automatic, based on get_nprocs.\n");
-  fprintf(stdout, "  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
-  fprintf(stdout, "  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
   fprintf(stdout, "  -pmin        Min. estimated genotype probibility (if GP field present; default: 0.9)\n");
   fprintf(stdout, "  -min_maf     Exclude markers with minor allele frequency < this. (Default: 0.1)\n");
   fprintf(stdout, "  -max_marker_md  Exclude markers with proportion of missing data > this. (Default: 0.25)\n");
   fprintf(stdout, "  -delta       If using DS field, must be within this of an integer or call it missing data. (Default: 0.1)\n");
+  fprintf(stdout, "  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
+   
   fprintf(stdout, "  -randomize   Randomize the order of accessions in output (Default: 0 (false))\n");
   fprintf(stdout, "  -seed        Random number generator seed. Only relevant if randomizing accession output order.\n");
+   
+  fprintf(stdout, "  -threads     Number of threads to use. (Default: automatic, based on get_nprocs.\n");
+  fprintf(stdout, "  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
 }
 
 // unused
