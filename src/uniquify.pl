@@ -2,10 +2,8 @@
 use strict;
 use Getopt::Long;
 use List::Util qw(min max sum shuffle);
-use File::Spec;
+use File::Spec qw(splitpath);
 use File::Basename 'dirname';
-use List::Util qw 'min max sum';
-
 
 use Cwd 'abs_path';
 my $bindir;
@@ -17,6 +15,8 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 # runs duplicatesearch, then clusterer, and outputs a file
 # with the same format as duplicatesearch input, but now with just one
 # line representing each cluster of duplicates.
+# optionally ( -vote ) have the members of each group of duplicates vote on each genotype.
+# optionally (  -filter_out <afilename>  ) output a dosage matrix file which is filtered as well as uniquified.
 
 my $input_dosages_filename = undef;
 #my $do_remove_bad_accessions = shift // m
@@ -29,8 +29,10 @@ my $cluster_max_distance = 'auto';
 my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
 my $vote = 0;
 my $missing_str = "X";
-my $filter_out = 1; # output the filtered set of markers, as well removing duplicates
+my $filter_out = 1; # output the filtered set of markers, as well as removing duplicates
 my $rng_seed = undef; # default is to let duplicatesearch get seed from clock
+my $phenotype_filename = undef;
+my %accid_phenotype = ();
 
 GetOptions(
 	   'input_file=s' => \$input_dosages_filename,
@@ -45,6 +47,7 @@ GetOptions(
 	   'missing_str=s' => \$missing_str,
 	   'filterout|filter_out!' => \$filter_out,
 	   'seed|rng_seed=i' => \$rng_seed,
+	   'phenotype_filename=s' => \$phenotype_filename, # id id phenotype ; col 3 is a quantitative phenotype, cols 1 and 2 are the same accession id twice
 	  );
 
 if (!defined $input_dosages_filename) {
@@ -52,10 +55,23 @@ if (!defined $input_dosages_filename) {
   usage_message();
   exit;
 }
+my ($v, $dir, $dosages_filename) = File::Spec->splitpath( $input_dosages_filename );
 if (!defined $output_dosages_filename) {
-  (my $v, my $d, $output_dosages_filename) = File::Spec->splitpath( $input_dosages_filename );
+  $output_dosages_filename = $dosages_filename . "_filtered" if($filter_out);
   $output_dosages_filename .= "_duplicates_removed";
-  print STDERR "$d    $output_dosages_filename \n";
+  print STDERR "$dir    $output_dosages_filename \n";
+}
+#exit;
+
+#  if a phenotype file is specified, store its id-phenotype pairs.
+if(defined $phenotype_filename){
+  open my $fhphen, "<", "$phenotype_filename";
+  while( <$fhphen> ){
+    next if(/^\s*#/);
+    my ($id1, $id2, $pheno) = split(" ", $_); # id1 and id2 should be the same
+    $accid_phenotype{$id1} = $pheno;
+  }
+  close $fhphen;
 }
 
 
@@ -109,12 +125,13 @@ $duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data
 $duplicatesearch_command .= " -maf_min $min_maf ";
 $duplicatesearch_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
 $duplicatesearch_command .= " -seed $rng_seed " if(defined $rng_seed);
-my $filtered_output_filename;
+my $filtered_dosages_filename;
 if ($filter_out) {
-  $filtered_output_filename = "filtered_" . $input_dosages_filename;
-  $duplicatesearch_command .= " -filtered_out $filtered_output_filename";
+   $filtered_dosages_filename = $dosages_filename . "_filtered";
+  $duplicatesearch_command .= " -filtered_out $filtered_dosages_filename";
+print STDERR "$filtered_dosages_filename \n";
 }
-
+#exit;
 
 print "$duplicatesearch_command \n";
 ###############################################################################
@@ -158,10 +175,10 @@ close $fh_clusters;
 print STDERR "before storing dosages\n";
 
 # store individual lines of dosage file in hash
-$input_dosages_filename = $filtered_output_filename if($filter_out);
+$input_dosages_filename = $filtered_dosages_filename if($filter_out);
 open my $fh_dosages, "<", "$input_dosages_filename";
 open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
-
+open my $fhpheno_out, ">", 'avg_' . $phenotype_filename if(defined $phenotype_filename);
 # store ids and genotypes of clusters (size >= 2), and output singletons.
 my %id_gts  = ();  # key: ids; value: array ref of dosages (0,1,2,NA) 
 my $first_line = <$fh_dosages>;
@@ -178,10 +195,14 @@ while (my $line = <$fh_dosages>) {
   } else {
     # print STDERR "ABCD: $id \n";
     print $fhout $line;
+    if(defined $phenotype_filename){
+    print $fhpheno_out "$id $id  ", $accid_phenotype{$id}, "\n"; # output the phenotype of a non-duplicated accession
+  }
   }
 }
 close($fh_dosages);
 print STDERR "after storing dosages\n";
+
 
 ###############################################################################
 # my $file_delete_success = unlink($cleaned_dosages_filename);
@@ -212,15 +233,22 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   my $n_big_intra_d = shift @cols;
   my $n_missing_dist = shift @cols;
 
+  my $rep_id = $cols[0];
+  die if(scalar @cols != $cluster_size);
+  if(exists $accid_phenotype{$rep_id}){
+    my $cluster_phenotype = sum(map($accid_phenotype{$_}, @cols))/$cluster_size;
+    print $fhpheno_out "$rep_id $rep_id  $cluster_phenotype\n";
+  }
+
   if ($vote  and  $cluster_fraction == 0) {
     my $rep_id = $cols[0];   # id of the representative of the cluster
-    my $cluster_id = $rep_id . "_size" . $cluster_size;
+    my $cluster_id = $rep_id; # . "_size" . $cluster_size; 
     my $elected_gts = vote(\@cols, \%id_gts);
     print $fhout "$cluster_id  ", join(" ", @$elected_gts), "\n";
     
   } else { # don't vote - just use the first one
     my $rep_id = shift @cols; # id of the representative of the cluster
-    my $cluster_id = $rep_id . "_size" . $cluster_size;
+    my $cluster_id = $rep_id; # . "_size" . $cluster_size;
     print $fhout "$cluster_id  ", join(" ", @{$id_gts{$rep_id}}), "\n"; # output representative and its dosages.
     
     for my $an_id (@cols) {

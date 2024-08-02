@@ -220,6 +220,9 @@ main(int argc, char *argv[])
     rectify_markers(the_genotypes_set);
     store_homozygs(the_genotypes_set);
     populate_marker_dosage_counts(the_genotypes_set);
+    set_n_00_1_22_1s(the_genotypes_set);
+  check_genotypesset(the_genotypes_set);
+  set_Abits_Bbits(the_genotypes_set, Nthreads);
     double t_d = hi_res_time();
     fprintf(stdout, "# Time to rectify genotype data: %6.3f sec.\n", t_d - t_c);
   
@@ -249,22 +252,12 @@ main(int argc, char *argv[])
       exit(0);
     }
     double t_start = hi_res_time();
- 
-    Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set);
-    // fprintf(stderr, "# size of the_vidxid: %ld \n", the_vidxid->size);
-    for(long i=0; i<the_vidxid->size; i++){
-      long index = the_vidxid->a[i]->index;
-      //   fprintf(stderr, "# i idx id: %ld %ld  %s\n", i, index, the_vidxid->a[i]->id); 
-      Accession* a = the_genotypes_set->accessions->a[index];  
-      //  fprintf(stderr, "# i, index, id, index: %ld %ld  %s  %ld\n", i, index, a->id->a, index_of_id_in_vidxid(the_vidxid, a->id->a));
-    }
-    // exit(0);
-    // ***************  read the pedigrees file  ***************************
-    fprintf(stderr, "# before read_and_store_pedigrees_3col\n");
-      const Vpedigree* pedigrees = read_and_store_pedigrees_3col(p_stream, the_vidxid, the_genotypes_set);  
-    fprintf(stderr, "# after read_and_store_pedigrees_3col\n");
 
-      //  const Vpedigree* pedigrees = read_the_pedigrees_file_and_store(p_stream, the_vidxid, the_genotypes_set);
+    // ***************  read the pedigrees file  ***************************
+    fprintf(stderr, "# before read_and_store_pedigrees_3col\n"); 
+    Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set); // sorted by id
+    const Vpedigree* pedigrees = read_and_store_pedigrees_3col(p_stream, the_vidxid, the_genotypes_set);  
+    fprintf(stderr, "# after read_and_store_pedigrees_3col\n");
     fclose(p_stream);
     fprintf(stdout, "# Done reading pedigree file. Time to read pedigree file: %6.3f\n", hi_res_time() - t_start);
     fprintf(stdout, "# Stored genotypes of %ld accessions, and  %ld pedigrees. \n", the_genotypes_set->accessions->size, pedigrees->size);
@@ -278,88 +271,42 @@ main(int argc, char *argv[])
     
     t_start = hi_res_time();
     char ploidy_char = (char)(the_genotypes_set->ploidy + 48);
+    fprintf(stderr, "# Analyzing %ld pedigrees from table. \n", pedigrees->size);
     for(long i=0; i<pedigrees->size; i++){
-      if(i % 1000  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
+      if(i % 100  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
       
       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
       // assert(strcmp(pedigrees->a[i]->Accession->id, pedigrees->a[i]->A->id->a) == 0);
       Accession* A = pedigrees->a[i]->A;
       Accession* F = pedigrees->a[i]->F;
       Accession* M = pedigrees->a[i]->M;
-      if(1 || F != NULL  &&  M != NULL){
+      if(0 || (F != NULL  &&  M != NULL)){
    
 	fprintf(o_stream, "%20s %5ld %20s %20s  ",
 		A->id->a, A->missing_data_count,
 		(F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA");
-	/* Pedigree_stats* ps = the_pedigree_stats; */
-	/* fprintf(o_stream, " %ld %ld  %ld %ld  %ld %ld  %ld %ld  %ld %ld  %ld %ld     ", */
-	/* 	  ps->agmr12.n, ps->agmr12.d, ps->par1_hgmr.n, ps->par1_hgmr.d, ps->par1_R.n, ps->par1_R.d, */
-	/* 	  ps->par2_hgmr.n, ps->par2_hgmr.d, ps->par2_R.n, ps->par2_R.d, ps->d.n, ps->d.d); */
-  
-	print_pedigree_stats(o_stream, the_pedigree_stats);
-	//double epsilon = 0.01;
-	//   two_doubles llF = lls(the_genotypes_set, F, A, o_stream, epsilon);
-	//   two_doubles llM = lls(the_genotypes_set, M, A, o_stream, epsilon);
-	//  four_longs F_fd = forbidden(the_genotypes_set, F, A);
-	//  fprintf(o_stream, "  %ld %ld  %7.5f ", F_fd.l1, F_fd.l2, (F_fd.l2 > 0)? (double)F_fd.l1/F_fd.l2 : 2);
 
-	//   two_longs ZZZ = diploid_quick_and_dirty_triple_counts(F, M, A);
-	//  long ZZZd = ZZZ.l1 + ZZZ.l2;
-	if(0){
-	  four_longs zeroes4 = {0, 0, 0, 0};
-	  four_longs FhR = (F != NULL)? hgmr_R(F->genotypes->a, A->genotypes->a, (char)(the_genotypes_set->ploidy+48)) : zeroes4;
-	  four_longs MhR = (M != NULL)? hgmr_R(M->genotypes->a, A->genotypes->a, (char)(the_genotypes_set->ploidy+48)) : zeroes4;
-	  fprintf(o_stream, "    %ld %8.5f  %ld %8.5f     %ld %8.5f %ld %8.5f  ",
-		  FhR.l2, (FhR.l2>0)? (double)FhR.l1/FhR.l2 : 2.0,
-		  FhR.l4, (FhR.l4>0)? (double)FhR.l3/FhR.l4 : 2.0,
-		  MhR.l2, (MhR.l2>0)? (double)MhR.l1/MhR.l2 : 2.0,
-		  MhR.l4, (MhR.l4>0)? (double)MhR.l3/MhR.l4 : 2.0
-		  );
-	}
-	if(0){
-	  four_longs tfc = //{0, 0, 0, 0};
-	    tfca(F->genotypes->a, M->genotypes->a, A->genotypes->a, ploidy);
-	  long numer1 = tfc.l1;
-	  long denom1 = tfc.l2;
-	  long numer2 = tfc.l3;
-	  long denom2 = tfc.l4;
-	    fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f", //  %ld %ld %8.5f",
-		  numer1+numer2, denom1, (denom1 > 0)? (double)(numer1+numer2)/denom1 : 2,
-		  numer1, denom1, (denom1>0)? (double)numer1/denom1 : 2,
-		  numer2, denom2, (denom2>0)? (double)numer2/denom2 : 2);
-	    four_longs qd_n22x = q_and_d_n22x_diploid(F,M,A);
-	    fprintf(o_stream, "  %ld %ld %ld %ld  %8.5f  ",
-		    qd_n22x.l1, qd_n22x.l2, qd_n22x.l3, qd_n22x.l4, (qd_n22x.l4 > 0)? (double)qd_n22x.l2/qd_n22x.l4 : 2.0);
-	}
-	if(0){
-	  four_longs tfc_FF = tfca(F->genotypes->a, F->genotypes->a, A->genotypes->a, ploidy);
-	  long numer1FF = tfc_FF.l1;
-	  long denom1FF = tfc_FF.l2;
-	  long numer2FF = tfc_FF.l3;
-	  long denom2FF = tfc_FF.l4;	
-	  fprintf(o_stream, "   %ld %ld %8.5f  %ld %ld %8.5f  %ld %ld %8.5f",
-		  numer1FF+numer2FF, denom1FF, (denom1FF > 0)? (double)(numer1FF+numer2FF)/denom1FF : 2,
-		  numer1FF, denom1FF, (denom1FF>0)? (double)numer1FF/denom1FF : 2,
-		  numer2FF, denom2FF, (denom2FF>0)? (double)numer2FF/denom2FF : 2);
-	}
-	if(0){
-	  Accession* a = pedigrees->a[i]->A;
-	  Accession* f = pedigrees->a[i]->F;
-	  Accession* m = pedigrees->a[i]->M;
-	  ND hf = quick_and_dirty_hgmr(a, f, ploidy_char);
-	  fprintf(o_stream, "   %ld %ld %6.5f  ", hf.n, hf.d, (hf.d>0)? (double)hf.n/hf.d : 2);
-	}
+	ND Fxhgmr = xhgmr(the_genotypes_set, A, F, 0);
+	ND Mxhgmr = xhgmr(the_genotypes_set, A, M, 0);
+	// fprintf(stderr, "# after xhgmrs. \n");
+	the_pedigree_stats->xhgmr1 = n_over_d(Fxhgmr);
+	the_pedigree_stats->xhgmr2 = n_over_d(Mxhgmr);
+	// fprintf(stderr, "# after n_over_d. \n");
+	print_pedigree_stats(o_stream, the_pedigree_stats);
+
 	if(do_alternative_pedigrees == 1){
+	  if(pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0){
 	  Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
-	  print_pedigree_alternatives(o_stream, alt_pedigrees);
-	}else if((do_alternative_pedigrees == 2)){
-	  // || (pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0)){
-	  //   fprintf(stderr, "About to get alt. pedigrees. max_ok_hgmr: %8.4lf,  max_ok_d: %8.4lf \n", max_ok_hgmr, max_ok_d);
-	  Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
-	  print_pedigree_alternatives(o_stream, alt_pedigrees);
+	  print_pedigree_alternatives(o_stream, alt_pedigrees, 3);
 	}
-	free(the_pedigree_stats);
-	  fprintf(o_stream, "\n");   
+      }else if((do_alternative_pedigrees == 2)){
+	// || (pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0)){
+	//   fprintf(stderr, "About to get alt. pedigrees. max_ok_hgmr: %8.4lf,  max_ok_d: %8.4lf \n", max_ok_hgmr, max_ok_d);
+	Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
+	print_pedigree_alternatives(o_stream, alt_pedigrees, 3);
+      }
+      free(the_pedigree_stats);
+      fprintf(o_stream, "\n");   
       } //
     
     } // end loop over pedigrees

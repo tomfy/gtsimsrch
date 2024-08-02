@@ -17,9 +17,20 @@ while(<>){
   }
 }
 
-while(my($pp, $info) = each %pp_info){
+while (my($pp, $info) = each %pp_info) {
   my ($xmin, $xmax, $parhets, $hgmr) = map($info->{$_}, ('xmin', 'xmax', 'parent_hetzygs', 'hgmr'));
   my $xmin_norm = $xmin/$parhets;
   my $xmax_norm = $xmax/$parhets;
-  print "$pp  $xmin $xmax  $parhets  $xmin_norm $xmax_norm  $hgmr\n";
+
+  my ($p1, $p2) = split(" ", $pp);
+  my $rev_pp = "$p2 $p1";
+  my $rev_info = $pp_info{$rev_pp};
+  my ($rev_xmin, $rev_xmax, $rev_parhets, $rev_hgmr) = map($rev_info->{$_}, ('xmin', 'xmax', 'parent_hetzygs', 'hgmr'));
+  my $rev_xmin_norm = $rev_xmin/$rev_parhets;
+  my $rev_xmax_norm = $rev_xmax/$rev_parhets;
+  
+  print "$pp  $hgmr  ",
+    "$xmin $xmax  $parhets  $xmin_norm $xmax_norm  ",
+    "$rev_xmin $rev_xmax  $rev_parhets  $rev_xmin_norm $rev_xmax_norm ",
+    "\n";
 }

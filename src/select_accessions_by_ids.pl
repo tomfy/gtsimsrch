@@ -19,6 +19,11 @@ while(<$fhin>){
 }
 close $fhin;
 
+# while(my ($id, $c) = each %id){
+#   print STDERR "[$id] $c \n";
+# }
+# getc();
+
 open $fhin, "<", $gtfile;
 while(<$fhin>){ # skip initial comment lines
   next if(/^\s*#/);
@@ -29,8 +34,11 @@ while(<$fhin>){ # skip initial comment lines
 while(<$fhin>){
   next if(/^\s*#/);
   if(/^\s*(\S+)/){
+   #print "{$1}\n";
     if(exists $id{$1}){
       print;
+      #print STDERR "$1\n";
+      #getc();
     }
   }
 }

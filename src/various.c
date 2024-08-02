@@ -20,3 +20,7 @@ void chomp(char* str){ // remove any trailing newlines from str
     len--;
   }
 }
+
+/* double n_over_d(ND* the_nd){ */
+/*   return (the_nd->n > 0)? (double)the_nd->n/(double)the_nd->d : -1; */
+/* } */

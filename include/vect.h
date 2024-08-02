@@ -58,6 +58,18 @@ typedef struct{
   Ld** a;
 }Vld;
 
+typedef struct{
+  long idx;
+  double agmr;
+  double hgmr;
+  double xhgmr;
+}Iaxh;
+
+typedef struct{ 
+  long capacity;
+  long size;
+  Iaxh** a;
+}Viaxh;
 
 // *****  Function declarations  ************************************************************
 
@@ -121,9 +133,18 @@ long index_of_id_in_vidxid(Vidxid* the_vidxid, char* id);
 void print_vidxid(FILE* fh, Vidxid* the_vidxid);
 void free_vidxid(const Vidxid* the_vidxid);
 
-// ******  Vld  *******
+// ******  Vld  ******
 Vld* construct_vld(long init_capacity);
 void push_to_vld(Vld* the_vld, long l, double d);
 void sort_vld_by_d(Vld* the_vld);
 int compare_ld(const void* a, const void* b);
 void free_vld(Vld* the_vld);
+
+// ******  Viaxh  ******
+Viaxh* construct_viaxh(long init_capacity);
+void push_to_viaxh(Viaxh* the_viaxh, long idx, double agmr, double xhgmr, double hgmr);
+void sort_viaxh_by_xhgmr(Viaxh* the_viaxh);
+void sort_viaxh_by_hgmr(Viaxh* the_viaxh);
+int compare_xhgmr(const void* a, const void* b);
+int compare_hgmr(const void* a, const void* b);
+void free_viaxh(Viaxh* the_viaxh);

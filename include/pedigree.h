@@ -1,18 +1,24 @@
 // *****  typedefs for Pedigree, Vpedigree *****
-typedef struct{
+typedef struct{ // 0: progeny, 1, 2: parents
+  ND agmr01;
+  ND agmr02;
   ND agmr12;
   ND par1_hgmr;
+  ND par1_xhgmr;
   ND par1_R;
   ND par2_hgmr;
+  ND par2_xhgmr; 
   ND par2_R;
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
   ND d;
-  // ND pseudo_hgmr;
-  ND xhgmr1;
-  ND xhgmr2;
   ND d_22; // both parents homozyg, delta = 2 
   ND d_21; // both parents homozyg, delta = 1
   ND d_11; // one parent homozyg, one heterozyg, delta = 1
+  double hgmr1;
+  double hgmr2;
+  double xhgmr1;
+  double xhgmr2;
+  long n_01or10_1; // alternative denom for z
 }Pedigree_stats; // 
 
 typedef struct{
@@ -61,11 +67,13 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_Vped); //, long n_ac
 Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
 Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d);
-void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees);
+void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print);
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 
 void sort_vpedigree_by_d(Vpedigree* the_vped);
-int compare_pedigree(const void* a, const void* b);
+void sort_vpedigree_by_z(Vpedigree* the_vped);
+int compare_pedigree_d(const void* a, const void* b);
+int compare_pedigree_z(const void* a, const void* b);
 void free_vpedigree(const Vpedigree* the_vped);
 
 // *****  array of Idxhgmr  *****

@@ -15,7 +15,7 @@
 
 #include "gtset.h"
 
-#define DISTANCE_NORM_FACTOR (1.0) // 
+#define DISTANCE_NORM_FACTOR (1.0) //
 // defaults
 #define DEFAULT_DIPLOID_CHUNK_SIZE  7
 #define DEFAULT_MAX_DISTANCE  0.2
@@ -23,7 +23,8 @@
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
 #define DEFAULT_MIN_MAF  0.1
 #define BITWISE true
-#define MATRIX_DISTINCT_VALUES 100
+// #define MATRIX_DISTINCT_VALUES 100
+#define DO_EXACT_AGMR  1 // make this 0 to only do the estimated agmrs.
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -405,7 +406,9 @@ main(int argc, char *argv[])
   }
   fprintf(stdout, "# loading data set.\n");
   add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction, Nthreads); // load the new set of accessions
-  fprintf(stdout, "# Done reading dosages from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
+  fprintf(stdout, "# Done reading dosage data from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
+	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_bad_accessions, the_genotypes_set->n_markers);
+   fprintf(out_stream, "# Done reading dosage data from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_bad_accessions, the_genotypes_set->n_markers);
   
   if(shuffle_accessions) shuffle_order_of_accessions(the_genotypes_set); // I thought this might help to spread load evenly over threads, but no.
@@ -454,7 +457,7 @@ main(int argc, char *argv[])
 
   double t_after_chk = clock_time(clock1);
   fprintf(stdout, "# Time for check_genotypesset: %lf\n", t_after_chk - t_after_input);
-  set_Abits_Bbits(the_genotypes_set, Nthreads);
+  if(BITWISE || get_all_est_agmrs) set_Abits_Bbits(the_genotypes_set, Nthreads);
   double t_after_set_ABbits = clock_time(clock1);
   fprintf(stdout, "# Time for set_Abits_Bbits: %lf\n", t_after_set_ABbits - t_after_chk);
 
@@ -479,7 +482,7 @@ main(int argc, char *argv[])
 	//	long b_hgmr_denom = bfcs.l1 + bfcs.l2;
 	double agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1;
 	//	hgmr = (b_hgmr_denom > 0)? (double)b_hgmr_num / (double)b_hgmr_denom : -1;	
-	fprintf(fh_dmatrixout, "%5.3f ", agmr);
+	fprintf(fh_dmatrixout, "%7.5f ", agmr);
       }
       fprintf(fh_dmatrixout, "\n");
     }
@@ -765,8 +768,7 @@ long* find_chunk_match_counts(const Accession* the_accession, const Chunk_patter
   long* accidx_matchcounts = (long*)calloc(the_accession->index, sizeof(long));
  
   for(long i_chunk=0; i_chunk < chunk_patterns->size; i_chunk++){
-    long the_pattern = chunk_patterns->a[i_chunk];  
-    
+    long the_pattern = chunk_patterns->a[i_chunk];  //   the pattern for this chunk of query accession.
 
     if(DO_ASSERT) assert(the_pattern >= 0  &&  the_pattern <= n_patterns);
     // (patterns 0..n_patterns-1 are good, the_pattern == n_patterns (== (ploidy+1)^chunk_size) indicates a chunk with missing data )
@@ -784,7 +786,7 @@ long* find_chunk_match_counts(const Accession* the_accession, const Chunk_patter
       }
     }
   }
-  return accidx_matchcounts; // array containing the number of matching chunks for each accession (with lower index than the_accession->index)
+  return accidx_matchcounts; // array containing the number of matching chunks for each accession (with lower index than the_accession->index, i.e. than the query)
 }
 
 // ***** Mci  *****
@@ -1029,7 +1031,7 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	est_agmrs[i_match][i_query] = est_dist; // edi;
       }
       //  double min_matching_chunk_count = q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count;
-      if( chunk_match_counts[i_match] >= q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count ){ // min_matching_chunk_count
+      if( DO_EXACT_AGMR  &&  chunk_match_counts[i_match] >= q_ok_chunk_fraction_x_mmcf*the_accessions->a[i_match]->ok_chunk_count ){ // min_matching_chunk_count
 	//	double predistance_time = clock_time(clock2);
 	double agmr, hgmr;
 	if(BITWISE){ // bitwise ~20x faster

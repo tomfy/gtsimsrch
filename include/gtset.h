@@ -27,9 +27,11 @@ typedef struct{
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
   Vlong* alt_homozygs; //
-  Vull* Abits; // Abit and Bbist encode the gts, 64 gts to each pair of longs
+  Vull* Abits; // Abit and Bbist encode the gts, 64 gts to each pair of unsigend long longs
   Vull* Bbits; //
   double agmr0;
+  double n_exp_00_1_22_1;
+  double  n_exp_00_1_22_1_self;
 }Accession;
 
 typedef struct{
@@ -99,6 +101,7 @@ double agmr0(GenotypesSet* the_gtsset);
 double agmr0_qvsall(const GenotypesSet* the_gtsset, Accession* A);
 double agmr0_accvsall(const GenotypesSet* the_gtsset, Accession* A);
 double pair_agmr0(Accession* A, Accession* B);
+void n_00_1_22_1_accvsall(const GenotypesSet* the_gtsset, Accession* A );
 
 
 // *****  Vaccession  *****
@@ -142,6 +145,7 @@ void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid 
 void* set_Abits_Bbits_1thread(void* x);
 void store_homozygs(GenotypesSet* the_gtsset);
 void set_agmr0s(GenotypesSet* the_gtsset);
+void set_n_00_1_22_1s(GenotypesSet* the_gtsset);
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);

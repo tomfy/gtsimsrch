@@ -7,6 +7,7 @@
 //#include "various.h"
 //#include "pedigree.h"
 
+#define MIN_ALT_ALLELES 0
 
 extern int do_checks; // option -c sets this to 1 to do some checks.
 //unsigned long long bits[64];
@@ -155,6 +156,25 @@ double agmr0_accvsall(const GenotypesSet* the_gtsset, Accession* A){
   /* 	  f0, f1, f2, ok_count, n_exp_different, n_exp_ok); */
    }
    return (n_exp_ok > 0)? n_exp_different/n_exp_ok : -1;
+}
+
+void  n_00_1_22_1_accvsall(const GenotypesSet* the_gtsset, Accession* A ){
+  double n_exp_00_1_22_1 = 0;
+  double n_exp_00_1_22_1_self = 0;
+   
+  for(long i=0; i<the_gtsset->marker_ids->size; i++){
+    if(A->genotypes->a[i] - 48  ==  1){ // sum over markers with A having dosage = 1
+      double ok_count = (double)(the_gtsset->accessions->size - the_gtsset->marker_missing_data_counts->a[i]);
+      double f0 = the_gtsset->marker_dosage_counts[0]->a[i]/ok_count;
+      double f2 = the_gtsset->marker_dosage_counts[2]->a[i]/ok_count;
+      n_exp_00_1_22_1 += f0*f0 + f2*f2;
+      n_exp_00_1_22_1_self += f0 + f2;
+	}
+  }
+  A->n_exp_00_1_22_1 = n_exp_00_1_22_1;
+  A->n_exp_00_1_22_1_self = n_exp_00_1_22_1_self;
+  // fprintf(stderr, "%8.5f  %8.5f \n", n_exp_00_1_22_1, n_exp_00_1_22_1_self);
+  // return (two_longs) {n_exp_00_1_22_1, n_exp_00_1_22_1_self};
 }
 
 
@@ -665,6 +685,13 @@ void set_agmr0s(GenotypesSet* the_gtsset){
   }
 }
 
+void set_n_00_1_22_1s(GenotypesSet* the_gtsset){
+  for(long i=0; i< the_gtsset->accessions->size; i++){
+    Accession* A = the_gtsset->accessions->a[i];
+    n_00_1_22_1_accvsall(the_gtsset, A);
+  }
+}
+
 double ragmr(GenotypesSet* the_gtsset){
   for(long j=0; j<the_gtsset->n_accessions; j++){
     Accession* the_acc = the_gtsset->accessions->a[j];
@@ -787,10 +814,11 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
   
     if (marker_md_counts->a[i] <= max_marker_md_fraction*the_gtsset->n_accessions){  // not too much missing data
       long max_possible_alt_alleles = the_gtsset->ploidy * (the_gtsset->n_accessions - marker_md_counts->a[i]);
-      double min_min_allele_count = fmax(max_possible_alt_alleles * the_gtsset->min_minor_allele_frequency, 1);
-      double max_min_allele_count = fmin(max_possible_alt_alleles * (1.0 - the_gtsset->min_minor_allele_frequency), max_possible_alt_alleles-1);
+      double min_min_allele_count = fmax(max_possible_alt_alleles * the_gtsset->min_minor_allele_frequency, MIN_ALT_ALLELES);
+      double max_min_allele_count = fmin(max_possible_alt_alleles * (1.0 - the_gtsset->min_minor_allele_frequency), max_possible_alt_alleles-MIN_ALT_ALLELES);
       bool alt_allele_freq_ok = (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
 	(alt_allele_counts->a[i] <= max_min_allele_count);     // and not too large
+      // fprintf(stderr, "# alt allele info: %ld  %ld  %f  %f \n", max_possible_alt_alleles, alt_allele_counts->a[i], min_min_allele_count, max_min_allele_count);
       if ( alt_allele_freq_ok ){ // the alt_allele_frequency is in the right range
 	md_ok->a[i] = 1;
 	n_markers_to_keep++;
@@ -1461,8 +1489,7 @@ Vidxid* construct_vidxid(const GenotypesSet* the_gtsset){
 Vidxid* construct_sorted_vidxid(const GenotypesSet* the_gtsset){
   Vidxid* the_vidxid = construct_vidxid(the_gtsset);
   sort_vidxid_by_id(the_vidxid);
-  for(long i=0; i<the_vidxid->size; i++){
-    IndexId* x = the_vidxid->a[i];  }
+  // for(long i=0; i<the_vidxid->size; i++){ IndexId* x = the_vidxid->a[i];  }
   if(DBUG) assert(check_idxid_map(the_vidxid, the_gtsset) == 1);
   return the_vidxid;
 }

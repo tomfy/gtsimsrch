@@ -8,12 +8,14 @@ my $n_phenotypes = 2;
 my $causal_snps_file = undef; # if not specified, choose $n_causal_snps at random to be causal.
 my $pheno_out_filename = undef;
 my $verbose = 0;
+my $effect_size = 0.1;
 GetOptions(
 	   'bin_fileset|fileset_bin=s' => \$binary_fileset,
 	   'causal_snps_file=s' => \$causal_snps_file,
 	   'n_phenotypes=i' => \$n_phenotypes,
 	   'pheno_out_filename=s' => \$pheno_out_filename,
 	   'verbose!' => \$verbose,
+	   'effect_size=s' => \$effect_size,
 	  );
 
 my %accid_outstring = ();
@@ -26,15 +28,20 @@ my $causal_variants_filename;
 if (!defined $causal_snps_file) {
   die;
 } else {
-  $causal_variants_filename = $causal_snps_file . "_just_id";
-  fix_causal_variants_file($causal_snps_file, $causal_variants_filename);
+  $causal_variants_filename = $causal_snps_file . "_id_effect";
+  fix_causal_variants_file($causal_snps_file, $effect_size, $causal_variants_filename);
 }
 
-my $phenotype_filename = $outfile . ".pheno";
-my $simu_command = "Simu  --bfile $binary_fileset  --qt  --causal-variants $causal_variants_filename  --out $outfile ";
+# print STDERR `cat $causal_variants_filename `, "\n"; # getc();
+
 my $ref_accid_phenotype = {};
 my $accid_phenotype = {};
 for my $i (1..$n_phenotypes) {
+  my $phenotype_filename = # $i . "_" .
+    $outfile . ".pheno";
+  my $outfile_i = # $i . "_" .
+    $outfile;
+  my $simu_command = "Simu  --bfile $binary_fileset  --qt  --causal-variants $causal_variants_filename  --out $outfile_i ";
   my $simu_stdout = `$simu_command`;
   if ($i == 1) {
     $ref_accid_phenotype = phenotypes_from_file($phenotype_filename);
@@ -57,6 +64,7 @@ for my $i (1..$n_phenotypes) {
 die if($phenotype_count !=  $n_phenotypes);
 while (my ($id, $phs) = each %accid_phenotypes) {
   die if(scalar @$phs !=  $n_phenotypes);
+  # print STDERR "$id  $id " . sum(@$phs)/$n_phenotypes . "\n";
   $accid_outstring{$id} = "$id  $id " . sum(@$phs)/$n_phenotypes;
   if ($verbose) {
     $accid_outstring{$id} .= "   $n_phenotypes  " . join(" ", @$phs);
@@ -64,7 +72,9 @@ while (my ($id, $phs) = each %accid_phenotypes) {
 }
 
 my @sorted_ids = sort keys %accid_outstring;
-open my $fhout, ">", $n_phenotypes . "_phenotypes";
+#print STDERR "will output ", scalar @sorted_ids, "  phenotypes.\n";
+$pheno_out_filename = $n_phenotypes . "_phenotypes" if(!defined $pheno_out_filename);
+open my $fhout, ">", "$pheno_out_filename" or die "Couldn't open $pheno_out_filename for writing. \n";
 for my $anid (@sorted_ids) {
   print $fhout  $accid_outstring{$anid}, "\n";
 }
@@ -82,13 +92,20 @@ sub add_phenotypes{
 
 sub fix_causal_variants_file{
   my $infile = shift;
+  my $effect_size = shift;
   my $outfile = shift;
   open my $fh, "<", "$infile";
   open my $fhout, ">", "$outfile";
   while (<$fh>) {
     next if(/^SNP/);
     my @cols = split(" ", $_);
-    print $fhout $cols[0], "\n";
+    print STDERR "effect size: $effect_size \n";
+    if($effect_size ne 'R'){
+      print $fhout $cols[0], "  $effect_size\n";
+      $effect_size *= -0.5;
+    }else{
+      print $fhout $cols[0], "\n";
+    }
   }
   close $fh;
   close $fhout;

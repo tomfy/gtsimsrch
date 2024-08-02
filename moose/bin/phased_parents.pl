@@ -124,9 +124,9 @@ for my $i_chrom (@chroms){
       # $par_10_count is number of 1|0 genotypes in parent ($aid1)
       print "$i $j  $aid1  $aid2  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
       if ($XA < $XB) {
-	print "$XA  $XB  $length1count_A $length1count_B  ";
+	print "$XA $XB   $length1count_A $length1count_B  ";
       } else {
-	print "$XB  $XA  $length1count_B $length1count_A  ";
+	print "$XB $XA   $length1count_B $length1count_A  ";
       }		       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
       #      "   $par_01_count $par_10_count ",
       print " $parent_het_count\n";
