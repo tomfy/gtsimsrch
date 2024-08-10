@@ -53,6 +53,7 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
 //double hgmr(char* gts1, char* gts2);
 Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
+void calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, Vpedigree* pedigrees);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_d);
@@ -72,8 +73,10 @@ void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 
 void sort_vpedigree_by_d(Vpedigree* the_vped);
 void sort_vpedigree_by_z(Vpedigree* the_vped);
+void sort_vpedigree_by_maxdz(Vpedigree* the_vped);
 int compare_pedigree_d(const void* a, const void* b);
 int compare_pedigree_z(const void* a, const void* b);
+int compare_pedigree_maxdz(const void* a, const void* b);
 void free_vpedigree(const Vpedigree* the_vped);
 
 // *****  array of Idxhgmr  *****

@@ -21,6 +21,9 @@ void chomp(char* str){ // remove any trailing newlines from str
   }
 }
 
-/* double n_over_d(ND* the_nd){ */
-/*   return (the_nd->n > 0)? (double)the_nd->n/(double)the_nd->d : -1; */
+double n_over_d(ND the_nd){ // for positive n and d. return -1 if denom is zero.
+  return (the_nd.n > 0)? (double)the_nd.n/(double)the_nd.d : -1;
+}
+/* double n_over_d(ND nd){ */
+/*   return (nd.d > 0)? (double)nd.n/(double)nd.d : NAN; */
 /* } */

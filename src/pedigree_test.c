@@ -255,7 +255,7 @@ main(int argc, char *argv[])
 
     // ***************  read the pedigrees file  ***************************
     fprintf(stderr, "# before read_and_store_pedigrees_3col\n"); 
-    Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set); // sorted by id
+    Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set); // ids and indexes of the_genotypes_set, sorted by id
     const Vpedigree* pedigrees = read_and_store_pedigrees_3col(p_stream, the_vidxid, the_genotypes_set);  
     fprintf(stderr, "# after read_and_store_pedigrees_3col\n");
     fclose(p_stream);

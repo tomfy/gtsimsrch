@@ -323,6 +323,8 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
   the_gtsset->marker_alt_allele_counts = NULL;
   the_gtsset->mafs = NULL;
   the_gtsset->marker_dosage_counts = NULL;
+  the_gtsset->acc_filter_info = construct_vchar(2000);
+  the_gtsset->marker_filter_info = construct_vchar(2000);
   return the_gtsset;
 }
 
@@ -451,11 +453,23 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   fclose(g_stream);
   // fprintf(stderr, "# %ld accessions removed for excessive missing data; %ld accessions kept.\n",
   //	  the_genotypes_set->n_bad_accessions, accession_count);
+
+
+  
   free(line); // only needs to be freed once.
   the_genotypes_set->n_accessions = the_genotypes_set->accessions->size;
   the_genotypes_set->n_markers = the_genotypes_set->marker_ids->size;
-  fprintf(stderr, "the_genotypes_set->marker_ids->size: %ld   %ld\n", the_genotypes_set->marker_ids->size, the_genotypes_set->n_markers);
+  //fprintf(stderr, "the_genotypes_set->marker_ids->size: %ld   %ld\n", the_genotypes_set->marker_ids->size, the_genotypes_set->n_markers);
   if(DBUG && do_checks) check_genotypesset(the_genotypes_set);
+
+  char buffer[2000];
+  sprintf(buffer, "# Number of accessions with genotypes, before filtering: %ld\n", the_genotypes_set->n_accessions + the_genotypes_set->n_bad_accessions);
+  append_str_to_vchar(the_genotypes_set->acc_filter_info, buffer);
+  sprintf(buffer, "# Removed %ld accessions with missing data fraction > %6.4lf\n", the_genotypes_set->n_bad_accessions, max_acc_missing_data_fraction);
+  append_str_to_vchar(the_genotypes_set->acc_filter_info, buffer);
+  sprintf(buffer, "# Number of accessions with genotypes, after filtering: %ld\n", the_genotypes_set->n_accessions);
+  append_str_to_vchar(the_genotypes_set->acc_filter_info, buffer);
+  
 }
 
 void threaded_input(FILE* in_stream, long n_lines_in_chunk, double max_acc_md_fraction, long Nthreads, Vstr* marker_ids, GenotypesSet* the_genotypes_set){
@@ -837,30 +851,26 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
       too_much_missing_data_count++;
     }
   } // end of loop over markers
-  // fprintf(stderr, "# mdsum_all: %ld  mdsum_kept: %ld  n_markers all: %ld  n_markers_to_keep: %ld\n", mdsum_all, mdsum_kept, marker_md_counts->size, n_markers_to_keep);
+
   double raw_md_fraction = (double)mdsum_all/(double)(marker_md_counts->size*n_accs);
   double filtered_md_fraction = (double)mdsum_kept/(double)(n_markers_to_keep*n_accs);
   double raw_minor_allele_freq = (double)altallelesum_all/(marker_md_counts->size*n_accs*the_gtsset->ploidy);
   double filtered_minor_allele_freq = (double)altallelesum_kept/(double)(n_markers_to_keep*n_accs*the_gtsset->ploidy);
 
-  fprintf(stdout, "# Before filtering of markers %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3f\n",
-	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);   
-  fprintf(stdout, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
-  	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
-  fprintf(stdout, "#   removed %ld markers for excessive missing data.\n", too_much_missing_data_count);
-  fprintf(stdout, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count); 
-  fprintf(stdout, "# Filtered data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
+  // store information on results of filtering
+  char buffer[2000];
+  sprintf(buffer, "# There are %ld markers before filtering, missing data fraction = %5.3lf, minor allele frequency = %5.3f\n",
+	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);
+  append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
+  sprintf(buffer, "# Removed %ld markers with missing data fraction > %6.4f\n", too_much_missing_data_count, the_gtsset->max_marker_missing_data_fraction);
+  append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
+  sprintf(buffer, "# Removed an additional %ld markers with maf < %6.4f\n", maf_too_low_count, the_gtsset->min_minor_allele_frequency);
+  append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
+  sprintf(buffer, "# Filtered data has %ld markers, missing data fraction = %6.4lf, minor allele frequency = %5.3lf\n",
 	  n_markers_to_keep, filtered_md_fraction, filtered_minor_allele_freq);
-
-  fprintf(ostream, "# Before filtering of markers %ld markers, missing data fraction = %5.3lf, minor allele frequencey = %5.3f\n",
-	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);   
-  fprintf(ostream, "# Removing markers with missing data fraction > %5.3lf or minor allele frequency < %5.3f\n",
-  	  max_marker_md_fraction, the_gtsset->min_minor_allele_frequency);
-  fprintf(ostream, "#   removed %ld markers for excessive missing data.\n", too_much_missing_data_count);
-  fprintf(ostream, "#   removed an additional %ld markers for too small maf.\n", maf_too_low_count); 
-  fprintf(ostream, "# Filtered data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n",
-	  n_markers_to_keep, filtered_md_fraction, filtered_minor_allele_freq);
-
+  append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
+  
+  // construct the filtered genotypes
   Vaccession* the_accessions = construct_vaccession(the_gtsset->n_accessions); //(Accession*)malloc(the_gtsset->n_accessions*sizeof(Accession)); 
   for(long i=0; i<the_gtsset->n_accessions; i++){ // loop over accessions
     char* raw_gts = the_gtsset->accessions->a[i]->genotypes->a; // the string with all the genotypes for accession i
@@ -896,6 +906,20 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
 
   the_gtsset->n_markers = the_gtsset->accessions->a[0]->genotypes->length;
 } // end filter_genotypesset
+
+void print_info_re_filtering(GenotypesSet* the_gtsset, FILE* fh){
+  /* fprintf(fh, "# Number of accessions with genotypes, before filtering: %ld\n", the_gtsset->n_accessions + the_gtsset->n_bad_accessions); */
+  /* fprintf(fh, "# Removing accessions with missing data fraction > %6.4lf\n"); */
+  /* fprintf(fh, "# There are %ld markers before filtering, missing data fraction = %5.3lf, minor allele frequency = %5.3f\n", */
+  /* 	  the_gtsset->marker_md_counts->size, the_gtsset->raw_md_fraction, the_gtsset->raw_minor_allele_freq);    */
+  /* fprintf(fh, "# Removing markers with missing data fraction > %6.4lf\n", the_gtsset->max_marker_md_fraction); */
+  /* fprintf(fh, "#   removed %ld markers for missing data fraction > %f5.2\n", the_gtsset->too_much_missing_data_count, the_gtsset->max_marker_missing_data_fraction); */
+  /* fprintf(fh, "# Removing markers with minor allele frequency < %5.3f\n", the_gtsset->min_minor_allele_frequency); */
+  /* fprintf(fh, "#   removed an additional %ld markers for maf < %5.2f\n", the_gtsset->maf_too_low_count, the_gtsset->min_minor_allele_frequency);  */
+  /* fprintf(fh, "# Filtered data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n", */
+  /* 	  the_gtsset->n_markers_to_keep, the_gtsset->filtered_md_fraction, the_gtsset->filtered_minor_allele_freq); */
+
+}
 
 void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency > 0.5, dosage -> ploidy-dosage
   long n_accessions = the_gtsset->accessions->size;
@@ -1107,8 +1131,68 @@ four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2){
   return rval;
 }
 
+ND bitwise_hgmr(Accession* acc1, Accession* acc2){
+  ND rval = {0, 0};
+  unsigned long long isOi, isXi, isOj, isXj;
+  for(long i_long = 0; i_long < acc1->Abits->size; i_long++){
+    unsigned long long iA = acc1->Abits->a[i_long];
+    unsigned long long iB = acc1->Bbits->a[i_long];
+    unsigned long long jA = acc2->Abits->a[i_long];
+    unsigned long long jB = acc2->Bbits->a[i_long];
+    isOi = ~(iA ^ iB);
+    isOj = ~(jA ^ jB);
+    //isXi = ~iA & iB;
+    //isXj = ~jA & jB;
+    unsigned long long isDo = (iA ^ jB) & isOi & isOj;
+    unsigned long long isSo = ~(iA ^ jB) & isOi & isOj;
+    //unsigned long long isDx = (isOi & isXj) | (isOj & isXi);
+    //unsigned long long isSx = isXi & isXj;
+    // D: difference, S: same, o: homozyg, x: (at least 1) heterozyg.
+    //   Ndo  i.e. number of markers with both homozyg, but different
+    //     (i.e. 02 and 20)
+      rval.n += __builtin_popcountll(isDo); 
+      //   Nso   00, 22
+      rval.d += __builtin_popcountll(isSo);
+  }
+  rval.d += rval.n; 
+  return rval;
+}
 
+void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** pairwise_info, double max_hgmr){
+ long n_hgmrs_calculated = 0;
+    long n_hgmrs_le_max = 0;
+    long n_acc = the_genotypes_set->accessions->size;
+    for(long ii=0; ii<n_acc; ii++){
+	  if(ii % 100  == 0) fprintf(stderr, "# ii: %ld\n", ii);
+	  Accession* A1 = the_genotypes_set->accessions->a[ii];
+	  for(long jj=ii+1; jj<n_acc; jj++){
+	    Accession* A2 = the_genotypes_set->accessions->a[jj];
+	    /* four_longs bfcs = bitwise_agmr_hgmr(A1, A2); */
+	  	   
+	    /* // long b_agmr_num = bfcs.l1 + bfcs.l3; */
+	    /* //  long b_agmr_denom = b_agmr_num + bfcs.l2 + bfcs.l4; */
+	    /* long b_hgmr_num = bfcs.l1; */
+	    /* long b_hgmr_denom = bfcs.l1 + bfcs.l2; */
+	    /* //   double true_dist = (b_agmr_denom > 0)? (double)(b_agmr_num + bfcs.l1)/(double)b_agmr_denom : -1; // L1 distance */
+	    /* //   double agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1; // Hamming distance */
+	 
+	    /* double hgmr = (b_hgmr_denom > 0)? (double)b_hgmr_num / (double)b_hgmr_denom : -1; */
+	    // fprintf(stderr, "%s %s  %8.5f\n", A1->id->a, A2->id->a, hgmr);
+	    
+	    ND hgmr_nd = bitwise_hgmr(A1, A2);
+	    double hgmr = n_over_d(hgmr_nd);
+	      
+	    n_hgmrs_calculated++;
+	    if(hgmr <= max_hgmr){
+	      
+	      n_hgmrs_le_max++;
+	      push_to_viaxh(pairwise_info[ii], jj, 10, 10, hgmr);
+	      push_to_viaxh(pairwise_info[jj], ii, 10, 10, hgmr);
+	    }
+	  }
+	}
 
+}
 
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset){ // get q and d 'hgmr' for all accession pairs
   long good_count = 0;
@@ -1206,8 +1290,10 @@ double hgmr(char* gts1, char* gts2){
 }
 
 ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick){
-  // numerator is same as hgmr, but denominator is based on expected numbers of
-  // dosage = 0 markers in random accession
+  // if(quick) count markers with  dosage 2 in a1, dosage 0 in a2 (for numerator)
+  // denominator is number expected of a2 dosage = 0 for those markers,
+  // just based on fraction of accessions having 0 for each of those markers.
+  // if(!quick) also do in the other direction (2's in a2, 0's in a1).
   Vlong* a1d2s = a1->alt_homozygs;
   double expected_refds = 0;
   long counted_refds = 0;
@@ -1220,7 +1306,7 @@ ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick){
     n0s += gtset->marker_dosage_counts[0]->a[idx]; // n0s_this_marker;
   }
   expected_refds = (double)n0s/(double)gtset->accessions->size;
-  if(quick && counted_refds/expected_refds > 0.5  && counted_refds > 100) return (ND){counted_refds, expected_refds};
+  if(quick && ( counted_refds > 100 )  && ( counted_refds/expected_refds > 0.5 )) return (ND){counted_refds, expected_refds};
   
   Vlong* a2d2s = a2->alt_homozygs;
   for(long i=0; i<a2d2s->size; i++){ // consider markers with dosage==2 in accession 2
@@ -1232,6 +1318,30 @@ ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick){
   expected_refds = (double)n0s/(double)gtset->accessions->size;
   return (ND){counted_refds, expected_refds};
 }
+
+void calculate_xhgmrs(GenotypesSet* the_genotypes_set, Viaxh** pairwise_info, bool quick_xhgmr, double max_xhgmr){
+  // calculate xhgmr for all pairs of accessions in the_gtset
+  long n_xhgmrs_calculated = 0;
+  long n_xhgmrs_le_max = 0;
+  long n_acc = the_genotypes_set->accessions->size;
+  for(long ii=0; ii<n_acc; ii++){
+    if(ii % 100  == 0) fprintf(stdout, "# ii: %ld\n", ii);
+    Accession* A1 = the_genotypes_set->accessions->a[ii];
+    for(long jj=ii+1; jj<n_acc; jj++){
+      Accession* A2 = the_genotypes_set->accessions->a[jj];
+      ND the_xhgmr = xhgmr(the_genotypes_set, A1, A2, quick_xhgmr);
+      n_xhgmrs_calculated++;
+      double dbl_xhgmr = (the_xhgmr.d > 0)? (double)the_xhgmr.n/the_xhgmr.d : -1;
+      if(dbl_xhgmr <= max_xhgmr){
+	n_xhgmrs_le_max++;
+	push_to_viaxh(pairwise_info[ii], jj, 10, dbl_xhgmr, 10);
+	push_to_viaxh(pairwise_info[jj], ii, 10, dbl_xhgmr, 10);
+      }
+    }
+  }
+  fprintf(stdout, "# n xhgmrs calculated: %ld ;  <= %8.5f :  %ld\n", n_xhgmrs_calculated, max_xhgmr, n_xhgmrs_le_max);
+}
+
 
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hgmr numerator and denominator
   char c1, c2;

@@ -3,9 +3,10 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#include <stdbool.h>
 #include "various.h"
 #include "vect.h"
-//#include "pedigree.h"
+// #include "pedigree.h"
 
 #define DO_ASSERT 0
 #define UNKNOWN -1
@@ -27,11 +28,13 @@ typedef struct{
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
   Vlong* alt_homozygs; //
-  Vull* Abits; // Abit and Bbist encode the gts, 64 gts to each pair of unsigend long longs
+  Vull* Abits; // Abit and Bbist encode the gts, 64 gts to each pair of unsigned long longs
   Vull* Bbits; //
   double agmr0;
   double n_exp_00_1_22_1;
   double  n_exp_00_1_22_1_self;
+  long Fpar_idx; // index of female parent according to pedigree file (or -1 if not in file)
+  long Mpar_idx; // index of male parent according to pedigree file (or -1 if not in file)
 }Accession;
 
 typedef struct{
@@ -44,8 +47,9 @@ typedef struct{
   //  long capacity; // needed?
   double max_marker_missing_data_fraction;
   double min_minor_allele_frequency;
-  long n_accessions; // accessions stored (ref + new but bad ones not counted)
+  long n_raw_accessions;
   long n_bad_accessions; // accessions rejected due to excessive missing data
+   long n_accessions; // accessions stored (ref + new but bad ones not counted)
   long n_ref_accessions; // ref accessions stored
   long n_markers; // redundant.
   long ploidy; //
@@ -60,6 +64,9 @@ typedef struct{
   Vlong** marker_dosage_counts; // counts of dosages for each marker
   Vlong* dosage_counts; // counts of dosages for whole
   double agmr0;
+
+  Vchar* acc_filter_info;
+  Vchar* marker_filter_info;
 }GenotypesSet;
 
 typedef struct{
@@ -140,6 +147,7 @@ void print_genotypesset_stats(GenotypesSet* gtss);
 void check_genotypesset(GenotypesSet* gtss);
 // GenotypesSet* construct_filtered_genotypesset(const GenotypesSet* the_gtsset, double max_md_fraction);
 void filter_genotypesset(GenotypesSet* the_genotypes_set, FILE* ostream);
+void print_info_re_filtering(GenotypesSet* the_gtsset, FILE* fh);
 void rectify_markers(GenotypesSet* the_gtsset);
 void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid only
 void* set_Abits_Bbits_1thread(void* x);
@@ -149,6 +157,8 @@ void set_n_00_1_22_1s(GenotypesSet* the_gtsset);
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);
+ND bitwise_hgmr(Accession* acc1, Accession* acc2);
+void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, double max_hgmr);
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
 ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
 four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
@@ -156,6 +166,7 @@ four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
 double hgmr(char* gts1, char* gts2);
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char);
 ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick);
+void calculate_xhgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, bool quick_xhgmr, double max_xhgmr);
 ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // get quick 'hgmr', and then if not large get true hgmr.
 two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon);
 ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);

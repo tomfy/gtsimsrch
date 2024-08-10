@@ -923,6 +923,39 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   return pedigree_stats;
 }
 
+void calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, Vpedigree* pedigrees){
+  //  fprintf(stderr, "cppps->size: %ld \n", cppps->size);
+    for(long ii=0; ii<cppps->size; ii++){
+      long par1idx = cppps->a[ii]->idx;
+      Iaxh* iaxh = cppps->a[ii];
+      //   fprintf(stderr, "ii: %ld   %ld  %8.5f %8.5f %8.5f\n", ii, iaxh->idx, iaxh->agmr, iaxh->hgmr, iaxh->xhgmr);
+      Accession* par1 = the_genotypes_set->accessions->a[par1idx];
+      for(long jj=ii; jj<cppps->size; jj++){	
+	long par2idx = cppps->a[jj]->idx;
+	Iaxh* iaxhjj = cppps->a[jj];
+	//	fprintf(stderr, "jj: %ld   %ld  %8.5f %8.5f %8.5f\n", jj, iaxhjj->idx, iaxhjj->agmr, iaxhjj->hgmr, iaxhjj->xhgmr);
+	Accession* par2 = the_genotypes_set->accessions->a[par2idx];
+	// fprintf(stderr, "# %s %s %s \n", prog->id->a, par1->id->a, par2->id->a);
+	Pedigree_stats* the_ps = bitwise_triple_counts(par1, par2, prog);
+
+	the_ps->xhgmr1 = cppps->a[ii]->xhgmr;
+	the_ps->xhgmr2 = cppps->a[jj]->xhgmr;
+
+	the_ps->hgmr1 = cppps->a[ii]->hgmr;
+	the_ps->hgmr2 = cppps->a[jj]->hgmr;
+	
+	Pedigree* the_pedigree = construct_pedigree(prog, par1, par2);
+	the_pedigree->pedigree_stats = the_ps;
+	//	the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog, 0); // do full (not 'quick') xhgmr
+	//	the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog, 0); // do full (not 'quick') xhgmr
+	
+	push_to_vpedigree(pedigrees, the_pedigree);
+	//	fprintf(stderr, "AFM: %s    %s %s   %ld \n\n", the_pedigree->A->id->a, the_pedigree->F->id->a, the_pedigree->M->id->a, pedigrees->size); 
+      } // end loop over parent 2
+    } // end loop over parent 1
+
+}
+
 
 /* Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, //  */
 /* 				long* d0counts, long* d1counts, long* d2counts){ // Pedigree* the_pedigree, GenotypesSet* the_gtsset){ */
@@ -1335,9 +1368,9 @@ void print_d_r(FILE* fh, ND nd){
 }
  
 
-double n_over_d(ND nd){
-  return (nd.d > 0)? (double)nd.n/(double)nd.d : NAN;
-}
+/* double n_over_d(ND nd){ */
+/*   return (nd.d > 0)? (double)nd.n/(double)nd.d : NAN; */
+/* } */
 
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print){
   fprintf(fh, " %3ld  ", alt_pedigrees->size);
@@ -1394,9 +1427,9 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
   /*     exit(EXIT_FAILURE); */
   /*   } */
   /* } */
-    long prog_id_NA_count = 0;
-    long not_in_genotypes_set_count = 0;
-    long no_parent_ids_count = 0;
+  long prog_id_NA_count = 0;
+  long not_in_genotypes_set_count = 0;
+  long no_parent_ids_count = 0;
   Vpedigree* pedigrees = construct_vpedigree(1000);
   //fprintf(stderr, "# pedigrees, cap and size: %ld %ld\n", pedigrees->capacity, pedigrees->size);
   while((nread = getline(&line, &len, p_stream)) != -1){
@@ -1431,13 +1464,18 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
       
 	if( (fempar_idx != ID_NA_INDEX) || (malpar_idx != ID_NA_INDEX) ){ // pedigree file has a valid id for at least 1 parent
 	  Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
-	  Accession* Fpar = (fempar_idx != ID_NA_INDEX)? the_gtsset->accessions->a[fempar_idx] : NULL; // id->index;
-	  Accession* Mpar = (malpar_idx != ID_NA_INDEX)? the_gtsset->accessions->a[malpar_idx] : NULL; // id->index;
+	  Acc->Fpar_idx = fempar_idx;
+	  Acc->Mpar_idx = malpar_idx;
+	  Accession* Fpar = (fempar_idx != ID_NA_INDEX)?
+	    the_gtsset->accessions->a[fempar_idx] : NULL; // id->index;
+	  Accession* Mpar = (malpar_idx != ID_NA_INDEX)?
+	    the_gtsset->accessions->a[malpar_idx] : NULL; // id->index;
+	  
 	  //	fprintf(stderr, "# %p %p %p \n", Acc, Fpar, Mpar);
 	  Pedigree* a_pedigree = construct_pedigree(Acc, Fpar, Mpar);
 	  // fprintf(stderr, "## added %s %s %s  to pedigree\n", Acc->id->a, Fpar->id->a, Mpar->id->a);
 	  // fprintf(stderr, "## pedigrees, cap and size: %ld %ld\n", pedigrees->capacity, pedigrees->size);
-	  push_to_vpedigree(pedigrees, a_pedigree);
+	  push_to_vpedigree(pedigrees, a_pedigree); // pedigrees with genotypes for accession and at least 1 of the parents.
 	  // fprintf(stderr, "# AAA\n");
 	}else{
 	  no_parent_ids_count++;
@@ -1584,6 +1622,29 @@ int compare_pedigree_z(const void* a, const void* b){
   }
 }
 
+void sort_vpedigree_by_maxdz(Vpedigree* the_vped){
+  qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigree_maxdz);
+}
+
+int compare_pedigree_maxdz(const void* a, const void* b){
+  ND dnd1 = (*((Pedigree**)a))->pedigree_stats->d;
+  ND dnd2 = (*((Pedigree**)b))->pedigree_stats->d;
+  double d1 = (dnd1.d > 0)? (double)dnd1.n/dnd1.d : 1.0;
+  double d2 = (dnd2.d > 0)? (double)dnd2.n/dnd2.d : 1.0;
+  ND znd1 = (*((Pedigree**)a))->pedigree_stats->z;
+  ND znd2 = (*((Pedigree**)b))->pedigree_stats->z;
+  double z1 = (znd1.d > 0)? (double)znd1.n/znd1.d : 1.0;
+  double z2 = (znd2.d > 0)? (double)znd2.n/znd2.d : 1.0;
+  double x1 = (d1 > z1)? d1 : z1;
+  double x2 = (d2 > z2)? d2 : z2;
+  if(x1 > x2){
+    return 1;
+  }else if(x1 < x2){
+    return -1;
+  }else{
+    return 0;
+  }
+}
 
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d){
   long n_parents = parent_idxs->size;
