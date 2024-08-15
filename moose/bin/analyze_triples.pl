@@ -5,12 +5,28 @@ use List::Util qw(min max sum);
 # store the info for each parent-progeny pair and each chromosome
 # from phased_parents.pl output.
 
-my $max_recomb_rate = shift // 0.15;
+my $pedigree_test_output = shift;
+
+my $max_recomb_rate = shift // 0.18;
+
+my %ProgFMpars_info = ();
+#my %Mprog_parent_pairs = ();
+
+open my $fhpt, "<", "$pedigree_test_output";
+while (my $pt_line = <$fhpt>) {
+  chomp $pt_line;
+  my @cols = split(" ", $pt_line);
+  my ($A, $F, $M) = @cols[0, 2, 3];
+   $ProgFMpars_info{"$A $F $M"} .= "  $pt_line";
+  # $Mprog_parent_pairs{"$A $M"} .= "  $pt_line";
+}
+close $fhpt;
+
 
 my %pppair_info = ();
 while (<>) {
   my @cols = split(" ", $_);
-  my ($par, $prog, $chrom, $XA, $XB, $Nhet) = @cols[2,3,4,6,7,12];
+  my ($prog, $par, $chrom, $XA, $XB, $Nhet) = @cols[2,3,4,6,7,10];
   my $ppp = "$par $prog";
   # next if(min($XA, $XB)/$Nhet > $max_recomb_rate); # donot store if poor parent-progeny candidate
   my $the_info = {XA => $XA, XB => $XB, Nhet => $Nhet};
@@ -32,7 +48,7 @@ for my $ppp (@pppairs) {
     $Nhet_sum += $info->{Nhet};
   }
 #  print STDERR "$ppp   $Xmin_sum $Nhet_sum  ", $Xmin_sum/$Nhet_sum, "\n";
-  delete($pppair_info{$ppp}) if($Xmin_sum/$Nhet_sum  > $max_recomb_rate);
+  delete($pppair_info{$ppp}) if(($Nhet_sum == 0)  or  $Xmin_sum/$Nhet_sum  > $max_recomb_rate);
 }
 #exit;
 @pppairs = keys %pppair_info;
@@ -40,15 +56,19 @@ print STDERR "### N pp pairs kept: ", scalar @pppairs, "\n";
 while (my($ippp1, $pppair1) = each @pppairs) {
   if ($pppair1 =~ /^\s*(\S+)\s+(\S+)\s*$/) {
     my ($parent1, $progeny) = ($1, $2);
-    for (my $ippp2 = $ippp1; $ippp2 < scalar @pppairs; $ippp2++) {
+  #  for (my $ippp2 = $ippp1; $ippp2 < scalar @pppairs; $ippp2++) {
+       for (my $ippp2 = 0; $ippp2 < scalar @pppairs; $ippp2++) {
       my $pppair2 = $pppairs[$ippp2];
       if ($pppair2 =~ /^\s*(\S+)\s+(\S+)\s*$/) {
 	my ($parent2, $progeny2) = ($1, $2);
 	next if($progeny2 ne $progeny);
+	my $key = "$progeny $parent1 $parent2";
+	my $PFMi = $ProgFMpars_info{$key} // 'XXX';
+	next if($PFMi eq 'XXX');
 	# get figure of merit for this triple:
 	my ($Xmin1, $Xmin2, $Xbest, $Nhet1, $Nhet2, $Nbad_chrom) = triple_quality(\%pppair_info, $parent1, $parent2, $progeny);
 	my $Nhet_total = $Nhet1 + $Nhet2;
-	print "$progeny   $parent1 $parent2   $Xmin1 $Xmin2 $Xbest  $Nhet1 $Nhet2  ", $Xmin1/$Nhet1, "  ", $Xmin2/$Nhet2, "  ", $Xbest/$Nhet_total, "  $Nbad_chrom \n";
+	print "$progeny   $parent1 $parent2   $Xmin1 $Xmin2 $Xbest  $Nhet1 $Nhet2  ", $Xmin1/$Nhet1, "  ", $Xmin2/$Nhet2, "  ", $Xbest/$Nhet_total, "  $Nbad_chrom  $PFMi \n";
       }
     }
   }
