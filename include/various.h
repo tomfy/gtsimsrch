@@ -29,3 +29,5 @@ double hi_res_time(void);
 double clock_ticks_to_seconds(clock_t nticks);
 void chomp(char* str); // remove any trailing newlines from str
 double n_over_d(ND the_nd);
+void print_d_r(FILE* fh, ND nd);
+void print_n_over_d(FILE* fh, ND nd);

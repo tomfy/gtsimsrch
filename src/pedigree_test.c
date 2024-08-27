@@ -35,11 +35,13 @@ main(int argc, char *argv[])
   double min_minor_allele_frequency = 0; // 
     char* pedigree_test_output_filename = "pedigree_test_info";
     char* genotypes_matrix_output_filename = "genotype_matrix_out";
+    
     double max_self_agmr12 = 1; // need to specify if doing alternative pedigrees 
     double max_ok_hgmr = 1; // accept everything as ok
     double max_self_r = 1; // need to specify if doing alternative pedigrees
     double max_ok_z = 1;
     double max_ok_d = 1; // accept everything as ok
+    bool verbose = false;
     
     double ploidy = 2;
     double epsilon = 0.01;
@@ -226,36 +228,36 @@ main(int argc, char *argv[])
     double t_d = hi_res_time();
     fprintf(stdout, "# Time to rectify genotype data: %6.3f sec.\n", t_d - t_c);
   
-    if(0){
-      double t0 = hi_res_time();
-      long n_acc = the_genotypes_set->accessions->size;
-      for(long ii=0; ii<n_acc; ii++){
-	Accession* A1 = the_genotypes_set->accessions->a[ii];
-	for(long jj=ii+1; jj<n_acc; jj++){
-	  Accession* A2 = the_genotypes_set->accessions->a[jj];
-	  ND the_xhgmr =
-	    xhgmr(the_genotypes_set, A1, A2, 0);
-	  //	  ghgmr(the_genotypes_set, A1, A2);
-	  if(1 && the_xhgmr.d > 0){
-	    double dbl_xhgmr = (double)the_xhgmr.n/the_xhgmr.d;
-	    if(dbl_xhgmr < 0.5){
-	      fprintf(stderr, "%ld %ld   %ld %ld\n",
-		      // A1->id->a, A2->id->a,
-		      ii, jj, 
-		      the_xhgmr.n, the_xhgmr.d); // , (double)the_xhgmr.n/the_xhgmr.d);
-	    }
-	  } 
-	}
-      }
-      /* quick_and_dirty_hgmrs(the_genotypes_set);   */
-      fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0); 
-      exit(0);
-    }
+    /* if(0){ */
+    /*   double t0 = hi_res_time(); */
+    /*   long n_acc = the_genotypes_set->accessions->size; */
+    /*   for(long ii=0; ii<n_acc; ii++){ */
+    /* 	Accession* A1 = the_genotypes_set->accessions->a[ii]; */
+    /* 	for(long jj=ii+1; jj<n_acc; jj++){ */
+    /* 	  Accession* A2 = the_genotypes_set->accessions->a[jj]; */
+    /* 	  ND the_xhgmr = */
+    /* 	    xhgmr(the_genotypes_set, A1, A2, 0); */
+    /* 	  //	  ghgmr(the_genotypes_set, A1, A2); */
+    /* 	  if(1 && the_xhgmr.d > 0){ */
+    /* 	    double dbl_xhgmr = (double)the_xhgmr.n/the_xhgmr.d; */
+    /* 	    if(dbl_xhgmr < 0.5){ */
+    /* 	      fprintf(stderr, "%ld %ld   %ld %ld\n", */
+    /* 		      // A1->id->a, A2->id->a, */
+    /* 		      ii, jj,  */
+    /* 		      the_xhgmr.n, the_xhgmr.d); // , (double)the_xhgmr.n/the_xhgmr.d); */
+    /* 	    } */
+    /* 	  }  */
+    /* 	} */
+    /*   } */
+    /*   /\* quick_and_dirty_hgmrs(the_genotypes_set);   *\/ */
+    /*   fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0);  */
+    /*   exit(0); */
+    /* } */
     double t_start = hi_res_time();
 
     // ***************  read the pedigrees file  ***************************
     fprintf(stderr, "# before read_and_store_pedigrees_3col\n"); 
-    Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set); // ids and indexes of the_genotypes_set, sorted by id
+    Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set->accessions); // ids and indexes of the_genotypes_set, sorted by id
     const Vpedigree* pedigrees = read_and_store_pedigrees_3col(p_stream, the_vidxid, the_genotypes_set);  
     fprintf(stderr, "# after read_and_store_pedigrees_3col\n");
     fclose(p_stream);
@@ -280,33 +282,28 @@ main(int argc, char *argv[])
       Accession* A = pedigrees->a[i]->A;
       Accession* F = pedigrees->a[i]->F;
       Accession* M = pedigrees->a[i]->M;
-      if(0 || (F != NULL  &&  M != NULL)){
-   
-	fprintf(o_stream, "%20s %5ld %20s %20s  ",
+      if(0 || (F != NULL  ||  M != NULL)){ // at least one parent specified in pedigree
+    
+	fprintf(o_stream, "%20s %5ld %20s %20s %ld  ",
 		A->id->a, A->missing_data_count,
-		(F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA");
+		(F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA", the_pedigree_stats->all_good_count);
 
-	ND Fxhgmr = xhgmr(the_genotypes_set, A, F, 0);
-	ND Mxhgmr = xhgmr(the_genotypes_set, A, M, 0);
-	// fprintf(stderr, "# after xhgmrs. \n");
-	the_pedigree_stats->xhgmr1 = n_over_d(Fxhgmr);
-	the_pedigree_stats->xhgmr2 = n_over_d(Mxhgmr);
-	// fprintf(stderr, "# after n_over_d. \n");
-	print_pedigree_stats(o_stream, the_pedigree_stats);
+	print_pedigree_stats(o_stream, the_pedigree_stats, verbose); // print the stats for this pedigree
 
 	if(do_alternative_pedigrees == 1){
-	  if(pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0){
+	  fprintf(stderr, "doing alt pedigrees for %s\n", A->id->a);
+	  if(pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0){	    
+	    Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
+	    print_pedigree_alternatives(o_stream, alt_pedigrees, 4, verbose);
+	  }
+	}else if((do_alternative_pedigrees == 2)){
+	  // || (pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0)){
+	  //   fprintf(stderr, "About to get alt. pedigrees. max_ok_hgmr: %8.4lf,  max_ok_d: %8.4lf \n", max_ok_hgmr, max_ok_d);
 	  Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
-	  print_pedigree_alternatives(o_stream, alt_pedigrees, 3);
+	  print_pedigree_alternatives(o_stream, alt_pedigrees, 4, verbose);
 	}
-      }else if((do_alternative_pedigrees == 2)){
-	// || (pedigree_ok(the_pedigree_stats, max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d) == 0)){
-	//   fprintf(stderr, "About to get alt. pedigrees. max_ok_hgmr: %8.4lf,  max_ok_d: %8.4lf \n", max_ok_hgmr, max_ok_d);
-	Vpedigree* alt_pedigrees = pedigree_alternatives(pedigrees->a[i], the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
-	print_pedigree_alternatives(o_stream, alt_pedigrees, 3);
-      }
-      free(the_pedigree_stats);
-      fprintf(o_stream, "\n");   
+	free(the_pedigree_stats);
+	fprintf(o_stream, "\n");   
       } //
     
     } // end loop over pedigrees

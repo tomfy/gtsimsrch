@@ -33,8 +33,9 @@ typedef struct{
   double agmr0;
   double n_exp_00_1_22_1;
   double  n_exp_00_1_22_1_self;
-  long Fpar_idx; // index of female parent according to pedigree file (or -1 if not in file)
-  long Mpar_idx; // index of male parent according to pedigree file (or -1 if not in file)
+  long Fpar_idx; // index of female parent according to pedigree file (or ID_NA_INDEX if not in file)
+  long Mpar_idx; // index of male parent according to pedigree file (or ID_NA_INDEX if not in file)
+  bool has_pedigree; // true iff pedigree file gives at least one parent for this accession.
 }Accession;
 
 typedef struct{
@@ -165,7 +166,7 @@ four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
 //ND quick_and_dirty_hgmr_a(Accession* acc1, Accession* acc2);
 double hgmr(char* gts1, char* gts2);
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char);
-ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick);
+ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, bool quick);
 void calculate_xhgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, bool quick_xhgmr, double max_xhgmr);
 ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // get quick 'hgmr', and then if not large get true hgmr.
 two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon);
@@ -176,6 +177,6 @@ void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset);
 void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset);
 void free_genotypesset(GenotypesSet* the_gtsset);
 
-Vidxid* construct_vidxid(const GenotypesSet* the_gtsset);
-Vidxid* construct_sorted_vidxid(const GenotypesSet* the_gtsset);
-long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset);
+Vidxid* construct_vidxid(const Vaccession* accessions);
+Vidxid* construct_sorted_vidxid(const Vaccession* accessions);
+long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);

@@ -22,8 +22,24 @@ void chomp(char* str){ // remove any trailing newlines from str
 }
 
 double n_over_d(ND the_nd){ // for positive n and d. return -1 if denom is zero.
-  return (the_nd.n > 0)? (double)the_nd.n/(double)the_nd.d : -1;
+  return (the_nd.d > 0)? (double)the_nd.n/(double)the_nd.d : -1;
 }
 /* double n_over_d(ND nd){ */
 /*   return (nd.d > 0)? (double)nd.n/(double)nd.d : NAN; */
 /* } */
+
+void print_d_r(FILE* fh, ND nd){
+  if(nd.d == 0){
+    fprintf(fh, "    0     -  ");
+  }else{
+    fprintf(fh, "%5ld %6.5lf  ", nd.d, (double)nd.n/(double)nd.d);
+  }
+}
+
+void print_n_over_d(FILE* fh, ND nd){
+  if(nd.d == 0){
+    fprintf(fh, " -  ");
+  }else{
+    fprintf(fh, "%6.5lf  ", (double)nd.n/(double)nd.d);
+  }
+}

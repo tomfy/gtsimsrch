@@ -33,6 +33,9 @@ Accession* construct_accession(char* id, long idx, char* genotypes, long accessi
   the_accession->alt_homozygs = NULL; // construct_vlong(10);
   the_accession->Abits = NULL;
   the_accession->Bbits = NULL;
+  the_accession->Fpar_idx = ID_NA_INDEX;
+  the_accession->Mpar_idx = ID_NA_INDEX;
+  the_accession->has_pedigree = false;
   return the_accession;
 }
 void set_accession_missing_data_count(Accession* the_accession, long missing_data_count){
@@ -1289,7 +1292,7 @@ double hgmr(char* gts1, char* gts2){
   return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
 }
 
-ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, int quick){
+ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, bool quick){
   // if(quick) count markers with  dosage 2 in a1, dosage 0 in a2 (for numerator)
   // denominator is number expected of a2 dosage = 0 for those markers,
   // just based on fraction of accessions having 0 for each of those markers.
@@ -1581,30 +1584,38 @@ void free_genotypesset(GenotypesSet* the_gtsset){
   free(the_gtsset);
 }
 
-Vidxid* construct_vidxid(const GenotypesSet* the_gtsset){
+Vidxid* construct_vidxid(const Vaccession* accessions){
   Vidxid* the_vidxid = (Vidxid*)malloc(sizeof(Vidxid));
-  the_vidxid->capacity = the_gtsset->n_accessions;
+  the_vidxid->capacity = accessions->size;
   the_vidxid->size = the_vidxid->capacity;
   the_vidxid->a = (IndexId**)malloc(the_vidxid->size*sizeof(IndexId*));
   for(long i=0; i<the_vidxid->size; i++){
     IndexId* the_idxid = (IndexId*)malloc(sizeof(IndexId));
     the_idxid->index = i;
-    char* the_id =  the_gtsset->accessions->a[i]->id->a;
+    char* the_id =  accessions->a[i]->id->a;
     the_idxid->id = strcpy((char*)malloc((strlen(the_id)+1)*sizeof(char)), the_id);
     the_vidxid->a[i] = the_idxid;
   }
   return the_vidxid;  
 }
 
-Vidxid* construct_sorted_vidxid(const GenotypesSet* the_gtsset){
-  Vidxid* the_vidxid = construct_vidxid(the_gtsset);
+Vidxid* construct_sorted_vidxid(const Vaccession* accessions){
+  Vidxid* the_vidxid = construct_vidxid(accessions);
   sort_vidxid_by_id(the_vidxid);
   // for(long i=0; i<the_vidxid->size; i++){ IndexId* x = the_vidxid->a[i];  }
-  if(DBUG) assert(check_idxid_map(the_vidxid, the_gtsset) == 1);
+  //  if(DBUG) assert(check_idxid_map(the_vidxid, accessions) == 1);
   return the_vidxid;
 }
 
-
+long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions){
+  for(long i=0; i<accessions->size; i++){
+    char* id = accessions->a[i]->id->a;
+    long idx = index_of_id_in_vidxid(vidxid, id);
+    // fprintf(stderr, "%ld %ld %s\n", i, idx, id);
+    if(idx != i) return 0;
+  }
+  return 1;
+}
  
 /* two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon){ */
 /*   // */

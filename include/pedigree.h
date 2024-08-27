@@ -18,6 +18,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   double hgmr2;
   double xhgmr1;
   double xhgmr2;
+  long all_good_count; // number of markers with genotypes for all 3 (or both in case of only one parent) genotypes known (i.e. no missing gts)
   long n_01or10_1; // alternative denom for z
 }Pedigree_stats; // 
 
@@ -51,7 +52,7 @@ typedef struct{
 // *****  Pedigree  *****
 Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mparent);
 //double hgmr(char* gts1, char* gts2);
-Pedigree_stats* construct_pedigree_stats(Pedigree* the_pedigree, long ploidy); // just initializing to 0's
+Pedigree_stats* construct_pedigree_stats(void); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
 void calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, Vpedigree* pedigrees);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
@@ -68,7 +69,7 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_Vped); //, long n_ac
 Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
 Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d);
-void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print);
+void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose);
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 
 void sort_vpedigree_by_d(Vpedigree* the_vped);
@@ -102,11 +103,11 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
 long marker_d_counts(Pedigree* the_pedigree,
 		     // char* gts1, char* gts2, char* proggts,
 		     long* d0counts, long* d1counts, long* d2counts);
-void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
+void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose);
 int pscmp(const void* v1, const void* v2);
 void sort_pedigree_stats_by_d(Pedigree_stats** the_pss, long size); // sort in place
 
 void print_d_r(FILE* fh, ND nd);
-double n_over_d(ND nd);
+// double n_over_d(ND nd);
 
-long check_idxid_map(Vidxid* vidxid, const GenotypesSet* the_gtsset);
+//long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);

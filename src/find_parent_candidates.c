@@ -375,7 +375,7 @@ main(int argc, char *argv[])
     /* 	  ps->agmr12.n, ps->agmr12.d, ps->par1_hgmr.n, ps->par1_hgmr.d, ps->par1_R.n, ps->par1_R.d, */
     /* 	  ps->par2_hgmr.n, ps->par2_hgmr.d, ps->par2_R.n, ps->par2_R.d, ps->d.n, ps->d.d); */
   
-    print_pedigree_stats(o_stream, the_pedigree_stats);
+    print_pedigree_stats(o_stream, the_pedigree_stats, true);
  
     if(0){
       Accession* a = pedigrees->a[i]->A;
