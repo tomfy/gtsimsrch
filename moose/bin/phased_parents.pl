@@ -2,7 +2,6 @@
 use strict;
 use List::Util qw(min max sum);
 
-
 # read in a vcf file
 # if it has phased genotypes, analyze to find
 # parent-progeny pairs.
@@ -28,24 +27,35 @@ my $do_reverse = 1;
 
 my $pedigree_file = shift // undef;
 
+##########################################################
+# read pedigree file and store accession-parent pairs ####
+##########################################################
 my %A_Fpar = ();
 my %A_Mpar = ();
 if (defined $pedigree_file) {
   open my $fhped, "<", "$pedigree_file";
   while (<$fhped>) {
     my @cols = split(" ", $_);
-    my ($A, $Fpar, $Mpar) = @cols[-3,-2,-1];
+    my ($A, $Fpar, $Mpar) = @cols[0,1,2]; # [-3,-2,-1];
+    print STDERR "$A  $Fpar $Mpar\n";
     $A_Fpar{$A} = $Fpar if($Fpar ne 'NA');
     $A_Mpar{$A} = $Mpar if($Mpar ne 'NA');
 
   }
   close $fhped;
 }
-print STDERR  "# Information from file  $pedigree_file  stored.\n";
+print STDERR  "# Pedigree information from file  $pedigree_file  stored.\n";
 print STDERR "# ", scalar keys %A_Fpar, " female parents;  ", scalar keys %A_Mpar, " male parents.\n";
+sleep(2);
+##########################################################
+# Done reading pedigree file ######################## ####
+##########################################################
 
+
+##############################################
+# read and store vcf file ####################
+##############################################
 my $max_markers = 5000000;
-
 my @acc_ids = ();
 my %acc_chroms = (); # keys: acc ids, values: arrayref of chromosome object;
 my %chrom_numbers = ();
@@ -119,18 +129,24 @@ while (my $line = <>) # each pass through this loop processes one marker, all ac
     last if($marker_count >= $max_markers);
   }
 printf STDERR "Done storing markers. Markers stored:  $marker_count \n";
-# done storing info in vcf file.
+###########################################
+# done storing info in vcf file. ##########
+###########################################
 
-while (my($i, $accid) = each @acc_ids) {
-  # print "$i  $accid  ", scalar @{$acc_chroms{$accid}}, "\n";
-  while (my ($i_chrom, $a_chrom) = each @{$acc_chroms{$accid}}) {
-    next if($i_chrom == 0);
-  }
+for my $anid (@acc_ids){
+  print STDERR "$anid   ", $A_Fpar{$anid} // 'X', "  ", $A_Mpar{$anid} // 'Y', "\n";
 }
+# exit;
+# while (my($i, $accid) = each @acc_ids) {
+#   # print "$i  $accid  ", scalar @{$acc_chroms{$accid}}, "\n";
+#   while (my ($i_chrom, $a_chrom) = each @{$acc_chroms{$accid}}) {
+#     next if($i_chrom == 0);
+#   }
+# }
 
 my @chroms = sort {$a <=> $b} keys %chrom_numbers;
 my $n_chrom_pairs_analyzed_forward = 0;
-for my $i_chrom (@chroms) {
+for my $i_chrom (@chroms) { # loop over chromosomes
   while (my ($i, $aid1) = each @acc_ids) { # loop over accessions considered as progeny
     my $pgts1 = $acc_chroms{$aid1}->[$i_chrom]->genotypes();
     # print "XXX: ", join(" ", map($_->pgt(), @$pgts1)), "\n";
@@ -138,8 +154,11 @@ for my $i_chrom (@chroms) {
     #  while(my ($j, $aid2) = each @acc_ids){
     my $ped_Fpar = $A_Fpar{$aid1} // 'unknown';
     my $ped_Mpar = $A_Mpar{$aid1} // 'unknown';
-    next if($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown');
-    # print STDERR "$aid1 $ped_Fpar  $ped_Mpar \n";
+    if($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown'){
+      print STDERR "Accession $aid1 has both parent unknown in pedigree file.\n";
+      next;
+    }
+   # print STDERR "$aid1 $ped_Fpar  $ped_Mpar \n";
     for (my $j = 0; $j < scalar @acc_ids; $j++) { # loop over accessions considered as parents
       my $pF = 'X';
       my $pM = 'X';
@@ -148,7 +167,9 @@ for my $i_chrom (@chroms) {
       $pF = 'F' if($aid2 eq $ped_Fpar);
       $pM = 'M' if($aid2 eq $ped_Mpar);
       my $pFM = $pF . $pM;
+     
       if ($pFM ne 'XX') {
+	 print STDERR "$i_chrom  $aid1  $pF  $pM   $ped_Fpar  $ped_Mpar \n";
 	# forward direction - $aid2 is parent
 	my $pgts2 = $acc_chroms{$aid2}->[$i_chrom]->genotypes();
 	my ($Do, $So, $XA, $XB, $parent_het_count, $length1count_A, $length1count_B) = analyze_pgts_pair($pgts2, $pgts1); # $pgts1: parent, $pgts2: progeny

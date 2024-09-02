@@ -40,13 +40,6 @@ typedef struct{
   double hgmr;
 }Idxhgmr;
 
-typedef struct{
-  long idxA;
-  long idxFp;
-  long idxMp;
-  Vlong* progeny; // indices of progeny
-}Three_generations;
-
 // *****  function declarations  *****
 
 // *****  Pedigree  *****
@@ -54,7 +47,7 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
 //double hgmr(char* gts1, char* gts2);
 Pedigree_stats* construct_pedigree_stats(void); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
-void calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, Vpedigree* pedigrees);
+Vpedigree* calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_d);
@@ -66,17 +59,18 @@ Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid,
 Vpedigree* construct_vpedigree(long cap);
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped); //, long n_accessions);
 
-Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
+//Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
 Vpedigree* alternative_pedigrees(Accession* the_acc, const GenotypesSet* the_gtsset, Vlong* best_parent_candidate_idxs, long ub, double max_ok_d);
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose);
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 
-void sort_vpedigree_by_d(Vpedigree* the_vped);
+/* void sort_vpedigree_by_d(Vpedigree* the_vped);
 void sort_vpedigree_by_z(Vpedigree* the_vped);
-void sort_vpedigree_by_maxdz(Vpedigree* the_vped);
 int compare_pedigree_d(const void* a, const void* b);
-int compare_pedigree_z(const void* a, const void* b);
+int compare_pedigree_z(const void* a, const void* b); /* */
+
+void sort_vpedigree_by_maxdz(Vpedigree* the_vped);
 int compare_pedigree_maxdz(const void* a, const void* b);
 void free_vpedigree(const Vpedigree* the_vped);
 
@@ -88,24 +82,23 @@ void sort_idxhgmr_by_hgmr(long size, Idxhgmr* array);
 long long_min(long a, long b);
 long long_max(long a, long b);
 
-two_longs gamete_dosage_range(long d, long ploidy);
-two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2, Accession* progacc);
-four_longs q_and_d_n22x_diploid(Accession* acc1, Accession* acc2, Accession* progacc);
-ND tfc_tetraploid(char* gts1, char* gts2, char* proggt);
-ND tfc_diploid(char* gts1, char* gts2, char* proggts);
-ND TFC(char* gts1, char* gts2, char* proggts, long ploidy);
-four_longs tfca(char* gts1, char* gts2, char* proggts, long ploidy);
-four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long ploidy);
-Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts,
-			   long* d0counts, long* d1counts, long* d2counts);
+// two_longs gamete_dosage_range(long d, long ploidy);
+// two_longs diploid_quick_and_dirty_triple_counts(Accession* acc1, Accession* acc2, Accession* progacc);
+// four_longs q_and_d_n22x_diploid(Accession* acc1, Accession* acc2, Accession* progacc);
+// ND tfc_tetraploid(char* gts1, char* gts2, char* proggt);
+// ND tfc_diploid(char* gts1, char* gts2, char* proggts);
+// ND TFC(char* gts1, char* gts2, char* proggts, long ploidy);
+// four_longs tfca(char* gts1, char* gts2, char* proggts, long ploidy);
+// four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long ploidy);
+// Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, long* d0counts, long* d1counts, long* d2counts);
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
-long marker_d_counts(Pedigree* the_pedigree,
-		     // char* gts1, char* gts2, char* proggts,
-		     long* d0counts, long* d1counts, long* d2counts);
+// long marker_d_counts(Pedigree* the_pedigree, long* d0counts, long* d1counts, long* d2counts);
+void print_pedigree(FILE* fh, Pedigree* the_pedigree, bool verbose);
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose);
-int pscmp(const void* v1, const void* v2);
-void sort_pedigree_stats_by_d(Pedigree_stats** the_pss, long size); // sort in place
+
+//void sort_pedigree_stats_by_d(Pedigree_stats** the_pss, long size); // sort in place
+//int pscmp(const void* v1, const void* v2);
 
 void print_d_r(FILE* fh, ND nd);
 // double n_over_d(ND nd);

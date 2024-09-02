@@ -6,7 +6,7 @@ use Mouse;
 use namespace::autoclean;
 use Carp;
 use List::Util qw ( min max sum );
-use Marker;
+#use Marker;
 
 has i_chrom => (
 		   isa => 'Int',
