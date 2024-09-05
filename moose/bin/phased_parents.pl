@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use List::Util qw(min max sum);
+use List::Util qw(min max sum shuffle);
 
 # read in a vcf file
 # if it has phased genotypes, analyze to find
@@ -23,9 +23,10 @@ print STDERR "# libdir: $libdir \n";
 
 use Chromosome;
 #use Marker;
-my $do_reverse = 1;
+my $do_reverse = 0;
 
 my $pedigree_file = shift // undef;
+my $rand_parents_to_do = shift // 4;
 
 ##########################################################
 # read pedigree file and store accession-parent pairs ####
@@ -37,7 +38,7 @@ if (defined $pedigree_file) {
   while (<$fhped>) {
     my @cols = split(" ", $_);
     my ($A, $Fpar, $Mpar) = @cols[0,1,2]; # [-3,-2,-1];
-    print STDERR "$A  $Fpar $Mpar\n";
+    #print STDERR "$A  $Fpar $Mpar\n";
     $A_Fpar{$A} = $Fpar if($Fpar ne 'NA');
     $A_Mpar{$A} = $Mpar if($Mpar ne 'NA');
 
@@ -46,7 +47,7 @@ if (defined $pedigree_file) {
 }
 print STDERR  "# Pedigree information from file  $pedigree_file  stored.\n";
 print STDERR "# ", scalar keys %A_Fpar, " female parents;  ", scalar keys %A_Mpar, " male parents.\n";
-sleep(2);
+#sleep(2);
 ##########################################################
 # Done reading pedigree file ######################## ####
 ##########################################################
@@ -65,7 +66,7 @@ while (my $line = <>) {		# read accession ids from vcf file
   if ($line =~ /^\s*#/) {
     @acc_ids = split(" ", $line);
     @acc_ids = @acc_ids[9..$#acc_ids]; #
-    print STDERR "# ", scalar @acc_ids, "\n";
+    print STDERR "# number of accession ids in vcf file: ", scalar @acc_ids, "\n";
     last;
   }
 }
@@ -123,6 +124,7 @@ while (my $line = <>) # each pass through this loop processes one marker, all ac
       #    my $the_marker = Marker->new({ pgt => $the_pgt});
       #    $the_chrom->add_marker($the_marker);
       $the_chrom->add_genotype($the_pgt);
+      # print STDERR "Added genotypes for $accid, chrom $i_chrom.\n";
     }
     $marker_count++;
     printf STDERR "Markers read from vcf file so far: $marker_count \n" if($marker_count % 100 == 0);
@@ -133,73 +135,78 @@ printf STDERR "Done storing markers. Markers stored:  $marker_count \n";
 # done storing info in vcf file. ##########
 ###########################################
 
-for my $anid (@acc_ids){
-  print STDERR "$anid   ", $A_Fpar{$anid} // 'X', "  ", $A_Mpar{$anid} // 'Y', "\n";
-}
-# exit;
-# while (my($i, $accid) = each @acc_ids) {
-#   # print "$i  $accid  ", scalar @{$acc_chroms{$accid}}, "\n";
-#   while (my ($i_chrom, $a_chrom) = each @{$acc_chroms{$accid}}) {
-#     next if($i_chrom == 0);
-#   }
+# for my $anid (@acc_ids){
+#   print STDERR "$anid   ", $A_Fpar{$anid} // 'X', "  ", $A_Mpar{$anid} // 'Y', "\n";
 # }
 
 my @chroms = sort {$a <=> $b} keys %chrom_numbers;
 my $n_chrom_pairs_analyzed_forward = 0;
-for my $i_chrom (@chroms) { # loop over chromosomes
-  while (my ($i, $aid1) = each @acc_ids) { # loop over accessions considered as progeny
-    my $pgts1 = $acc_chroms{$aid1}->[$i_chrom]->genotypes();
-    # print "XXX: ", join(" ", map($_->pgt(), @$pgts1)), "\n";
-    # sleep(1);
-    #  while(my ($j, $aid2) = each @acc_ids){
-    my $ped_Fpar = $A_Fpar{$aid1} // 'unknown';
-    my $ped_Mpar = $A_Mpar{$aid1} // 'unknown';
-    if($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown'){
-      print STDERR "Accession $aid1 has both parent unknown in pedigree file.\n";
+# for my $i_chrom (@chroms) { # loop over chromosomes
+while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as progeny
+  my $ped_Fpar = $A_Fpar{$progid} // 'unknown';
+  my $ped_Mpar = $A_Mpar{$progid} // 'unknown';
+  my %cand_parent_ids = ();
+  if ($ped_Fpar ne 'unknown') {
+    $cand_parent_ids{$ped_Fpar} = 'F';
+  }
+  if ($ped_Mpar ne 'unknown') {
+    $cand_parent_ids{$ped_Mpar} = 'M';
+  }
+  my $rand_parents_added = 0;
+  my @shuffled_ids = shuffle(@acc_ids);
+  for my $anid (@shuffled_ids) { # add some other randomly chosen parents
+    if (exists $acc_chroms{$anid}) {
+      if ($anid ne $progid  and  $anid ne $ped_Fpar  and  $anid ne $ped_Mpar) {
+	$cand_parent_ids{$anid} = 'R';
+	$rand_parents_added++;
+      }
+    }
+    last if($rand_parents_added >= $rand_parents_to_do);
+  }
+  for my $i_chrom (@chroms) {	# loop over chromosomes
+    my $pgts1 = $acc_chroms{$progid}->[$i_chrom]->genotypes();
+    if ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown') {
+      print STDERR "Accession $progid has both parent unknown in pedigree file.\n";
       next;
     }
-   # print STDERR "$aid1 $ped_Fpar  $ped_Mpar \n";
-    for (my $j = 0; $j < scalar @acc_ids; $j++) { # loop over accessions considered as parents
-      my $pF = 'X';
-      my $pM = 'X';
-      next if($j == $i);
-      my $aid2 = $acc_ids[$j];
-      $pF = 'F' if($aid2 eq $ped_Fpar);
-      $pM = 'M' if($aid2 eq $ped_Mpar);
-      my $pFM = $pF . $pM;
-     
-      if ($pFM ne 'XX') {
-	 print STDERR "$i_chrom  $aid1  $pF  $pM   $ped_Fpar  $ped_Mpar \n";
-	# forward direction - $aid2 is parent
-	my $pgts2 = $acc_chroms{$aid2}->[$i_chrom]->genotypes();
-	my ($Do, $So, $XA, $XB, $parent_het_count, $length1count_A, $length1count_B) = analyze_pgts_pair($pgts2, $pgts1); # $pgts1: parent, $pgts2: progeny
-	$n_chrom_pairs_analyzed_forward++;
-	print STDERR "Chromosome parent-progeny pairs analyzed: $n_chrom_pairs_analyzed_forward \n" if($n_chrom_pairs_analyzed_forward % 100 == 0);
-	my $hgmr_denom = $Do + $So;
-	# $par_01_count is number of 0|1 genotypes in parent ($aid1)
-	# $par_10_count is number of 1|0 genotypes in parent ($aid1)
-	print "$i $j  $aid1  $aid2  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
-	if ($XA < $XB) {
-	  print "$XA $XB  ";	# $length1count_A $length1count_B  ";
+
+    while (my($parid, $type) = each %cand_parent_ids) {
+
+      next if($parid eq $progid);
+      #my $pFM = $type;		# $pF . $pM;
+      next if(!exists $acc_chroms{$parid});
+      # if ($pFM ne 'XX') {
+      #print STDERR "$i_chrom  $progid  $pFM   $ped_Fpar  $ped_Mpar \n";
+      # forward direction - $parid is parent
+      my $pgts2 = $acc_chroms{$parid}->[$i_chrom]->genotypes();
+      my ($Do, $So, $XA, $XB, $parent_het_count, $length1count_A, $length1count_B) = analyze_pgts_pair($pgts2, $pgts1); # $pgts1: parent, $pgts2: progeny
+      $n_chrom_pairs_analyzed_forward++;
+      print STDERR "Chromosome parent-progeny pairs analyzed: $n_chrom_pairs_analyzed_forward \n" if($n_chrom_pairs_analyzed_forward % 100 == 0);
+      my $hgmr_denom = $Do + $So;
+      # $par_01_count is number of 0|1 genotypes in parent ($progid)
+      # $par_10_count is number of 1|0 genotypes in parent ($progid)
+      print "$progid  $parid  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
+      if ($XA < $XB) {
+	print "$XA $XB  ";	# $length1count_A $length1count_B  ";
+      } else {
+	print "$XB $XA  ";	#  $length1count_B $length1count_A  ";
+      }		       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
+      #      "   $par_01_count $par_10_count ",
+      print " $parent_het_count  $type  forward\n";
+
+      if ($do_reverse) { # now with $progid as parent, $parid as progeny
+	my ($Do_rev, $So_rev, $XA_rev, $XB_rev, $parent_het_count_rev, $L1count_A_rev, $L1count_B_rev) = analyze_pgts_pair($pgts1, $pgts2);
+	my $hgmr_rev = ($So_rev > 0)? $Do_rev/($Do_rev + $So_rev) : -1;
+	print "$parid  $progid  $i_chrom  $hgmr_rev  $XA_rev $XB_rev   ";
+	if ($XA_rev < $XB_rev) {
+	  print "$XA_rev $XB_rev  "; # $length1count_A $length1count_B  ";
 	} else {
-	  print "$XB $XA  ";	#  $length1count_B $length1count_A  ";
+	  print "$XB_rev $XA_rev  "; #  $length1count_B $length1count_A  ";
 	}	       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
 	#      "   $par_01_count $par_10_count ",
-	print " $parent_het_count  $pFM  forward\n ";
-
-	if ($do_reverse) { # now with $aid1 as parent, $aid2 as progeny
-	  my ($Do_rev, $So_rev, $XA_rev, $XB_rev, $parent_het_count_rev, $L1count_A_rev, $L1count_B_rev) = analyze_pgts_pair($pgts1, $pgts2);
-	  my $hgmr_rev = ($So_rev > 0)? $Do_rev/($Do_rev + $So_rev) : -1;
-	  print "$j $i  $aid2  $aid1  $i_chrom  $hgmr_rev  $XA_rev $XB_rev   ";
-	  if ($XA_rev < $XB_rev) {
-	    print "$XA_rev $XB_rev  "; # $length1count_A $length1count_B  ";
-	  } else {
-	    print "$XB_rev $XA_rev  "; #  $length1count_B $length1count_A  ";
-	  }	       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
-	  #      "   $par_01_count $par_10_count ",
-	  print " $parent_het_count_rev reverse\n";
-	}
+	print " $parent_het_count_rev reverse\n";
       }
+      # }
     }
   }
 }
@@ -231,7 +238,7 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
   my ($previous_switch_positionA, $switch_positionA) = (undef, undef);
   my ($previous_switch_positionB, $switch_positionB) = (undef, undef);
   while (my($i, $pgt1) = each @$pgts1) {
-    my $par_pgt = $pgt1; # ->pgt();
+    my $par_pgt = $pgt1;	 # ->pgt();
     my $prog_pgt = $pgts2->[$i]; #->pgt();
     # print "$par_pgt  $prog_pgt \n";
     if ($par_pgt != 4  and  $prog_pgt != 4) {

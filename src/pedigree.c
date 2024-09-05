@@ -511,7 +511,7 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
     print_pedigree_stats(stdout, the_ps, true);
     fprintf(stdout, "\n");
     print_pedigree_stats(stdout, bw_ps, true);
-    getchar();
+    // getchar();
 
     
     the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
