@@ -40,6 +40,7 @@ my $output_file = "pp.out";
 my $rand_parents_to_do = 2; # for each accession with pedigree, also choose this many other accessions at random to test as parents.
 my $min_gt_prob = 0.9;	    # for 
 my $do_reverse = 0;
+my $max_markers = 5000000000; # to limit to a smaller number of markers for speed in testing
 
 GetOptions(
 	   'pedigree_file=s' => \$pedigree_file,
@@ -48,6 +49,7 @@ GetOptions(
 	   'rand_parents|n_rand_parents=i' => \$rand_parents_to_do,
 	   'min_prob|gt_min_prob=f' => \$min_gt_prob,
 	   'reverse!' => \$do_reverse,
+	   'marker_limit=i' => \$max_markers,
 	  );
 
 open my $fhout, ">", "$output_file";
@@ -87,7 +89,7 @@ print STDOUT "# ", scalar keys %A_Fpar, " female parents;  ", scalar keys %A_Mpa
 ##############################################
 # read and store vcf file ####################
 ##############################################
-my $max_markers = 5000000;
+
 my @acc_ids = ();
 my %acc_chroms = (); # keys: acc ids, values: arrayref of chromosome object;
 my %chrom_numbers = ();
@@ -103,7 +105,6 @@ while (my $line = <$fhvcf>) {	# read accession ids from vcf file
   }
 }
 
-# print 'YYY ',  scalar @acc_ids, "\n";
 for my $acc_id (@acc_ids) {
   $acc_chroms{$acc_id} = [];
 }
@@ -125,23 +126,16 @@ while (my $line = <$fhvcf>) # each pass through this loop processes one marker, 
     my $filter = shift @marker_gts;
     my $info = shift @marker_gts;
     my $format = shift @marker_gts;
-    # print STDERR  scalar @acc_ids, "  ", scalar @marker_gts, "\n";
     while (my($i, $accid) = each @acc_ids) { # loop over the accessions
-      # print STDERR "i: $i  accid:  $accid\n";
       if (!exists $acc_chroms{$accid}->[$i_chrom]) { # check whether Chromosome obj. exists for this accession and chromosome number
 	$acc_chroms{$accid}->[$i_chrom] = Chromosome->new({i_chrom => $i_chrom, genotypes => []});
       }
       my $the_chrom = $acc_chroms{$accid}->[$i_chrom];
-      # print ref $the_chrom, "\n";
-      # print $the_chrom->i_chrom(), "\n";
-      # print scalar @{$the_chrom->genotypes()}, "\n";
-
       my $the_pgt = '4';	# 4 means missing data
       my $gt_info = $marker_gts[$i];
       my @fields = split(':', $gt_info);
       my @gps = split(',', $fields[2]); # est probabilities for different 
       if (max(@gps) < $min_gt_prob) {
-	# print STDERR join(':', @fields), "\n";
 	$the_pgt = 4;		# low quality gt, set as missing.
       } else {
 	if ($fields[0] eq '0|0') {
@@ -154,10 +148,7 @@ while (my $line = <$fhvcf>) # each pass through this loop processes one marker, 
 	  $the_pgt = 3;
 	}
       }
-      #    my $the_marker = Marker->new({ pgt => $the_pgt});
-      #    $the_chrom->add_marker($the_marker);
       $the_chrom->add_genotype($the_pgt);
-      # print STDERR "Added genotypes for $accid, chrom $i_chrom.\n";
     }
     $marker_count++;
     printf STDOUT "Markers read from vcf file so far: $marker_count \n" if($marker_count % 1000 == 0);
@@ -171,12 +162,11 @@ close $fhvcf;
 
 my @chroms = sort {$a <=> $b} keys %chrom_numbers;
 my $n_chrom_pairs_analyzed_forward = 0;
-# for my $i_chrom (@chroms) { # loop over chromosomes
+
 while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as progeny
   my $ped_Fpar = $A_Fpar{$progid} // 'unknown';
   my $ped_Mpar = $A_Mpar{$progid} // 'unknown';
   if ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown') {
-    # print STDERR "Accession $progid has both parent unknown in pedigree file.\n";
     next;
   }
   my %cand_parent_ids = ();
@@ -212,15 +202,12 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
       $n_chrom_pairs_analyzed_forward++;
       print STDOUT "Chromosome parent-progeny pairs analyzed: $n_chrom_pairs_analyzed_forward \n" if($n_chrom_pairs_analyzed_forward % 1000 == 0);
       my $hgmr_denom = $Do + $So;
-      # $par_01_count is number of 0|1 genotypes in parent ($progid)
-      # $par_10_count is number of 1|0 genotypes in parent ($progid)
       print $fhout "$progid  $parid  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
       if ($XA < $XB) {
 	print $fhout "$XA $XB  "; # $length1count_A $length1count_B  ";
       } else {
 	print $fhout "$XB $XA  "; #  $length1count_B $length1count_A  ";
-      }		       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
-      #      "   $par_01_count $par_10_count ",
+      }
       print $fhout " $parent_het_count  $type  forward\n";
 
       if ($do_reverse) { # now with $progid as parent, $parid as progeny
@@ -231,11 +218,9 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
 	  print $fhout "$XA_rev $XB_rev  "; # $length1count_A $length1count_B  ";
 	} else {
 	  print $fhout "$XB_rev $XA_rev  "; #  $length1count_B $length1count_A  ";
-	}	       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
-	#      "   $par_01_count $par_10_count ",
+	}
 	print $fhout " $parent_het_count_rev reverse\n";
       }
-      # }
     }
   }
 }
@@ -261,15 +246,11 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
   my $par_het_count = 0;
   my $length_1_countA = 0;
   my $length_1_countB = 0;
-  #  my ($A_0_count, $A_1_count, $B_0_count, $B_1_count) = (0, 0, 0, 0);
-  # print join('', map($_->pgt(), @$pgts1)), "\n";
-  # print join('', map($_->pgt(), @$pgts2)), "\n";
   my ($previous_switch_positionA, $switch_positionA) = (undef, undef);
   my ($previous_switch_positionB, $switch_positionB) = (undef, undef);
   while (my($i, $pgt1) = each @$pgts1) {
     my $par_pgt = $pgt1;	 # ->pgt();
     my $prog_pgt = $pgts2->[$i]; #->pgt();
-    # print "$par_pgt  $prog_pgt \n";
     if ($par_pgt != 4  and  $prog_pgt != 4) {
       my $progA = ($prog_pgt == 0 or $prog_pgt == 1)? 0 : 1; # 0 <-> prog A has 0 (ref)
       my $progB = ($prog_pgt == 0 or $prog_pgt == 2)? 0 : 1; # 0 <-> prog B has 0 (ref)
@@ -292,7 +273,6 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countA++;
 	    $switch_positionA = $par_het_count;
 	    if (defined $previous_switch_positionA) {
-	      # print STDERR  "0|1 A0 $switch_positionA  ", $switch_positionA - $previous_switch_positionA, " $par_het_count\n";
 	      $length_1_countA++ if(($switch_positionA - $previous_switch_positionA)  ==  1);
 	    }
 	    $previous_switch_positionA = $switch_positionA;
@@ -321,7 +301,6 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      # print STDERR  "0|1 B0 $switch_positionB ", $switch_positionB - $previous_switch_positionB, "  $par_het_count\n";
 	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
 	    }
 	    $previous_switch_positionB = $switch_positionB;
@@ -336,15 +315,12 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      # print STDERR  "0|1 B1 $switch_positionB ", $switch_positionB - $previous_switch_positionB, " $par_het_count\n";
 	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
 	    }
 	    $previous_switch_positionB = $switch_positionB;
 	  }
 	  $previous_phaseB = $phaseB;
 	}
-
-	#			print "X $par_pgt  $prog_pgt   $progA $progB  $previous_phaseA $previous_phaseB   $switch_countA $switch_countB \n";
 
       } elsif ($par_pgt == 2) {	# par 1|0
 	$par_2count++;
@@ -357,7 +333,6 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countA++;
 	    $switch_positionA = $par_het_count;
 	    if (defined $previous_switch_positionA) {
-	      # print STDERR  "1|0 A0 $switch_positionA ", $switch_positionA - $previous_switch_positionA, " $par_het_count\n";
 	      $length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
 	    }
 	    $previous_switch_positionA = $switch_positionA;
@@ -369,7 +344,6 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countA++;
 	    $switch_positionA = $par_het_count;
 	    if (defined $previous_switch_positionA) {
-	      # print STDERR  "1|0 A1 $switch_positionA ", $switch_positionA - $previous_switch_positionA, " $par_het_count\n";
 	      $length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
 	    }
 	    $previous_switch_positionA = $switch_positionA;
@@ -382,9 +356,7 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      # print STDERR  "1|0 B0 $switch_positionB ", $switch_positionB - $previous_switch_positionB, " $par_het_count\n";
 	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
-	    
 	    }
 	    $previous_switch_positionB = $switch_positionB;
 	  }
@@ -395,7 +367,6 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      # print STDERR  "1|0 B1 $switch_positionB ", $switch_positionB - $previous_switch_positionB, " $par_het_count\n";
 	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
 	    }
 	    $previous_switch_positionB = $switch_positionB;
@@ -409,7 +380,6 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	  $Shom++;
 	}
       }
-      #  print STDERR "$par_pgt  $progA $progB  " , $phaseA // '-', "  $switch_countA  ", $phaseB // '-', "  $switch_countB\n";
     }
   }
   return ($Dhom, $Shom, $switch_countA, $switch_countB, $par_het_count, $length_1_countA, $length_1_countB);
