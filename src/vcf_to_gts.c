@@ -20,7 +20,7 @@
 #define split_str "\t"
 
 // There will be one of these structs for each thread,
-// each thread which will process the markers in the range from first_marker to last_marker
+// each thread will process the markers in the range from first_marker to last_marker
 typedef struct{
   long n_accessions;
   Vstr* marker_ids;
@@ -62,11 +62,13 @@ int main(int argc, char *argv[]){
   char* input_filename = NULL;
   FILE *in_stream = NULL;
   Vchar* output_filename = construct_vchar_from_str("vcftogts.out");
-  FILE* out_stream = NULL; 
-
-  // double minGQ = 0; // not implemented, but should be.
-  double minGP = 0;
-
+  FILE* out_stream = NULL;
+  
+  double minGP = 0.9;
+  double delta = 0.1;
+  double min_maf = 0.1;
+  double max_marker_md = 0.25;
+  
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
 
@@ -75,9 +77,6 @@ int main(int argc, char *argv[]){
   bool shuffle_accessions = false;
   long rand_seed = (unsigned)time(0);
 
-  double delta = 0.1;
-  double min_maf = 0.1;
-  double max_marker_md = 0.25;
   long ploidy = 2;
   long n_markers_in_chunk = 5040; // perhaps give this a different name?
   long min_chunk_size = 60;
@@ -89,13 +88,13 @@ int main(int argc, char *argv[]){
     static struct option long_options[] = {
       {"input",   required_argument, 0,  'i'}, // vcf filename
 	{"output",  required_argument, 0,  'o'}, // output filename
-	{"pmin",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
+	{"prob_min",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
 	{"threads", required_argument, 0,  't'}, // number of threads to use. Default: set automatically based on nprocs()
 	{"alternate_marker_ids",  no_argument, 0, 'a'}, // construct marker ids from cols 1 and 2 (in case garbage in col 3)
 	{"randomize",    no_argument, 0,  'r' }, // shuffle the order of the accessions in output
 	{"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
-	{"min_maf", required_argument, 0, 'f'}, // filter out markers with minor allele frequency less than this.
-	{"max_marker_md", required_argument, 0, 'm'}, // filter out markers with missing data fraction > this.
+	{"maf_min", required_argument, 0, 'f'}, // filter out markers with minor allele frequency less than this.
+	{"marker_max_md", required_argument, 0, 'm'}, // filter out markers with missing data fraction > this.
 	{"delta", required_argument, 0, 'd'},  // if using DS, the dosage will be considered to be missing data if > delta from an integer.
 	{"chunk_size", required_argument, 0, 'c'}, // number of lines (markers) to read and process at a time.
 	{"help", no_argument, 0, 'h'},
@@ -232,7 +231,22 @@ int main(int argc, char *argv[]){
     fprintf(stdout, "# Unthreaded.\n");
   }
 
-  
+  // ****************************************************
+  // *****  Output run parameters  **********************
+  // ****************************************************
+  fprintf(stdout, "# Input file: %s \n# Output file: %s \n", input_filename, output_filename->a);
+  fprintf(stdout, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta);
+  fprintf(stdout, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md);
+  fprintf(stdout, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false");
+  fprintf(stdout, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed);
+  fprintf(stdout, "# number of threads: %ld \n", Nthreads);
+
+  fprintf(out_stream, "# Input file: %s \n# Output file: %s \n", input_filename, output_filename->a);
+  fprintf(out_stream, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta);
+  fprintf(out_stream, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md);
+  fprintf(out_stream, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false");
+  fprintf(out_stream, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed);
+  fprintf(out_stream, "# number of threads: %ld \n", Nthreads);
   // ****************************************************
   // *****   Read first line; store accession ids.  *****
   // ****************************************************
@@ -696,9 +710,9 @@ void print_usage_info(FILE* ostream){
   fprintf(stdout, "Options:\n");
   fprintf(stdout, "  -input       Input vcf filename (required).\n");
   fprintf(stdout, "  -out         Output filename (default: vcftogts.out)\n");
-  fprintf(stdout, "  -pmin        Min. estimated genotype probibility (if GP field present; default: 0.9)\n");
-  fprintf(stdout, "  -min_maf     Exclude markers with minor allele frequency < this. (Default: 0.1)\n");
-  fprintf(stdout, "  -max_marker_md  Exclude markers with proportion of missing data > this. (Default: 0.25)\n");
+  fprintf(stdout, "  -prob_min        Min. estimated genotype probibility (if GP field present; default: 0.9)\n");
+  fprintf(stdout, "  -maf_min     Exclude markers with minor allele frequency < this. (Default: 0.1)\n");
+  fprintf(stdout, "  -marker_max_md  Exclude markers with proportion of missing data > this. (Default: 0.25)\n");
   fprintf(stdout, "  -delta       If using DS field, must be within this of an integer or call it missing data. (Default: 0.1)\n");
   fprintf(stdout, "  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
    
