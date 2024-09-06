@@ -19,14 +19,45 @@ BEGIN {     # this has to go in Begin block so happens at compile time
   $libdir = abs_path($libdir);	# collapses the bin/../lib to just lib
 }
 use lib $libdir;
-print STDERR "# libdir: $libdir \n";
-
+print STDOUT "# libdir: $libdir \n";
 use Chromosome;
-#use Marker;
+
+# analyze a vcf file and use the phase information to
+# test pedigrees.
+# genotypes fields of the vcf file must have
+# phased information as first subfield
+# if 3rd subfield has probabilities for the 3 possible dosages
+#    the max of these 3 will be required to be > $min_gt_prob
+#    otherwise the genotypes is considered to be missing.
+# for example:  1|0:1:0,1,0
+# In this case the probability of the genotype is 1, so it is retained.
+
+# usage: phased_parents.pl -ped <pedigree filename> -vcf < <vcf filename> [-out <output filename>] [-rand <n random parents>] [-min_prob <min gt probability>] [-rev (to do in rev direction also>]
+
+my $pedigree_file = undef;
+my $vcf_file = undef;
+my $output_file = "pp.out";
+my $rand_parents_to_do = 2; # for each accession with pedigree, also choose this many other accessions at random to test as parents.
+my $min_gt_prob = 0.9; # for 
 my $do_reverse = 0;
 
-my $pedigree_file = shift // undef;
-my $rand_parents_to_do = shift // 4;
+GetOptions(
+	   'pedigree_file=s' => \$pedigree_file,
+	   'vcf_file=s' => \$vcf_file,
+	   'output_file=s' => \$output_file,
+	   'rand_parents|n_rand_parents=i' => \$rand_parents_to_do,
+	   'min_prob|gt_min_prob=f' => \$min_gt_prob,
+	   'reverse!' => \$do_reverse,
+	  );
+
+open my $fhout, ">", "$output_file";
+my $run_parameter_info = "# pedigree file: $pedigree_file\n".
+  "# vcf file: $vcf_file\n".
+  "# output file: $output_file\n".
+  "# rand parents per pedigree: $rand_parents_to_do\n".
+  "# min gt probability: $min_gt_prob\n".
+  "# do reverse? $do_reverse\n";
+print STDOUT $run_parameter_info; print $fhout $run_parameter_info;
 
 ##########################################################
 # read pedigree file and store accession-parent pairs ####
@@ -45,8 +76,8 @@ if (defined $pedigree_file) {
   }
   close $fhped;
 }
-print STDERR  "# Pedigree information from file  $pedigree_file  stored.\n";
-print STDERR "# ", scalar keys %A_Fpar, " female parents;  ", scalar keys %A_Mpar, " male parents.\n";
+print STDOUT  "# Pedigree information from file  $pedigree_file  stored.\n";
+print STDOUT "# ", scalar keys %A_Fpar, " female parents;  ", scalar keys %A_Mpar, " male parents.\n";
 #sleep(2);
 ##########################################################
 # Done reading pedigree file ######################## ####
@@ -61,15 +92,17 @@ my @acc_ids = ();
 my %acc_chroms = (); # keys: acc ids, values: arrayref of chromosome object;
 my %chrom_numbers = ();
 
-while (my $line = <>) {		# read accession ids from vcf file
+open my $fhvcf, "<", "$vcf_file";
+while (my $line = <$fhvcf>) {		# read accession ids from vcf file
   next if($line =~ /^\s*##/);
   if ($line =~ /^\s*#/) {
     @acc_ids = split(" ", $line);
     @acc_ids = @acc_ids[9..$#acc_ids]; #
-    print STDERR "# number of accession ids in vcf file: ", scalar @acc_ids, "\n";
+    print STDOUT "# number of accession ids in vcf file: ", scalar @acc_ids, "\n";
     last;
   }
 }
+
 # print 'YYY ',  scalar @acc_ids, "\n";
 for my $acc_id (@acc_ids) {
   $acc_chroms{$acc_id} = [];
@@ -77,7 +110,7 @@ for my $acc_id (@acc_ids) {
 
 # read the vcf file and store the phased genotype information
 my $marker_count = 0;
-while (my $line = <>) # each pass through this loop processes one marker, all accessions
+while (my $line = <$fhvcf>) # each pass through this loop processes one marker, all accessions
   {
     my @marker_gts = split(" ", $line); # these are the (phased) genotypes for the various accessions, this marker
     # things like  0|0:0:1,0,0
@@ -107,7 +140,7 @@ while (my $line = <>) # each pass through this loop processes one marker, all ac
       my $gt_info = $marker_gts[$i];
       my @fields = split(':', $gt_info);
       my @gps = split(',', $fields[2]); # est probabilities for different 
-      if (max(@gps) < 0.9) {
+      if (max(@gps) < $min_gt_prob) {
 	# print STDERR join(':', @fields), "\n";
 	$the_pgt = 4;		# low quality gt, set as missing.
       } else {
@@ -127,17 +160,14 @@ while (my $line = <>) # each pass through this loop processes one marker, all ac
       # print STDERR "Added genotypes for $accid, chrom $i_chrom.\n";
     }
     $marker_count++;
-    printf STDERR "Markers read from vcf file so far: $marker_count \n" if($marker_count % 100 == 0);
+    printf STDOUT "Markers read from vcf file so far: $marker_count \n" if($marker_count % 1000 == 0);
     last if($marker_count >= $max_markers);
   }
-printf STDERR "Done storing markers. Markers stored:  $marker_count \n";
+printf STDOUT "Done storing markers. Markers stored:  $marker_count \n";
+close $fhvcf;
 ###########################################
 # done storing info in vcf file. ##########
 ###########################################
-
-# for my $anid (@acc_ids){
-#   print STDERR "$anid   ", $A_Fpar{$anid} // 'X', "  ", $A_Mpar{$anid} // 'Y', "\n";
-# }
 
 my @chroms = sort {$a <=> $b} keys %chrom_numbers;
 my $n_chrom_pairs_analyzed_forward = 0;
@@ -145,6 +175,10 @@ my $n_chrom_pairs_analyzed_forward = 0;
 while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as progeny
   my $ped_Fpar = $A_Fpar{$progid} // 'unknown';
   my $ped_Mpar = $A_Mpar{$progid} // 'unknown';
+    if ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown') {
+      # print STDERR "Accession $progid has both parent unknown in pedigree file.\n";
+      next;
+    }
   my %cand_parent_ids = ();
   if ($ped_Fpar ne 'unknown') {
     $cand_parent_ids{$ped_Fpar} = 'F';
@@ -165,11 +199,7 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
   }
   for my $i_chrom (@chroms) {	# loop over chromosomes
     my $pgts1 = $acc_chroms{$progid}->[$i_chrom]->genotypes();
-    if ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown') {
-      print STDERR "Accession $progid has both parent unknown in pedigree file.\n";
-      next;
-    }
-
+  
     while (my($parid, $type) = each %cand_parent_ids) {
 
       next if($parid eq $progid);
@@ -181,30 +211,30 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
       my $pgts2 = $acc_chroms{$parid}->[$i_chrom]->genotypes();
       my ($Do, $So, $XA, $XB, $parent_het_count, $length1count_A, $length1count_B) = analyze_pgts_pair($pgts2, $pgts1); # $pgts1: parent, $pgts2: progeny
       $n_chrom_pairs_analyzed_forward++;
-      print STDERR "Chromosome parent-progeny pairs analyzed: $n_chrom_pairs_analyzed_forward \n" if($n_chrom_pairs_analyzed_forward % 100 == 0);
+      print STDOUT "Chromosome parent-progeny pairs analyzed: $n_chrom_pairs_analyzed_forward \n" if($n_chrom_pairs_analyzed_forward % 1000 == 0);
       my $hgmr_denom = $Do + $So;
       # $par_01_count is number of 0|1 genotypes in parent ($progid)
       # $par_10_count is number of 1|0 genotypes in parent ($progid)
-      print "$progid  $parid  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
+      print $fhout "$progid  $parid  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
       if ($XA < $XB) {
-	print "$XA $XB  ";	# $length1count_A $length1count_B  ";
+	print $fhout "$XA $XB  ";	# $length1count_A $length1count_B  ";
       } else {
-	print "$XB $XA  ";	#  $length1count_B $length1count_A  ";
+	print $fhout "$XB $XA  ";	#  $length1count_B $length1count_A  ";
       }		       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
       #      "   $par_01_count $par_10_count ",
-      print " $parent_het_count  $type  forward\n";
+      print $fhout " $parent_het_count  $type  forward\n";
 
       if ($do_reverse) { # now with $progid as parent, $parid as progeny
 	my ($Do_rev, $So_rev, $XA_rev, $XB_rev, $parent_het_count_rev, $L1count_A_rev, $L1count_B_rev) = analyze_pgts_pair($pgts1, $pgts2);
 	my $hgmr_rev = ($So_rev > 0)? $Do_rev/($Do_rev + $So_rev) : -1;
-	print "$parid  $progid  $i_chrom  $hgmr_rev  $XA_rev $XB_rev   ";
+	print $fhout "$parid  $progid  $i_chrom  $hgmr_rev  $XA_rev $XB_rev   ";
 	if ($XA_rev < $XB_rev) {
-	  print "$XA_rev $XB_rev  "; # $length1count_A $length1count_B  ";
+	  print $fhout "$XA_rev $XB_rev  "; # $length1count_A $length1count_B  ";
 	} else {
-	  print "$XB_rev $XA_rev  "; #  $length1count_B $length1count_A  ";
+	  print $fhout "$XB_rev $XA_rev  "; #  $length1count_B $length1count_A  ";
 	}	       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
 	#      "   $par_01_count $par_10_count ",
-	print " $parent_het_count_rev reverse\n";
+	print $fhout " $parent_het_count_rev reverse\n";
       }
       # }
     }
