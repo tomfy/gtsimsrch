@@ -4,7 +4,7 @@ use List::Util qw(min max sum shuffle);
 
 # read in a vcf file
 # if it has phased genotypes, analyze to find
-# parent-progeny pairs.
+# likely parent-progeny pairs.
 
 use warnings;
 use Getopt::Long;
@@ -38,7 +38,7 @@ my $pedigree_file = undef;
 my $vcf_file = undef;
 my $output_file = "pp.out";
 my $rand_parents_to_do = 2; # for each accession with pedigree, also choose this many other accessions at random to test as parents.
-my $min_gt_prob = 0.9; # for 
+my $min_gt_prob = 0.9;	    # for 
 my $do_reverse = 0;
 
 GetOptions(
@@ -93,7 +93,7 @@ my %acc_chroms = (); # keys: acc ids, values: arrayref of chromosome object;
 my %chrom_numbers = ();
 
 open my $fhvcf, "<", "$vcf_file";
-while (my $line = <$fhvcf>) {		# read accession ids from vcf file
+while (my $line = <$fhvcf>) {	# read accession ids from vcf file
   next if($line =~ /^\s*##/);
   if ($line =~ /^\s*#/) {
     @acc_ids = split(" ", $line);
@@ -175,10 +175,10 @@ my $n_chrom_pairs_analyzed_forward = 0;
 while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as progeny
   my $ped_Fpar = $A_Fpar{$progid} // 'unknown';
   my $ped_Mpar = $A_Mpar{$progid} // 'unknown';
-    if ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown') {
-      # print STDERR "Accession $progid has both parent unknown in pedigree file.\n";
-      next;
-    }
+  if ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown') {
+    # print STDERR "Accession $progid has both parent unknown in pedigree file.\n";
+    next;
+  }
   my %cand_parent_ids = ();
   if ($ped_Fpar ne 'unknown') {
     $cand_parent_ids{$ped_Fpar} = 'F';
@@ -189,17 +189,16 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
   my $rand_parents_added = 0;
   my @shuffled_ids = shuffle(@acc_ids);
   for my $anid (@shuffled_ids) { # add some other randomly chosen parents
+    last if($rand_parents_added >= $rand_parents_to_do);
     if (exists $acc_chroms{$anid}) {
       if ($anid ne $progid  and  $anid ne $ped_Fpar  and  $anid ne $ped_Mpar) {
 	$cand_parent_ids{$anid} = 'R';
 	$rand_parents_added++;
       }
     }
-    last if($rand_parents_added >= $rand_parents_to_do);
   }
   for my $i_chrom (@chroms) {	# loop over chromosomes
     my $pgts1 = $acc_chroms{$progid}->[$i_chrom]->genotypes();
-  
     while (my($parid, $type) = each %cand_parent_ids) {
 
       next if($parid eq $progid);
@@ -217,9 +216,9 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
       # $par_10_count is number of 1|0 genotypes in parent ($progid)
       print $fhout "$progid  $parid  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
       if ($XA < $XB) {
-	print $fhout "$XA $XB  ";	# $length1count_A $length1count_B  ";
+	print $fhout "$XA $XB  "; # $length1count_A $length1count_B  ";
       } else {
-	print $fhout "$XB $XA  ";	#  $length1count_B $length1count_A  ";
+	print $fhout "$XB $XA  "; #  $length1count_B $length1count_A  ";
       }		       # , min($XA, $XB), "  ", max($XA, $XB), "   ", 
       #      "   $par_01_count $par_10_count ",
       print $fhout " $parent_het_count  $type  forward\n";
