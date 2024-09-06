@@ -211,8 +211,8 @@ main(int argc, char *argv[])
       {"input",   required_argument, 0,  'i'}, // filename of new data set
       {"reference", required_argument, 0, 'r'}, // filename of reference data set (optional)
       {"output",  required_argument, 0,  'o'}, // output filename
-      {"filtered_out", required_argument, 0, 'F'}, // 
-      {"format", required_argument, 0, 'f'},
+      {"filtered_out", required_argument, 0, 'F'}, // file name for output of filtered dosage matrix 
+      {"format", required_argument, 0, 'f'}, // 1: 4 cols, >1: 7 cols
 	
       {"marker_max_missing_data", required_argument, 0, 'm'}, // markers with > this fraction missing data will not be used.
       {"maf_min", required_argument, 0, 'l'}, //
@@ -221,15 +221,18 @@ main(int argc, char *argv[])
       {"all_distances", no_argument, 0, 'x'},  // do all distances
       {"est_all_distances", no_argument, 0, 'e'},
       {"matrix_out_format", required_argument, 0, 'M'}, 
-      //	{"max_distance",  required_argument,  0,  'd'}, // min. 'estimated genotype probability'
 
       {"chunk_size", required_argument, 0, 'k'}, // number of markers per chunk. D
-      {"passes", required_argument, 0, 'n'}, // use each marker in ~passes chunks		
-      {"shuffle_accessions",    no_argument, 0,  'u' }, // default is to not shuffle the order of the accessions
+   
       {"threads", required_argument, 0,  't'}, // number of threads to use
       {"seed", required_argument, 0, 's'}, // rng seed.
-      
+
       {"help", no_argument, 0, 'h'},
+
+      // less useful options
+      {"passes", required_argument, 0, 'n'}, // use each marker in ~passes chunks		
+      {"shuffle_accessions",    no_argument, 0,  'u' }, // default is to not shuffle the order of the accessions
+       
       {0,         0,                 0,  0 }
     };
      
@@ -1086,7 +1089,7 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){
   long distance_count = 0;
 
-  fprintf(ostream, "#id1  id2  agmr  hgmr  ");
+  fprintf(ostream, "# id1  id2  agmr  hgmr  ");
   if(output_format != 1){
     fprintf(ostream, "usable_chunks matching_chunks est_agmr normalized_agmr");
   }
@@ -1125,22 +1128,22 @@ void print_usage_info(FILE* ostream){
   // n: number of chunks to use. Default: use each marker ~once.  
   // h: help. print usage info
   fprintf(ostream, "Options: \n");
-  fprintf(ostream, "  -i  -input       <input file name> (required).\n");
-  fprintf(ostream, "  -r  -reference   <file name of reference data set> (optional).\n");
-  fprintf(ostream, "  -o  -output <output file name>  Default: duplicatesearch.out\n");
-  fprintf(ostream, "  -f  -format  output format. Default: 1; 2 for more info.\n");
-    
-  fprintf(ostream, "  -d  -distance_max <number> calculate distance only if est. distance <= this value. Default: %5.3f\n", DEFAULT_MAX_DISTANCE);
-  fprintf(ostream, "  -m  -marker_max_missing_data <number> maximum marker missing data fraction. Default: %5.3f\n", DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION);
-  fprintf(ostream, "  -l  -maf_min <number>  minimum minor allele frequency. Default: %5.3F \n", DEFAULT_MIN_MAF);
-  fprintf(ostream, "  -a  -accession_max_missing_data <number> maximum accession missing data fraction. Default: %5.3f\n", DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION);
+  fprintf(ostream, "  -i  -input  <input file name>     (required).\n");
+  fprintf(ostream, "  -r  -reference  <file name of reference data set>     (optional).\n");
+  fprintf(ostream, "  -o  -output  <output file name>     Default: duplicatesearch.out\n");
+  fprintf(ostream, "  -f  -format  <output format number>     Default: 1; 2 for more info.\n");
+  fprintf(ostream, "  -F  -filtered_out  <output filename for filtered data>.\n");  
+  fprintf(ostream, "  -d  -distance_max  <number>     calculate distance only if est. distance <= this value. Default: %5.3f\n", DEFAULT_MAX_DISTANCE);
+  fprintf(ostream, "  -m  -marker_max_missing_data  <number>     maximum marker missing data fraction. Default: %5.3f\n", DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION);
+  fprintf(ostream, "  -l  -maf_min  <number>     minimum minor allele frequency. Default: %5.3F \n", DEFAULT_MIN_MAF);
+  fprintf(ostream, "  -a  -accession_max_missing_data  <number>     maximum accession missing data fraction. Default: %5.3f\n", DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION);
   
-  fprintf(ostream, "  -k  -chunk_size <integer> number of markers per chunk). Default: %d\n", DEFAULT_DIPLOID_CHUNK_SIZE);
-  fprintf(ostream, "  -s  -seed <integer> random number generator seed. Default: get seed from clock. \n");
-  fprintf(ostream, "  -n  -passes <integer> The number of chunks to use is  (int)n_markers/chunk_size \n");
+  fprintf(ostream, "  -k  -chunk_size  <integer>     number of markers per chunk). Default: %d\n", DEFAULT_DIPLOID_CHUNK_SIZE);
+  fprintf(ostream, "  -s  -seed  <integer>     random number generator seed. Default: get seed from clock. \n");
+  fprintf(ostream, "  -t  -threads  <integer>     The number of threads to use. Default is to set automatically based on the number of cores.\n");
+  //  fprintf(ostream, "  -n  -passes <integer> The number of chunks to use is  (int)n_markers/chunk_size \n");
   //  fprintf(ostream, "  -u  -shuffle  Shuffle the order of accessions as in input file. Default is to leave as in input.\n");
-  fprintf(ostream, "  -t  -threads <integer> The number of threads to use. Default is to set automatically based on the number of cores.\n");
-  fprintf(ostream, "  -h  -help  print this usage information. \n");
+  fprintf(ostream, "  -h  -help     print this usage information. \n");
 }
 
 void print_command_line(FILE* ostream, int argc, char** argv){

@@ -234,19 +234,23 @@ int main(int argc, char *argv[]){
   // ****************************************************
   // *****  Output run parameters  **********************
   // ****************************************************
-  fprintf(stdout, "# Input file: %s \n# Output file: %s \n", input_filename, output_filename->a);
+  fprintf(stdout, "# vcf file: %s \n# vcf_to_gts output file: %s \n", input_filename, output_filename->a);
   fprintf(stdout, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta);
   fprintf(stdout, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md);
   fprintf(stdout, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false");
   fprintf(stdout, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed);
   fprintf(stdout, "# number of threads: %ld \n", Nthreads);
-
-  fprintf(out_stream, "# Input file: %s \n# Output file: %s \n", input_filename, output_filename->a);
+  
+  fprintf(out_stream, "###############################################################\n");
+  fprintf(out_stream, "# vcf_to_gts  run parameters: \n");
+  fprintf(out_stream, "# vcf file: %s \n# vcf_to_gt output file: %s \n", input_filename, output_filename->a);
   fprintf(out_stream, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta);
   fprintf(out_stream, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md);
   fprintf(out_stream, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false");
   fprintf(out_stream, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed);
   fprintf(out_stream, "# number of threads: %ld \n", Nthreads);
+  fprintf(out_stream, "###############################################################\n");
+  
   // ****************************************************
   // *****   Read first line; store accession ids.  *****
   // ****************************************************
