@@ -66,8 +66,8 @@ int main(int argc, char *argv[]){
   
   double minGP = 0.9;
   double delta = 0.1;
-  double min_maf = 0.1;
-  double max_marker_md = 0.25;
+  double min_maf = 0.0; // by default keep all
+  double max_marker_md = 1.0; // by default keep all
   
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
