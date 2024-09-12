@@ -43,3 +43,7 @@ void print_n_over_d(FILE* fh, ND nd){
     fprintf(fh, "%6.5lf  ", (double)nd.n/(double)nd.d);
   }
 }
+
+bool NDs_equal(ND nd1, ND nd2){
+  return ((nd1.n == nd2.n) && (nd1.d == nd2.d));
+}

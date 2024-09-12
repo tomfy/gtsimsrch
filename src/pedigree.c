@@ -209,7 +209,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     // with no genotyping errors
     n_00_0 + n_01_0 + n_01_1 + n_02_1 +
     n_10_0 + n_10_1 +
-    n_11_0 + n_11_1 + n_11_2 +
+    n_11_0 + n_11_1 + n_11_2 + // include these in denom of d or not?
     n_12_1 + n_12_2 +
     n_20_1 + n_21_1 + n_21_2 + n_22_2; // can happen in no-error case
   long n_1 = // 10 triples requiring one (0<->1 or 1<->2) error for consistency 
@@ -217,7 +217,8 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     n_10_2 + n_12_0 +
     n_20_0 + n_20_2 + n_21_0 + n_22_1;  // these 10 can happen if just one error of 0<->1 or 1<->2 type.
   long n_2 = n_00_2 + n_22_0; // these 2 can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
-
+  // fprintf(stderr, "n00_2, n22_0, n_2: %ld %ld %ld \n", n_00_2, n_22_0, n_2);
+  long n_11_x =  n_11_0 + n_11_1 + n_11_2;
   // ************************************
   long n_a2 = n_00_2 + n_22_0; // delta = 2 triples
   long n_a1 =   n_00_1 + n_02_0 + n_02_2 +
@@ -270,7 +271,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
 
   long z_numer = n_00_1 + n_22_1;
   long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0; // = n_00_x + n_22_x
-  // fprintf(stderr, "%ld %ld  %ld %ld %ld   %ld %ld\n", z_numer, z_denom, n_0, n_1, n_2, n_1 + n_2, n_0 + n_1 + n_2 );
+  // fprintf(stderr, "%ld %ld  %ld %ld %ld   %ld %ld\n", z_numer, z_denom, n_0, n_1, n_2, n_1 + n_2, n_0 _1 + n_2 );
   /* long total =
     n_0x_0 + n_0x_1 + n_0x_2
     + n_1x_0 + n_1x_1 + n_1x_2
@@ -295,11 +296,11 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   long hgmr1_denom = n_0x_0 + n_2x_2 + hgmr1_numer;
   long hgmr2_denom = n_x0_0 + n_x2_2 + hgmr2_numer;
 
-  long r0x1or2_numer = n_0x_1 + n_0x_2 + n_2x_1 + n_2x_0;
-  long r0x1or2_denom = r0x1or2_numer + n_0x_0 + n_2x_2;
-  long rx01or2_numer = n_x0_1 + n_x0_2 + n_x2_1 + n_x2_0;
-  long rx01or2_denom = rx01or2_numer + n_x0_0 + n_x2_2;
-
+  long r1_numer = n_0x_1 + n_2x_1; // + n_0x_2 + n_2x_1 + n_2x_0;
+  long r1_denom = r1_numer + n_0x_0 + n_2x_2;
+  long r2_numer = n_x0_1 + n_x2_1; // n_x0_2 + n_x2_1 + n_x2_0;
+  long r2_denom = r2_numer + n_x0_0 + n_x2_2;
+  // fprintf(stderr, "rgtc: %ld %ld %ld %ld \n", r1_numer, r1_denom, r2_numer, r2_denom);
   long agmr12_numer =
     n_01_0 + n_01_1 + n_01_2 + //n_01_3 +
     n_02_0 + n_02_1 + n_02_2 + //n_02_3 +
@@ -316,27 +317,36 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   pedigree_stats->agmr12 = (ND) {agmr12_numer, agmr12_denom};
 
   pedigree_stats->par1_hgmr = (ND) {hgmr1_numer, hgmr1_denom};
-  pedigree_stats->par1_R = (ND) {r0x1or2_numer, r0x1or2_denom};
+  pedigree_stats->par1_R = (ND) {r1_numer, r1_denom};
  
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numer, hgmr2_denom};
-  pedigree_stats->par2_R = (ND)  {rx01or2_numer, rx01or2_denom};
+  pedigree_stats->par2_R = (ND)  {r2_numer, r2_denom};
 
-  pedigree_stats->d = (ND) {n_1 + n_2, n_0 + n_1 + n_2}; // d_nd;
-  fprintf(stdout, "n1, n2, n0,  num, denom: %ld  %ld  %ld   %ld %ld\n", n_1, n_2, n_0, n_1+n_2, n_1+n_2+n_0);
+  pedigree_stats->d_2 = (ND) {n_1 + n_2 - n_00_1 - n_22_1, n_0 + n_1 + n_2 - n_11_x}; // d_nd;
+
+  pedigree_stats->d = (ND){n_1 + n_2, n_0 + n_1 + n_2};
+  // fprintf(stderr, "rg d_old. N, D, N/D:  %ld  %ld  %8.5f  n1 n2: %ld %ld\n", d_old_numer, d_old_denom, (d_old_denom > 0)? (double)d_old_numer/(double)d_old_denom : -1, n_1, n_2);
+   // fprintf(stderr, "n1, n2, n0,  num, denom: %ld  %ld  %ld   %ld %ld  n1 n2: %ld %ld\n", n_1, n_2, n_0, n_1+n_2, n_1+n_2+n_0, n_1, n_2);
   pedigree_stats->z = (ND) {z_numer, z_denom};
+
+   double d = n_over_d(pedigree_stats->d);
+  double z = n_over_d(pedigree_stats->z);
+  pedigree_stats->max_dz = (d>z)? d : z;
 
   pedigree_stats->all_good_count = n_0 + n_1 + n_2;
 
   return pedigree_stats;
-}
+} // end of triple_counts
 
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){
   
   long n_00_1_22_1 = 0, n_total_no_md = 0, n_00_22 = 0, n_total_x_11 = 0;
+  long n_00_2_22_0 = 0, n_00_2 = 0, n_22_0 = 0;
   long n_0xorx0_2_nomd = 0; // prog is 2 and at least one parent is 0.
   long n_2xorx2_0_nomd = 0; // prog is 0 and at least one parent is 2.
   long n_01or10_1 = 0; // parents are 0 and 1, prog is 1;
   long n_0x_1_2x_1 = 0, n_x0_1_x2_1 = 0;
+  long n_0x_0_2x_2 = 0, n_x0_0_x2_2 = 0;
   long ndiff12 = 0, ndiff01 = 0, ndiff02 = 0;
   long hgmr1_numerator = 0, hgmr1_denominator = 0;
   long hgmr2_numerator = 0, hgmr2_denominator = 0;
@@ -370,17 +380,26 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
     
     unsigned long long is2_0x_or_0_2x = (k2 & i0) | (k0 & i2); // for hgmr1 numerator (j can be missing)
     unsigned long long is2_x0_or_0_x2 = (k2 & j0) | (k0 & j2); // for hgmr2 numerator (i can be missing)
-    unsigned long long ik_not_1 = (i0|i2) & (k0|k2); // neither i nor k is 1, i.e. 00 | 22 | 02 | 20
-    unsigned long long jk_not_1 = (j0|j2) & (k0|k2); // neither j nor k is 1, i.e. 00 | 22 | 02 | 20
+    unsigned long long ik_not_1 = (i0|i2) & (k0|k2); // neither i nor k is 1, i.e. 00 | 22 | 02 | 20  for hgmr1 denom (j can be missing)
+    unsigned long long jk_not_1 = (j0|j2) & (k0|k2); // neither j nor k is 1, i.e. 00 | 22 | 02 | 20  for hgmr2 denom (i can be missing)
+
+    unsigned long long is2_00 = (i0 & j0 & k2);
+    unsigned long long is0_22 = (i2 & j2 & k0);
    
     unsigned long long is2_0xorx0_nomd = k2 & (i0 | j0) & ~missing; // 2_0x, 2_x0
     unsigned long long is0_2xorx2_nomd = k0 & (i2 | j2) & ~missing; // 0_2x, 0_x2
-    unsigned long long is00_22 = ((i0 & j0) | (i2 & j2)) & ~missing;
+    unsigned long long is00_22 = ((i0 & j0) | (i2 & j2)) & ~missing; // k is 0, 1, or 2
+   
     //   unsigned long long is00_2_22_0 = (i0 & j0 & k2) | (i2 & j2 & k0) & ~missing;
     unsigned long long is1_00_1_22 = k1 & is00_22 & ~missing;
     unsigned long long isx_11 = i1 & j1 & ~missing; //
-    unsigned long long is_i0or2_k1 = (i0 | i2) & k1; // & ~missing;
+    
+    unsigned long long is_i0or2_k1 = (i0 | i2) & k1; // & ~missing;    
+    unsigned long long is0x_0_or_2x_2 = (i0 & k0) | (i2 & k2);
+     
     unsigned long long is_j0or2_k1 = (j0 | j2) & k1; // & ~missing;
+    unsigned long long isx0_0_or_x2_2 = (j0 & k0) | (j2 & k2);
+     
     /* unsigned long long isx_01or10 = ((i0 & j1) | (i1 & j0)) &  ~missing; */
     /* unsigned long long is1_01or10 = k1 & isx_01or10; */
     /* unsigned long long is1_diag = k1 & (~(iA^jA)) & (~(iB^jB)) & ~missing; //prog is 1, parents equal */
@@ -393,10 +412,17 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   
     n_0xorx0_2_nomd += __builtin_popcountll(is2_0xorx0_nomd);
     n_2xorx2_0_nomd += __builtin_popcountll(is0_2xorx2_nomd);
-    n_00_1_22_1 +=  __builtin_popcountll(is1_00_1_22); // forbidden and either 00_1 or 22_1
+    n_00_1_22_1 +=  __builtin_popcountll(is1_00_1_22); // either 00_1 or 22_1
+    n_00_2 += __builtin_popcountll(is2_00);
+    n_22_0 += __builtin_popcountll(is0_22);
+    n_00_2_22_0 = n_00_2 + n_22_0;
+
     n_00_22 += __builtin_popcountll(is00_22);
+    
     n_0x_1_2x_1 += __builtin_popcountll(is_i0or2_k1);
+    n_0x_0_2x_2 += __builtin_popcountll(is0x_0_or_2x_2);   
     n_x0_1_x2_1 += __builtin_popcountll(is_j0or2_k1);
+    n_x0_0_x2_2 += __builtin_popcountll(isx0_0_or_x2_2);   
     //   n_01or10_1 += __builtin_popcountll(is1_01or10);
 
     hgmr1_numerator += __builtin_popcountll(is2_0x_or_0_2x);
@@ -414,30 +440,41 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   } // end of loop over 64 bit chunks
 	
   Pedigree_stats* pedigree_stats = construct_pedigree_stats(); //(Pedigree_stats*)malloc(sizeof(Pedigree_stats));
-  if(ndiff12 > n_total_no_md) fprintf(stderr, "%ld  %ld\n", ndiff12, n_total_no_md);
+  // if(ndiff12 > n_total_no_md) fprintf(stderr, "%ld  %ld\n", ndiff12, n_total_no_md);
   pedigree_stats->agmr12 = (ND) {ndiff12, n_total_no_md}; // agmr between parents
   pedigree_stats->agmr01 = (ND) {ndiff01, n_total_no_md}; 
   pedigree_stats->agmr02 = (ND) {ndiff02, n_total_no_md};
 
-  pedigree_stats->d = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11};
-  fprintf(stdout, "d num, denom:  %ld %ld\n",  n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11);
+  pedigree_stats->d_2 = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11};
+  /* long n_1 = n_0xorx0_2_nomd + n_2xorx2_0_nomd + n_00_1_22_1 - n_00_2_22_0;; */
+  /* long n_2 = n_00_2_22_0; */
+  /* long d_old_numer = n_1 + n_2; */
+  /* long d_old_denom = n_total_no_md; */
+  pedigree_stats->d = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd + n_00_1_22_1, n_total_no_md};
+  // fprintf(stdout, "d num, denom:  %ld %ld\n",  n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11);
   pedigree_stats->z = (ND) {n_00_1_22_1, n_00_22};
   pedigree_stats->par1_hgmr = (ND) {hgmr1_numerator, hgmr1_denominator};
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numerator, hgmr2_denominator};
-  pedigree_stats->par1_R = (ND) {n_0x_1_2x_1, n_0x_1_2x_1 + n_00_22};
-  pedigree_stats->par2_R = (ND) {n_x0_1_x2_1, n_x0_1_x2_1 + n_00_22};
+  pedigree_stats->par1_R = (ND) {n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2};
+  pedigree_stats->par2_R = (ND) {n_x0_1_x2_1, n_x0_1_x2_1 + n_x0_0_x2_2};
+  double d = n_over_d(pedigree_stats->d);
+  double z = n_over_d(pedigree_stats->z);
+  pedigree_stats->max_dz = (d>z)? d : z;
+  //fprintf(stderr, "bwtc: %ld %ld %ld %ld \n", n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2, n_x0_1_x2_1, n_x0_1_x2_1 + n_x0_0_x2_2);
+  //fprintf(stderr, "bw d_old. N, D, N/D:  %ld  %ld  %8.5f n1 n2: %ld %ld\n", d_old_numer, d_old_denom, (d_old_denom > 0)? (double)d_old_numer/(double)d_old_denom : -1, n_1, n_2 );
+  // fprintf(stderr, "xxx: %ld %ld %ld %ld  %ld %ld\n", n_0xorx0_2_nomd, n_2xorx2_0_nomd, n_00_1_22_1, n_00_2_22_0, n_00_2, n_22_0);
   pedigree_stats->n_01or10_1 = n_01or10_1;
   pedigree_stats->all_good_count = n_total_no_md;
   
   return pedigree_stats;
-}
+} // end of bitwise_triple_counts
 
 Vpedigree*  calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents){
   
   long limited_n_candpairs = cppps->size;
   if(cppps->size == 0){ 
     // count_accs_w_no_cand_parents++;
-    // fprintf(o_stream, "# %s has no candidate parents (xhmgr <= %8.5f)\n", prog->id->a, max_xhgmr);
+    // fprintf(o_stream, "# %s has no candidate parents (xhmgr <= %8.5f)\n", prog->id->a, max_xhgmr);-
   }else if(cppps->size > max_candidate_parents){ // if too many parent candidates, just take the max_candidate_parents best ones
     sort_viaxh_by_xhgmr(cppps);
     limited_n_candpairs = max_candidate_parents; // limit candidate to max_candidate_parents
@@ -501,23 +538,31 @@ Pedigree_stats* construct_pedigree_stats(void){
 }
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
   long ploidy = the_gtsset->ploidy;
-  Pedigree_stats* the_ps = construct_pedigree_stats(); // (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
+  Pedigree_stats* the_ps; //  = construct_pedigree_stats(); // (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
   assert(the_pedigree->F != NULL  ||  the_pedigree->M != NULL); // shouldn't have both parents NULL //
   if(the_pedigree->F != NULL  &&  the_pedigree->M != NULL){
     //  fprintf(stderr, "pedigree with both parents.\n");
-    the_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
+    //  the_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
     //
-    Pedigree_stats* bw_ps = bitwise_triple_counts(the_pedigree->F,  the_pedigree->M,  the_pedigree->A);
-    print_pedigree_stats(stdout, the_ps, true);
-    fprintf(stdout, "\n");
-    print_pedigree_stats(stdout, bw_ps, true);
-    // getchar();
+    the_ps = bitwise_triple_counts(the_pedigree->F,  the_pedigree->M,  the_pedigree->A);
+    //  print_pedigree_stats(stdout, the_ps, true); fprintf(stdout, "\n");
 
-    
+    if(0){ // compare bitwise, nonbitwise calculations as check
+      Pedigree_stats* nobw_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
+      assert(NDs_equal(the_ps->agmr12, nobw_ps->agmr12));
+      assert(NDs_equal(the_ps->par1_hgmr, nobw_ps->par1_hgmr));
+      assert(NDs_equal(the_ps->par1_R, nobw_ps->par1_R));
+      assert(NDs_equal(the_ps->par2_hgmr, nobw_ps->par2_hgmr));
+      assert(NDs_equal(the_ps->par2_R, nobw_ps->par2_R));
+      assert(NDs_equal(the_ps->d, nobw_ps->d));
+      assert(NDs_equal(the_ps->z, nobw_ps->z));
+    }
+       
     the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
     the_ps->par2_xhgmr = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, false);
     // fprintf(stderr, "ped w both parents, after both calls to xhgmr.\n");		   
-  }else{ // one of the parents is NULL 
+  }else{ // one of the parents is NULL
+    the_ps = construct_pedigree_stats();
     the_ps->agmr12 = (ND) {0, 0};
     the_ps->z = (ND) {0, 0};
     if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
@@ -592,6 +637,7 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
     print_d_r(fh, the_pedigree_stats->par2_R);
     print_d_r(fh, the_pedigree_stats->d);
     print_d_r(fh, the_pedigree_stats->z);
+    //print_d_r(fh, the_pedigree_stats->d_old);
 
   }else{ // print ratios but not denominators
     print_n_over_d(fh, the_pedigree_stats->agmr12);
@@ -603,8 +649,9 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
     print_n_over_d(fh, the_pedigree_stats->par2_R);
     print_n_over_d(fh, the_pedigree_stats->d);
     print_n_over_d(fh, the_pedigree_stats->z);
-    
+    // print_n_over_d(fh, the_pedigree_stats->d_old);
   }
+  fprintf(fh, "%7.5lf  ", the_pedigree_stats->max_dz);
   //   fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr1);
   fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr1);
   //  fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr2);
@@ -830,6 +877,42 @@ int compare_pedigree_maxdz(const void* a, const void* b){
   if(x1 > x2){
     return 1;
   }else if(x1 < x2){
+    return -1;
+  }else{
+    return 0;
+  }
+}
+
+void sort_vpedigree_by_maxh1h2z(Vpedigree* the_vped){
+  qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigrees_h1h2z);
+}
+
+int compare_pedigrees_h1h2z(const void* a, const void* b){
+  ND nd_h1_a = (*((Pedigree**)a))->pedigree_stats->par1_hgmr;
+  ND nd_h2_a = (*((Pedigree**)a))->pedigree_stats->par2_hgmr;
+  ND nd_z_a = (*((Pedigree**)a))->pedigree_stats->z;
+
+  double h1_a = (nd_h1_a.d > 0)? (double)nd_h1_a.n/nd_h1_a.d : 1.0;
+  double h2_a = (nd_h2_a.d > 0)? (double)nd_h2_a.n/nd_h2_a.d : 1.0;
+  double z_a = (nd_z_a.d > 0)? (double)nd_z_a.n/nd_z_a.d : 1.0;
+  
+  ND nd_h1_b = (*((Pedigree**)b))->pedigree_stats->par1_hgmr;
+  ND nd_h2_b = (*((Pedigree**)b))->pedigree_stats->par2_hgmr;
+  ND nd_z_b = (*((Pedigree**)b))->pedigree_stats->z;
+
+  double h1_b = (nd_h1_b.d > 0)? (double)nd_h1_b.n/nd_h1_b.d : 1.0;
+  double h2_b = (nd_h2_b.d > 0)? (double)nd_h2_b.n/nd_h2_b.d : 1.0;
+  double z_b = (nd_z_b.d > 0)? (double)nd_z_b.n/nd_z_b.d : 1.0;
+ 
+  double xa = (h1_a > h2_a)? h1_a : h2_a;
+  if(z_a > xa) xa = z_a;
+
+  double xb = (h1_b > h2_b)? h1_b : h2_b;
+  if(z_b > xb) xb = z_b;
+ 
+  if(xa > xb){
+    return 1;
+  }else if(xa < xb){
     return -1;
   }else{
     return 0;

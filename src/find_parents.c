@@ -335,7 +335,7 @@ main(int argc, char *argv[])
 	 /* fprintf(o_stream, "%20s %5ld %20s %20s %ld  ", */
 	 /* 	 A->id->a, A->missing_data_count, */
 	 /* 	 (F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA", the_pedigree_stats->all_good_count); */
-	 fprintf(o_stream, "%s  P  ", A->id->a);
+	 fprintf(o_stream, "%s  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
 	 print_pedigree(o_stream, the_pedigree, long_output_format);
 	 //print_pedigree_stats(o_stream, the_pedigree_stats, long_output_format); // print the stats for this pedigree
 
@@ -344,24 +344,26 @@ main(int argc, char *argv[])
 	   if(pedigree_ok(the_pedigree_stats, max_self_agmr, max_ok_hgmr, max_self_R, max_ok_d) == 0){	    
 	     alt_pedigrees = pedigree_alternatives(the_pedigree, the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
 	     print_pedigree_alternatives(o_stream, alt_pedigrees, 4, long_output_format);
+	     fprintf(o_stream, "\n");
 	   }
 	 }else if(alternative_pedigrees_level == 2){
 	   fprintf(stderr, "alternative_pedigrees level 2 not implemented. Bye.\n"); exit(0);
 	 }else if((alternative_pedigrees_level == 3)){
 	   alt_pedigrees = pedigree_alternatives(the_pedigree, the_genotypes_set, parent_idxs, max_ok_hgmr, max_ok_z, max_ok_d);
 	   print_pedigree_alternatives(o_stream, alt_pedigrees, 4, long_output_format);
+	   fprintf(o_stream, "\n");
 	 }else if(alternative_pedigrees_level == 4){
 	
 	   // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]	
 	   Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[A_gtset_idx], max_candidate_parents);
 	   //  fprintf(o_stream, "%s  %ld   ", prog->id->a, pairwise_info[i]->size); // output progeny id
 	   sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format);
-	   if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.\n");
+	   if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
+	   fprintf(o_stream, "\n");
 	   free_vpedigree(alt_pedigrees);
 	 }
 	 alt_pedigrees->size = 0;
 	 free(the_pedigree_stats);
-	 fprintf(o_stream, "\n");   
        } //    
      } // end loop over pedigrees
      free_vpedigree(alt_pedigrees);
@@ -463,7 +465,9 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
   // ***  sort alt_pedigrees_array, output best parent pairs for this accession  ***
   // *******************************************************************************
   if(the_pedigrees->size > 0){
-      if(the_pedigrees->size > 1) sort_vpedigree_by_maxdz(the_pedigrees);
+    if(the_pedigrees->size > 1)
+      // sort_vpedigree_by_maxh1h2z(the_pedigrees);
+      sort_vpedigree_by_maxdz(the_pedigrees);
       long n_out = (max_solns_out < the_pedigrees->size)? max_solns_out : the_pedigrees->size;
       for(long iii=0; iii < n_out; iii++){
 	/* Accession* par1 = the_pedigrees->a[iii]->F; */
@@ -472,6 +476,7 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
 	/* // if((!multiple_solns_on_one_line) || (iii == 0)) fprintf(o_stream, "%s  %ld   ", prog->id->a, n_ok_parents); // output progeny id */
 	/* fprintf(o_stream, "%s %s %ld  ", par1->id->a, par2->id->a, the_ps->all_good_count); // output candidate pair of parents */
 	/* print_pedigree_stats(o_stream, the_ps, long_output_format); */
+	fprintf(o_stream, "A  "); // to indicate alternative parents (not those from pedigree file)
 	print_pedigree(o_stream, the_pedigrees->a[iii], long_output_format);
 	// if((!multiple_solns_on_one_line) || (iii == n_out-1)) fprintf(o_stream, "\n");
       } // loop over solutions for one progeny accession
