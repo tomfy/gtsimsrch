@@ -14,14 +14,20 @@
 
 #define DO_ALL (0)
 
+#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.2
+#define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
+#define DEFAULT_MIN_MAF  0.1
+#define DEFAULT_MAX_XHGMR 0.18
+#define DEFAULT_MAX_CANDIDATE_PARENTS 80
+
 int do_checks = 0; // option -c sets this to 1 to do some checks.
 
 //double hi_res_time(void);
 
 void print_usage_info(FILE* stream);
 Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_xhgmr, bool quick_xhgmr);
-void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream, bool long_output_format);
-
+void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream, bool long_output_format, double d_scale_factor);
+void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor);
 // **********************************************************************************************
 // ***********************************  main  ***************************************************
 // **********************************************************************************************
@@ -35,12 +41,12 @@ main(int argc, char *argv[])
   long alternative_pedigrees_level = 0; // find alt. pedigrees for  0: none, 1,2: accessions with bad pedigrees, 3,4: all accessions
   // 1,3: just accessions which are parents in pedigree file are considered as possible parents
   // 2,4: all accessions are considered are considered as possible parents.
-  double max_marker_missing_data_fraction = 0.25; // default; control this with -x command line option.
-  double max_accession_missing_data_fraction = 0.5;
-  double min_minor_allele_frequency = 0.08; // 
+  double max_marker_missing_data_fraction = DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION; // default; control this with -x command line option.
+  double max_accession_missing_data_fraction = DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION;
+  double min_minor_allele_frequency = DEFAULT_MIN_MAF; // 
   char* output_filename = "find_parents.out";
-  double max_xhgmr = 0.18;
-  double max_hgmr = 0.03;
+  double max_xhgmr = DEFAULT_MAX_XHGMR;
+  // double max_hgmr = 0.03;
   long max_candidate_parents = 80;
   bool quick_xhgmr = true;
   bool bitwise = false;
@@ -48,13 +54,16 @@ main(int argc, char *argv[])
   bool multiple_solns_on_one_line = true;
   // bool sort_by_z = false; // if false, sort by d
   bool use_xhgmr = true;
+  
   // the following used in categorizing pedigrees from file as good or bad:
   double max_self_agmr = 0.04;
   double max_ok_hgmr = 0.04;
   double max_self_R = 0.04;
   double max_ok_d = 0.04;
   double max_ok_z = 0.04;
-  bool long_output_format = false;
+
+  bool long_output_format = true;
+  double d_scale_factor = 1.25; // sort on max(d_scale_factor*d, z)
   
   double ploidy = 2;
   long Nthreads = 0;
@@ -357,7 +366,7 @@ main(int argc, char *argv[])
 	   // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]	
 	   Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[A_gtset_idx], max_candidate_parents);
 	   //  fprintf(o_stream, "%s  %ld   ", prog->id->a, pairwise_info[i]->size); // output progeny id
-	   sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format);
+	   sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format, d_scale_factor);
 	   if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
 	   fprintf(o_stream, "\n");
 	   free_vpedigree(alt_pedigrees);
@@ -385,7 +394,7 @@ main(int argc, char *argv[])
       // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]	
       Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(prog, the_genotypes_set, pairwise_info[i], max_candidate_parents);
       fprintf(o_stream, "%s  %ld   ", prog->id->a, pairwise_info[i]->size); // output progeny id
-      sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format);
+      sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format, d_scale_factor);
       if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
       fprintf(o_stream, "\n");
       free_vpedigree(alt_pedigrees);
@@ -426,21 +435,15 @@ main(int argc, char *argv[])
 /* } */
 
 void print_usage_info(FILE* stream){
-  // c: do checks,
-  // i: dosages input filename 
-  // x: max fraction of missing data for markers,
-  // o: output filename.
-  // m: min minor allele frequency
-  // h: max xhgmr for candidate parents
-  // p: max_candidate_parents
-  fprintf(stream, " -input <filename>               input filename (dosages matrix)\n");
-  fprintf(stream, " -output <filename>              output filename (default: find_parents.out) \n");
-  fprintf(stream, " -marker_max_missing_data <f>    don't use markers with missing data fraction > f\n");
-  fprintf(stream, " -accession_max_missing_data <f> accessions with missing data fraction >f are ignored > f\n");
-  fprintf(stream, " -maf_min <f>                    don't use markers with minor allele frequency < f\n");
-  fprintf(stream, " -xhgmr_max <f>                  candidate parents must have xhgmr <= f\n");
-  fprintf(stream, " -candidate_parents_max <n>      sort candidate parents by xhgmr and use only best n\n");
-  fprintf(stream, " -help                           print this message and exit.\n");
+  fprintf(stream, "-i   -input <filename>               input filename (dosages matrix, required)\n");
+  fprintf(stream, "-o   -output <filename>              output filename (default: find_parents.out) \n");
+  fprintf(stream, "-p   -pedigree <filename>            pedigree filename (required)\n");
+  fprintf(stream, "-m   -marker_max_missing_data <f>    don't use markers with missing data fraction > f. (default: %4.2f)\n", DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION);
+  fprintf(stream, "-a   -accession_max_missing_data <f> accessions with missing data fraction >f are ignored > f (default: %4.2f)\n", DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION);
+  fprintf(stream, "-f   -maf_min <f>                    don't use markers with minor allele frequency < f (default: %4.2f)\n", DEFAULT_MIN_MAF);
+  fprintf(stream, "-x   -xhgmr_max <f>                  candidate parents must have xhgmr <= f (default: %4.2f)\n", DEFAULT_MAX_XHGMR);
+  fprintf(stream, "-c   -candidate_parents_max <n>      sort candidate parents by xhgmr and use only best n (default: %4d)\n", DEFAULT_MAX_CANDIDATE_PARENTS);
+  fprintf(stream, "-h   -help                           print this message and exit.\n");
 }
 
 Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_xhgmr, bool quick_xhgmr){
@@ -460,12 +463,13 @@ Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candid
   return pairwise_info;
 }
 
-void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream, bool long_output_format){
+void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream, bool long_output_format, double d_scale_factor){
   // *******************************************************************************
   // ***  sort alt_pedigrees_array, output best parent pairs for this accession  ***
   // *******************************************************************************
   if(the_pedigrees->size > 0){
     if(the_pedigrees->size > 1)
+      set_scaled_d_in_vpedigree(the_pedigrees, d_scale_factor);
       // sort_vpedigree_by_maxh1h2z(the_pedigrees);
       sort_vpedigree_by_maxdz(the_pedigrees);
       long n_out = (max_solns_out < the_pedigrees->size)? max_solns_out : the_pedigrees->size;
@@ -483,3 +487,12 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
       //fprintf(o_stream, "\n");
   }
 } // end of sort_and_output_pedigrees
+
+void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor){
+  for(long i = 0; i < the_pedigrees->size; i++){
+    Pedigree_stats* the_ps = the_pedigrees->a[i]->pedigree_stats;
+    double d = n_over_d(the_ps->d);
+    if(d < 0) d = 10; // when denom is 0, make it big (i.e. bad)
+    the_ps->scaled_d = d_scale_factor*d;
+  }
+}
