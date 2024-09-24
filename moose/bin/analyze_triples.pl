@@ -9,7 +9,8 @@ use Getopt::Long;
 my $pedigree_test_output = undef;
 my $pp_file = undef;
 my $output_file = "antrip.out";
-my $max_crossover_rate = 10;
+my $max_crossover_rate = 100;
+my $help = 0;
 
 
 GetOptions(
@@ -17,8 +18,13 @@ GetOptions(
 	   'pp_out|phased_parents_out=s' => \$pp_file,
 	   'output_file=s' => \$output_file,
 	   'max_crossover_rate=f' => \$max_crossover_rate,
+	   'help!' => \$help,
 	   );
 
+if(!defined $pp_file  or  !defined $pedigree_test_output  or  $help){
+  print STDOUT "usage: analyze_triples.pl -ped <pedigree_test output file>  -pp_out <phased_parents output file> [-out <output file>] \n";
+  exit();
+}
 
 # ###  read and store pedigree_test output #############
 my %ProgFMpars_info = ();
@@ -65,7 +71,7 @@ for my $ppp (@pppairs) {
     $Xmin_sum += min($info->{XA}, $info->{XB});
     $Nhet_sum += $info->{Nhet};
   }
-
+#  print STDERR "$ppp   $Xmin_sum $Nhet_sum\n";
   if (($Nhet_sum == 0)  or  $Xmin_sum/$Nhet_sum  > $max_crossover_rate) {
     print STDERR "ppp:  $ppp   Xmin_sum: $Xmin_sum  Nhet_sum: $Nhet_sum    \n";
     delete($pppair_info{$ppp});
@@ -84,7 +90,7 @@ print STDERR "### N pp accession pairs kept: ", scalar @pppairs, "\n";
     # my $AF_ppinfo = $pppair_info{"$A $F"};
     #print STDERR "\n\n"; print STDERR "AFM:  $A  $F  $M\n";
     my ($Xmin1, $Xmin2, $Xbest, $Nhet1, $Nhet2, $Nbad_chrom) = triple_quality(\%pppair_info, $F, $M, $A);
-    #print STDERR "   $Xmin1 $Xmin2  $Xbest  $Nhet1  $Nhet2  $Nbad_chrom\n";
+    # print STDERR "   $Xmin1 $Xmin2  $Xbest  $Nhet1  $Nhet2  $Nbad_chrom\n";
     my $Nhet_total = $Nhet1 + $Nhet2;
     if ($Nhet1 > 0  and $Nhet2 > 0) {
       print $fhout "$A $F $M  $Xmin1 $Xmin2 $Xbest  $Nhet1 $Nhet2  ", $Xmin1/$Nhet1, "  ", $Xmin2/$Nhet2, "  ", $Xbest/$Nhet_total, "  $Nbad_chrom  $info ", ($F eq $M)? 'S' : 'B', "\n";
