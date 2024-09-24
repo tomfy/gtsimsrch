@@ -4,7 +4,7 @@ use strict;
 # input a vcf file and a list of accession ids to select,
 # outputs a vcf file with just those accessions (columns).
 
-# usage:  perl vcf_acc_subset.pl   ids_to_keep_file>  <  <vcf file>  >  <output file>
+# usage:  perl vcf_acc_subset.pl   <ids_to_keep_file>  <  <vcf file>  >  <output file>
 
 my $ids_file = shift;
 
@@ -21,7 +21,7 @@ my @ids_to_keep = keys %ids;
 my @accids;
 my %id_col = ();
 # my %col_id = ();
-while (<>) {
+while (<>) { # read in vcf file
   #print;
   next if(/^\s*##/);
   if (/^\s*#/) {
