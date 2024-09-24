@@ -859,15 +859,16 @@ void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped){
 
 
 
-void sort_vpedigree_by_maxdz(Vpedigree* the_vped){
+void sort_vpedigree_by_maxdz(Vpedigree* the_vped){ 
   qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigree_maxdz);
 }
 
 int compare_pedigree_maxdz(const void* a, const void* b){
-  ND dnd1 = (*((Pedigree**)a))->pedigree_stats->d;
-  ND dnd2 = (*((Pedigree**)b))->pedigree_stats->d;
-  double d1 = (dnd1.d > 0)? (double)dnd1.n/dnd1.d : 1.0;
-  double d2 = (dnd2.d > 0)? (double)dnd2.n/dnd2.d : 1.0;
+  double d1 = (*((Pedigree**)a))->pedigree_stats->scaled_d;
+  double d2 = (*((Pedigree**)b))->pedigree_stats->scaled_d;
+  
+  //  double d1 = (dnd1.d > 0)? (double)dnd1.n/dnd1.d : 1.0;
+  // double d2 = (dnd2.d > 0)? (double)dnd2.n/dnd2.d : 1.0;
   ND znd1 = (*((Pedigree**)a))->pedigree_stats->z;
   ND znd2 = (*((Pedigree**)b))->pedigree_stats->z;
   double z1 = (znd1.d > 0)? (double)znd1.n/znd1.d : 1.0;
