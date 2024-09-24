@@ -15,6 +15,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   ND d_22; // both parents homozyg, delta = 2  i.e. 00_2 + 22_0
   ND d_21; // both parents homozyg, delta = 1
   ND d_11; // one parent homozyg, one heterozyg, delta = 1
+  double scaled_d; // to make threshold agree with z threshold
   double max_dz;
   double hgmr1;
   double hgmr2;
@@ -59,6 +60,7 @@ void free_pedigree(const Pedigree* the_pedigree);
 Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset);
 Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset); 
 Vpedigree* construct_vpedigree(long cap);
+
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped); //, long n_accessions);
 
 //Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
