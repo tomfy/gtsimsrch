@@ -34,6 +34,8 @@ use Chromosome;
 
 # usage: phased_parents.pl -ped <pedigree filename> -vcf < <vcf filename> [-out <output filename>] [-rand <n random parents>] [-min_prob <min gt probability>] [-rev (to do in rev direction also>]
 
+
+
 my $pedigree_file = undef;
 my $vcf_file = undef;
 my $output_file = "pp.out";
@@ -42,6 +44,7 @@ my $min_gt_prob = 0.9;	    # for
 my $do_reverse = 0;
 my $max_markers = 5000000000; # to limit to a smaller number of markers for speed in testing
 my $use_pedigrees = 0;
+my $help = 0;
 
 GetOptions(
 	   'pedigree_file=s' => \$pedigree_file,
@@ -51,7 +54,13 @@ GetOptions(
 	   'min_prob|gt_min_prob=f' => \$min_gt_prob,
 	   'reverse!' => \$do_reverse,
 	   'marker_limit=i' => \$max_markers,
+	   'help!' => \$help,
 	  );
+
+if(!defined $pedigree_file  or  !defined $vcf_file  or  $help){
+  print_help();
+  exit;
+}
 
 open my $fhout, ">", "$output_file";
 my $run_parameter_info = "# pedigree file: $pedigree_file\n".
@@ -403,4 +412,16 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
     }
   }
   return ($Dhom, $Shom, $switch_countA, $switch_countB, $par_het_count, $length_1_countA, $length_1_countB);
+}
+
+sub print_help{
+  my $stream = shift;
+  print STDOUT "usage:  phased_parents  -vcf <vcf_file>  -ped <pedigree_file>  [options]\n";
+  print STDOUT "-vcf_file   <vcf file>  (vcf file must have phased gts as first part of gt information, e.g. '0|1:1:0,1,0' )\n";
+  print STDOUT "-pedigree_file  <pedigree file> (Accession, Female parent, Male parent  ids in columns 1, 2, and 3)\n";
+  print STDOUT "-output_file <output filename> (default: 'pp.out')\n";
+  print STDOUT "-n_rand_parents  N  (do N randomly chosen 'parents' per accession in addition to pedigree parents (default: 0)\n";
+  print STDOUT "-gt_min_prob  p  (if vcf file has est. gt probs. require the greatest to be >= p,\n             or else it is regarded as missing (default:0.9)\n";
+  print STDOUT "-reverse  (causes calculation of reversed parent-offspring relationship,\n             i.e. P as offspring of A, as well as usual A as offspring of P (default: false)\n";
+  print STDOUT "-help  Print this message.\n";
 }
