@@ -37,10 +37,11 @@ use Chromosome;
 my $pedigree_file = undef;
 my $vcf_file = undef;
 my $output_file = "pp.out";
-my $rand_parents_to_do = 2; # for each accession with pedigree, also choose this many other accessions at random to test as parents.
+my $rand_parents_to_do = 0; # for each accession with pedigree, also choose this many other accessions at random to test as parents.
 my $min_gt_prob = 0.9;	    # for 
 my $do_reverse = 0;
 my $max_markers = 5000000000; # to limit to a smaller number of markers for speed in testing
+my $use_pedigrees = 0;
 
 GetOptions(
 	   'pedigree_file=s' => \$pedigree_file,
@@ -64,6 +65,7 @@ print STDOUT $run_parameter_info; print $fhout $run_parameter_info;
 ##########################################################
 # read pedigree file and store accession-parent pairs ####
 ##########################################################
+my %A_Spar = ();
 my %A_Fpar = ();
 my %A_Mpar = ();
 if (defined $pedigree_file) {
@@ -72,9 +74,15 @@ if (defined $pedigree_file) {
     my @cols = split(" ", $_);
     my ($A, $Fpar, $Mpar) = @cols[0,1,2]; # [-3,-2,-1];
     #print STDERR "$A  $Fpar $Mpar\n";
-    $A_Fpar{$A} = $Fpar if($Fpar ne 'NA');
-    $A_Mpar{$A} = $Mpar if($Mpar ne 'NA');
-
+    if ($Fpar ne 'NA'  or  $Mpar ne 'NA') {
+      if ($Fpar eq $Mpar) {	# self case
+	$A_Spar{$A} = $Fpar;
+      } else {			# distinct parents
+	$A_Fpar{$A} = $Fpar if($Fpar ne 'NA');
+	$A_Mpar{$A} = $Mpar if($Mpar ne 'NA');
+      }
+    }
+    $use_pedigrees = 1;
   }
   close $fhped;
 }
@@ -163,19 +171,31 @@ close $fhvcf;
 my @chroms = sort {$a <=> $b} keys %chrom_numbers;
 my $n_chrom_pairs_analyzed_forward = 0;
 
+print STDERR "use pedigrees? ", ($use_pedigrees)? 'Y' : 'N', "\n";;
 while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as progeny
-  my $ped_Fpar = $A_Fpar{$progid} // 'unknown';
-  my $ped_Mpar = $A_Mpar{$progid} // 'unknown';
-  if ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown') {
+  my $ped_Fpar;
+  my $ped_Mpar;
+  if (exists $A_Spar{$progid}) { # self
+    $ped_Fpar = $A_Spar{$progid};
+    $ped_Mpar = $ped_Fpar;
+  } else {
+    $ped_Fpar = $A_Fpar{$progid} // 'unknown';
+    $ped_Mpar = $A_Mpar{$progid} // 'unknown';
+  }
+  if ($use_pedigrees  and  ($ped_Fpar eq 'unknown'  and  $ped_Mpar eq 'unknown')) {
     next;
   }
   my %cand_parent_ids = ();
+  if($ped_Fpar eq $ped_Mpar){ # self
+    $cand_parent_ids{$ped_Fpar} = 'S';
+  }else{
   if ($ped_Fpar ne 'unknown') {
     $cand_parent_ids{$ped_Fpar} = 'F';
   }
   if ($ped_Mpar ne 'unknown') {
     $cand_parent_ids{$ped_Mpar} = 'M';
   }
+}
   my $rand_parents_added = 0;
   my @shuffled_ids = shuffle(@acc_ids);
   for my $anid (@shuffled_ids) { # add some other randomly chosen parents
