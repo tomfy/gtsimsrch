@@ -168,10 +168,10 @@ while (my $line = <$fhvcf>) # each pass through this loop processes one marker, 
       $the_chrom->add_genotype($the_pgt);
     }
     $marker_count++;
-    printf STDOUT "Markers read from vcf file so far: $marker_count \n" if($marker_count % 1000 == 0);
+    printf STDOUT "# Markers read from vcf file so far: $marker_count \n" if($marker_count % 200 == 0);
     last if($marker_count >= $max_markers);
   }
-printf STDOUT "Done storing markers. Markers stored:  $marker_count \n";
+printf STDOUT "# Done storing markers. Markers stored:  $marker_count \n";
 close $fhvcf;
 ###########################################
 # done storing info in vcf file. ##########
@@ -180,7 +180,7 @@ close $fhvcf;
 my @chroms = sort {$a <=> $b} keys %chrom_numbers;
 my $n_chrom_pairs_analyzed_forward = 0;
 
-print STDERR "use pedigrees? ", ($use_pedigrees)? 'Y' : 'N', "\n";;
+print STDOUT "# use pedigrees? ", ($use_pedigrees)? 'Y' : 'N', "\n";;
 while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as progeny
   my $ped_Fpar;
   my $ped_Mpar;
@@ -227,20 +227,33 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
       #print STDERR "$i_chrom  $progid  $pFM   $ped_Fpar  $ped_Mpar \n";
       # forward direction - $parid is parent
       my $pgts2 = $acc_chroms{$parid}->[$i_chrom]->genotypes();
-      my ($Do, $So, $XA, $XB, $parent_het_count, $length1count_A, $length1count_B) = analyze_pgts_pair($pgts2, $pgts1); # $pgts1: parent, $pgts2: progeny
+      my ($Do, $So, $XA, $XB, $parent_het_count, $interXlsA, $interXlsB) = analyze_pgts_pair($pgts2, $pgts1); # $pgts1: parent, $pgts2: progeny
       $n_chrom_pairs_analyzed_forward++;
-      print STDOUT "Chromosome parent-progeny pairs analyzed: $n_chrom_pairs_analyzed_forward \n" if($n_chrom_pairs_analyzed_forward % 1000 == 0);
+      print STDOUT "# Chromosome parent-progeny pairs analyzed: $n_chrom_pairs_analyzed_forward \n" if($n_chrom_pairs_analyzed_forward % 1000 == 0);
       my $hgmr_denom = $Do + $So;
       print $fhout "$progid  $parid  $i_chrom  ", ($hgmr_denom > 0)? $Do/$hgmr_denom : '-1', "   $XA $XB   ";
       if ($XA < $XB) {
 	print $fhout "$XA $XB  "; # $length1count_A $length1count_B  ";
-      } else {
+	 while(my($i, $iXl) = each @$interXlsA){
+	print STDOUT "A  $iXl  min forward\n";
+      }
+      while(my($i, $iXl) = each @$interXlsB){
+	print STDOUT "B  $iXl  max forward\n";
+      }
+      } else { # $XB >= $XA
 	print $fhout "$XB $XA  "; #  $length1count_B $length1count_A  ";
+	 while(my($i, $iXl) = each @$interXlsA){
+	print STDOUT "A  $iXl  max forward\n";
+      }
+      while(my($i, $iXl) = each @$interXlsB){
+	print STDOUT "B  $iXl  min forward\n";
+      }
       }
       print $fhout " $parent_het_count  $type  forward\n";
+     
 
       if ($do_reverse) { # now with $progid as parent, $parid as progeny
-	my ($Do_rev, $So_rev, $XA_rev, $XB_rev, $parent_het_count_rev, $L1count_A_rev, $L1count_B_rev) = analyze_pgts_pair($pgts1, $pgts2);
+	my ($Do_rev, $So_rev, $XA_rev, $XB_rev, $parent_het_count_rev, $interXlsA_rev, $interXlsB_rev) = analyze_pgts_pair($pgts1, $pgts2);
 	my $hgmr_rev = ($So_rev > 0)? $Do_rev/($Do_rev + $So_rev) : -1;
 	print $fhout "$parid  $progid  $i_chrom  $hgmr_rev  $XA_rev $XB_rev   ";
 	if ($XA_rev < $XB_rev) {
@@ -249,6 +262,13 @@ while (my ($i, $progid) = each @acc_ids) { # loop over accessions considered as 
 	  print $fhout "$XB_rev $XA_rev  "; #  $length1count_B $length1count_A  ";
 	}
 	print $fhout " $parent_het_count_rev reverse\n";
+
+	  while(my($i, $iXl) = each @$interXlsA_rev){
+	print STDOUT "A  $iXl  reverse\n";
+      }
+      while(my($i, $iXl) = each @$interXlsB_rev){
+	print STDOUT "B  $iXl  reverse\n";
+      }
       }
     }
   }
@@ -273,10 +293,12 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
   my $par_1count = 0;
   my $par_2count = 0;
   my $par_het_count = 0;
-  my $length_1_countA = 0;
-  my $length_1_countB = 0;
+#  my $length_1_countA = 0;
+#  my $length_1_countB = 0;
   my ($previous_switch_positionA, $switch_positionA) = (undef, undef);
   my ($previous_switch_positionB, $switch_positionB) = (undef, undef);
+  my @interXlengthsA = ();
+  my @interXlengthsB = ();
   while (my($i, $pgt1) = each @$pgts1) {
     my $par_pgt = $pgt1;	 # ->pgt();
     my $prog_pgt = $pgts2->[$i]; #->pgt();
@@ -302,7 +324,9 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countA++;
 	    $switch_positionA = $par_het_count;
 	    if (defined $previous_switch_positionA) {
-	      $length_1_countA++ if(($switch_positionA - $previous_switch_positionA)  ==  1);
+	       my $intercross_length = $switch_positionA - $previous_switch_positionA;
+	      push @interXlengthsA, $intercross_length;
+	      #$length_1_countA++ if(($switch_positionA - $previous_switch_positionA)  ==  1);
 	    }
 	    $previous_switch_positionA = $switch_positionA;
 	  }
@@ -314,8 +338,10 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countA++;
 	    $switch_positionA = $par_het_count;
 	    if (defined $previous_switch_positionA) {
+	      my $intercross_length = $switch_positionA - $previous_switch_positionA;
+	      push @interXlengthsA, $intercross_length;
 	      # print STDERR  "0|1 A1 $switch_positionA ", $switch_positionA - $previous_switch_positionA, " $par_het_count\n";
-	      $length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
+	      #$length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
 	    }
 	    $previous_switch_positionA = $switch_positionA;
 	  }
@@ -330,7 +356,9 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
+	       my $intercross_length = $switch_positionB - $previous_switch_positionB;
+	      push @interXlengthsB, $intercross_length;
+	      #$length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
 	    }
 	    $previous_switch_positionB = $switch_positionB;
 	    
@@ -344,7 +372,9 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
+	       my $intercross_length = $switch_positionB - $previous_switch_positionB;
+	      push @interXlengthsB, $intercross_length;
+	      #$length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
 	    }
 	    $previous_switch_positionB = $switch_positionB;
 	  }
@@ -362,7 +392,9 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countA++;
 	    $switch_positionA = $par_het_count;
 	    if (defined $previous_switch_positionA) {
-	      $length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
+	       my $intercross_length = $switch_positionA - $previous_switch_positionA;
+	      push @interXlengthsA, $intercross_length;
+	      #$length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
 	    }
 	    $previous_switch_positionA = $switch_positionA;
 	  }
@@ -373,7 +405,9 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countA++;
 	    $switch_positionA = $par_het_count;
 	    if (defined $previous_switch_positionA) {
-	      $length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
+	       my $intercross_length = $switch_positionA - $previous_switch_positionA;
+	      push @interXlengthsA, $intercross_length;
+	      #$length_1_countA++ if($switch_positionA - $previous_switch_positionA  ==  1);
 	    }
 	    $previous_switch_positionA = $switch_positionA;
 	  }
@@ -385,7 +419,9 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
+	       my $intercross_length = $switch_positionB - $previous_switch_positionB;
+	      push @interXlengthsB, $intercross_length;
+	      #$length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
 	    }
 	    $previous_switch_positionB = $switch_positionB;
 	  }
@@ -396,7 +432,9 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
 	    $switch_countB++;
 	    $switch_positionB = $par_het_count;
 	    if (defined $previous_switch_positionB) {
-	      $length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
+	       my $intercross_length = $switch_positionB - $previous_switch_positionB;
+	      push @interXlengthsB, $intercross_length;
+	      #$length_1_countB++ if($switch_positionB - $previous_switch_positionB  ==  1);
 	    }
 	    $previous_switch_positionB = $switch_positionB;
 	  }
@@ -411,7 +449,7 @@ sub analyze_pgts_pair{ # consider $pgts1 as parent, $pgts2 as progeny.
       }
     }
   }
-  return ($Dhom, $Shom, $switch_countA, $switch_countB, $par_het_count, $length_1_countA, $length_1_countB);
+  return ($Dhom, $Shom, $switch_countA, $switch_countB, $par_het_count, \@interXlengthsA, \@interXlengthsB);
 }
 
 sub print_help{
