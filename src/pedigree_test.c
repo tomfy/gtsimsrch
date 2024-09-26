@@ -41,11 +41,12 @@ main(int argc, char *argv[])
     double max_self_r = 1; // need to specify if doing alternative pedigrees
     double max_ok_z = 1;
     double max_ok_d = 1; // accept everything as ok
-    bool verbose = false;
+    bool verbose = true;
     
     double ploidy = 2;
     double epsilon = 0.01;
     long Nthreads = 0;
+  
     // ***** process command line *****
     if (argc < 2) {
       fprintf(stderr, "Usage:  %s -g <genotypes_file>  -p <pedigree_file> \n", argv[0]);

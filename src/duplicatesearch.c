@@ -218,9 +218,6 @@ main(int argc, char *argv[])
       {"maf_min", required_argument, 0, 'l'}, //
       {"accession_max_missing_data", required_argument, 0, 'a'},
       {"distance_max",  required_argument,  0,  'd'}, // max. estimated distance (agmr)
-      {"all_distances", no_argument, 0, 'x'},  // do all distances
-      {"est_all_distances", no_argument, 0, 'e'},
-      {"matrix_out_format", required_argument, 0, 'M'}, 
 
       {"chunk_size", required_argument, 0, 'k'}, // number of markers per chunk. D
    
@@ -229,10 +226,12 @@ main(int argc, char *argv[])
 
       {"help", no_argument, 0, 'h'},
 
-      // less useful options
+      // less useful options (
       {"passes", required_argument, 0, 'n'}, // use each marker in ~passes chunks		
       {"shuffle_accessions",    no_argument, 0,  'u' }, // default is to not shuffle the order of the accessions
-       
+      {"all_distances", no_argument, 0, 'x'},  // do all distances
+      {"est_all_distances", no_argument, 0, 'e'},
+      {"matrix_out_format", required_argument, 0, 'M'}, 
       {0,         0,                 0,  0 }
     };
      

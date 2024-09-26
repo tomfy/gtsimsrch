@@ -54,7 +54,12 @@ double clock_time(clockid_t the_clock){
   return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
 }
 
-extern int errno; 
+extern int errno;
+
+#define DEFAULT_MIN_GP  0.9
+#define DEFAULT_DELTA  0.1
+#define DEFAULT_MIN_MAF 0.0  // KEEP ALL
+#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION 1.0  // KEEP ALL
 
 int main(int argc, char *argv[]){
   errno = 0;
@@ -64,10 +69,10 @@ int main(int argc, char *argv[]){
   Vchar* output_filename = construct_vchar_from_str("vcftogts.out");
   FILE* out_stream = NULL;
   
-  double minGP = 0.9;
-  double delta = 0.1;
-  double min_maf = 0.0; // by default keep all
-  double max_marker_md = 1.0; // by default keep all
+  double minGP = DEFAULT_MIN_GP;
+  double delta = DEFAULT_DELTA;
+  double min_maf = DEFAULT_MIN_MAF; // by default keep all
+  double max_marker_md = DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION; // by default keep all
   
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
@@ -712,19 +717,21 @@ char* split_on_char(char* str, char c, long* iptr){
 
 void print_usage_info(FILE* ostream){
   fprintf(stdout, "Options:\n");
-  fprintf(stdout, "  -input       Input vcf filename (required).\n");
-  fprintf(stdout, "  -out         Output filename (default: vcftogts.out)\n");
-  fprintf(stdout, "  -prob_min        Min. estimated genotype probibility (if GP field present; default: 0.9)\n");
-  fprintf(stdout, "  -maf_min     Exclude markers with minor allele frequency < this. (Default: 0.1)\n");
-  fprintf(stdout, "  -marker_max_md  Exclude markers with proportion of missing data > this. (Default: 0.25)\n");
-  fprintf(stdout, "  -delta       If using DS field, must be within this of an integer or call it missing data. (Default: 0.1)\n");
-  fprintf(stdout, "  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
+  fprintf(stdout, "-i  -input       Input vcf filename (required).\n");
+  fprintf(stdout, "-o  -out         Output filename (default: vcftogts.out)\n");
+  fprintf(stdout, "-p  -prob_min        Min. estimated genotype probability if GP field present (default: %4.2f)\n", DEFAULT_MIN_GP);
+  fprintf(stdout, "-f  -maf_min     Exclude markers with minor allele frequency < this. (Default: %4.2f)\n", DEFAULT_MIN_MAF);
+  fprintf(stdout, "-m  -marker_max_md  Exclude markers with proportion of missing data > this. (Default: %4.2f)\n", DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION);
+  fprintf(stdout, "-d  -delta       If using DS field, must be within this of an integer or call it missing data. (Default: %4.2f)\n", DEFAULT_DELTA);
+  fprintf(stdout, "-a  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
+  
+  fprintf(stdout, "-c  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
+  fprintf(stdout, "-t  -threads     Number of threads to use. (Default: automatic, based on get_nprocs.)\n");
+
+  fprintf(stdout, "-h  -help        Print this help message.\n");
    
-  fprintf(stdout, "  -randomize   Randomize the order of accessions in output (Default: 0 (false))\n");
-  fprintf(stdout, "  -seed        Random number generator seed. Only relevant if randomizing accession output order.\n");
-   
-  fprintf(stdout, "  -threads     Number of threads to use. (Default: automatic, based on get_nprocs.\n");
-  fprintf(stdout, "  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
+  //  fprintf(stdout, "-r  -randomize   Randomize the order of accessions in output (Default: 0 (false))\n");
+  //  fprintf(stdout, "-s  -seed        Random number generator seed. Only relevant if randomizing accession output order.\n");
 }
 
 // unused
