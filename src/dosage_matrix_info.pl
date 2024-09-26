@@ -9,9 +9,9 @@ use strict;
 
 my $n_marker_ids;
 my $n_accessions = 0;
-my ($cume_zero_count, $cume_one_count, $cume_two_count, $cume_X_count) = (0, 0, 0, 0);
+my ($cume_zero_count, $cume_one_count, $cume_two_count, $cume_X_count, $cumulative_bad_accession_count) = (0, 0, 0, 0, 0);
 print "# dosage counts for each accession.\n";   
-print "# acc_no                             acc_id        n0      n1      n2      nX   n_markers     maf\n";
+print "# acc_no                             acc_id        n0      n1      n2      nX   n_markers     maf    heterozygosity\n";
 while (<>) {
   next if(/^\s*#/);
   if (/^MARKER/) {
@@ -37,10 +37,11 @@ while (<>) {
     $cume_X_count += $X_count;
     $n_accessions++;
     my $ok_count = $marker_count - $X_count;
+    $cumulative_bad_accession_count++ if($ok_count == 0);
     my $alt_allele_freq = ($ok_count > 0)? ($one_count + 2*$two_count)/(2*$ok_count) : -1;
     my $maf = ($alt_allele_freq <= 0.5)? $alt_allele_freq : 1.0 - $alt_allele_freq;
-    
-    printf(STDOUT "%6ld %36s   %7ld %7ld %7ld %7ld   %7ld   %8.4f\n", $n_accessions, $acc_id, $zero_count, $one_count, $two_count, $X_count, $marker_count, $maf);
+    my $heterozygosity = ($ok_count > 0)? $one_count/$ok_count : -1;
+    printf(STDOUT "%6ld %36s   %7ld %7ld %7ld %7ld   %7ld   %8.4f    %8.4f\n", $n_accessions, $acc_id, $zero_count, $one_count, $two_count, $X_count, $marker_count, $maf, $heterozygosity);
    # print STDOUT "#           ", $one_count + 2*$two_count, "  ", $ok_count, "  ", $alt_allele_freq, "\n"
   }
 }
@@ -50,4 +51,5 @@ print "# dosage frequencies:\n";
 print "#    zero     one     two       X\n";
 printf(STDOUT "#  %6.4f  %6.4f  %6.4f  %6.4f\n",
   $cume_zero_count/$n_total_gts, $cume_one_count/$n_total_gts,
-  $cume_two_count/$n_total_gts, $cume_X_count/$n_total_gts);
+       $cume_two_count/$n_total_gts, $cume_X_count/$n_total_gts);
+print STDOUT "# accessions with all missing data: $cumulative_bad_accession_count\n";
