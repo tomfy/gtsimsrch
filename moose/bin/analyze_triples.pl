@@ -89,11 +89,13 @@ print STDERR "### N pp accession pairs kept: ", scalar @pppairs, "\n";
     my ($A, $F, $M) = split(" ", $AFM);
     # my $AF_ppinfo = $pppair_info{"$A $F"};
     #print STDERR "\n\n"; print STDERR "AFM:  $A  $F  $M\n";
-    my ($Xmin1, $Xmin2, $Xbest, $Nhet1, $Nhet2, $Nbad_chrom) = triple_quality(\%pppair_info, $F, $M, $A);
+    my ($Xmin1, $Xmin2, $Xb1, $Xb2, $Xbest, $Nhet1, $Nhet2, $Nbad_chrom) = triple_quality(\%pppair_info, $F, $M, $A);
     # print STDERR "   $Xmin1 $Xmin2  $Xbest  $Nhet1  $Nhet2  $Nbad_chrom\n";
     my $Nhet_total = $Nhet1 + $Nhet2;
     if ($Nhet1 > 0  and $Nhet2 > 0) {
-      print $fhout "$A $F $M  $Xmin1 $Xmin2 $Xbest  $Nhet1 $Nhet2  ", $Xmin1/$Nhet1, "  ", $Xmin2/$Nhet2, "  ", $Xbest/$Nhet_total, "  $Nbad_chrom  $info ", ($F eq $M)? 'S' : 'B', "\n";
+      print $fhout "$A $F $M  $Xmin1  $Xmin2  " .
+	#  $Xb1 $Xb2 $Xbest
+	" $Nhet1 $Nhet2  ", $Xmin1/$Nhet1, "  ", $Xmin2/$Nhet2, "  ", $Xbest/$Nhet_total, "  $Nbad_chrom  $info ", ($F eq $M)? 'S' : 'B', "\n";
     }
   }
 close $fhout;
@@ -113,6 +115,7 @@ sub triple_quality{
   my $Xmin1 = 0;
   my $Xmin2 = 0;
   my $Xbest = 0;
+  my ($Xb1, $Xb2) = (0, 0); # numbers of Xovers for parent1, parent2 for best solution for triple. ($Xb1 + $Xb2 == $Xbest_sum)
   my $Xmin1_sum = 0;
   my $Xmin2_sum = 0;
   my $Xbest_sum = 0;
@@ -132,11 +135,21 @@ sub triple_quality{
     $Xmin2_sum += $Xmin2;
     my $X_AB = $chrom_info1->{$i_chrom}->{XA} + $chrom_info2->{$i_chrom}->{XB};
     my $X_BA = $chrom_info1->{$i_chrom}->{XB} + $chrom_info2->{$i_chrom}->{XA};
-    $Xbest = min($X_AB, $X_BA);
+    if($X_AB < $X_BA){
+      $Xbest = $X_AB;
+      $Xb1 += $chrom_info1->{$i_chrom}->{XA};
+      $Xb2 += $chrom_info2->{$i_chrom}->{XB}
+    }else{
+      $Xbest = $X_BA;
+      $Xb1 += $chrom_info1->{$i_chrom}->{XB};
+      $Xb2 += $chrom_info2->{$i_chrom}->{XA}
+    }
+    # $Xbest = min($X_AB, $X_BA);
     $Xbest_sum += $Xbest;
     $Nhet1 += $chrom_info1->{$i_chrom}->{Nhet};
     $Nhet2 += $chrom_info2->{$i_chrom}->{Nhet};
     $bad_count++ if($Xmin1+$Xmin2 < $Xbest);
   }
-  return ($Xmin1_sum, $Xmin2_sum, $Xbest_sum, $Nhet1, $Nhet2, $bad_count);
+  die "Xbest_sum: $Xbest_sum  Xb1: $Xb1  Xb2: $Xb2\n" if($Xbest_sum != $Xb1 + $Xb2);
+  return ($Xmin1_sum, $Xmin2_sum, $Xb1, $Xb2, $Xbest_sum, $Nhet1, $Nhet2, $bad_count);
 }

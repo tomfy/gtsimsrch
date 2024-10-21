@@ -25,8 +25,10 @@ my %pp_info = (); # keys: parent-progeny id pairs (e.g.  "parid progid"
 open my $fhin, "<", "$pp_out_file";
 while(my $pp_line = <$fhin>){
   next if($pp_line =~ /^\s*(#|$)/);
-	my ($parid, $progid, $i_chrom, $hgmr, $XA, $XB, $Xmin, $Xmax, $parent_het_count, $type) = split(" ", $pp_line);
-  my $ppid = "$parid $progid";
+  my ($progid, $parid, $i_chrom, $hgmr, $XA, $XB, $Xmin, $Xmax,
+      # $ndubA, $ndubB,
+      $parent_het_count, $type, $direction) = split(" ", $pp_line);
+  my $ppid = "$progid $parid";
   if(!exists $pp_info{$ppid}){
     my $info = {'xmin' => $Xmin, 'xmax' => $Xmax, 'parent_hetzygs' => $parent_het_count, 'hgmr' => $hgmr, 'type' => $type}; 
     $pp_info{$ppid} = $info;
