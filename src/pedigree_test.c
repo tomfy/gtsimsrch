@@ -46,6 +46,8 @@ main(int argc, char *argv[])
     double ploidy = 2;
     double epsilon = 0.01;
     long Nthreads = 0;
+
+    char* lpabpba_outfile = "logpabpba";
   
     // ***** process command line *****
     if (argc < 2) {
@@ -194,6 +196,8 @@ main(int argc, char *argv[])
     }
 
     // exit(EXIT_FAILURE);
+
+    FILE* lpabpba_stream = fopen(lpabpba_outfile, "w");
   
     FILE *o_stream = NULL;
     o_stream = fopen(pedigree_test_output_filename, "w");
@@ -256,6 +260,8 @@ main(int argc, char *argv[])
     /* } */
     double t_start = hi_res_time();
 
+    
+
     // ***************  read the pedigrees file  ***************************
     fprintf(stderr, "# before read_and_store_pedigrees_3col\n"); 
     Vidxid* the_vidxid = construct_sorted_vidxid(the_genotypes_set->accessions); // ids and indexes of the_genotypes_set, sorted by id
@@ -266,7 +272,6 @@ main(int argc, char *argv[])
     fprintf(stdout, "# Stored genotypes of %ld accessions, and  %ld pedigrees. \n", the_genotypes_set->accessions->size, pedigrees->size);
 
     // ***************  Done reading input files  ******************************
-
   
     const Vlong* parent_idxs = accessions_with_offspring(pedigrees); // , the_genotypes_set->n_accessions);
     fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
@@ -283,8 +288,16 @@ main(int argc, char *argv[])
       Accession* A = pedigrees->a[i]->A;
       Accession* F = pedigrees->a[i]->F;
       Accession* M = pedigrees->a[i]->M;
+   
       if(0 || (F != NULL  ||  M != NULL)){ // at least one parent specified in pedigree
-    
+
+	if(A != NULL  &&  F != NULL  && M != NULL){
+	  two_doubles lpabpba_AF = logPABPBA(the_genotypes_set, A, F);
+	  two_doubles lpabpba_AM = logPABPBA(the_genotypes_set, A, M);
+	  fprintf(lpabpba_stream, "A: %s  F: %s  %8.5f  %8.5f   M: %s  %8.5f  %8.5f\n",
+		  A->id->a, F->id->a, lpabpba_AF.x1, lpabpba_AF.x2, M->id->a, lpabpba_AM.x1, lpabpba_AM.x2);
+	}
+	
 	fprintf(o_stream, "%20s %5ld %20s %20s %ld  ",
 		A->id->a, A->missing_data_count,
 		(F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA", the_pedigree_stats->all_good_count);

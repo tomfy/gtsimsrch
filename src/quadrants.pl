@@ -13,6 +13,7 @@ my $qstring = shift // undef;
 if (!defined $qstring) {
   print STDERR "# usage:  quadrant_counts '3:0.04;16:0.3' <  <datafile> \n";
   print STDERR "# must specify columns, thresholds and input file. Exiting \n";
+  exit();
 }
 my $categorize = shift // 1;
 my ($xstr, $ystr) = split(';', $qstring);
@@ -35,7 +36,7 @@ while (<>) {
     if ($xvalue < $xthresh) {
       if ($yvalue < $ythresh) {
 	$LLcount++;
-	print "$_ LL n" if($categorize);
+	print "$_ LL\n" if($categorize);
       } else {
 	$ULcount++;
 	print "$_ UL\n" if($categorize);

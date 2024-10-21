@@ -36,6 +36,7 @@ typedef struct{
   long Fpar_idx; // index of female parent according to pedigree file (or ID_NA_INDEX if not in file)
   long Mpar_idx; // index of male parent according to pedigree file (or ID_NA_INDEX if not in file)
   bool has_pedigree; // true iff pedigree file gives at least one parent for this accession.
+  bool search_done; // true iff search for parents has been done
 }Accession;
 
 typedef struct{
@@ -180,3 +181,5 @@ void free_genotypesset(GenotypesSet* the_gtsset);
 Vidxid* construct_vidxid(const Vaccession* accessions);
 Vidxid* construct_sorted_vidxid(const Vaccession* accessions);
 long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);
+
+two_doubles logPABPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B);

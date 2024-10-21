@@ -36,6 +36,7 @@ Accession* construct_accession(char* id, long idx, char* genotypes, long accessi
   the_accession->Fpar_idx = ID_NA_INDEX;
   the_accession->Mpar_idx = ID_NA_INDEX;
   the_accession->has_pedigree = false;
+  the_accession->search_done = false;
   return the_accession;
 }
 void set_accession_missing_data_count(Accession* the_accession, long missing_data_count){
@@ -1688,4 +1689,72 @@ long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions){
 /*   fprintf(stream, " %ld %ld  ", forbidden_count, forbidden_count+count_00_22); */
 /*   return result; */
 /* } */
+
+two_doubles logPABPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B){ // generalized hgmr (ploidy can be > 2; reduces to hgmr for diploid)
+  if(A == NULL  ||  B == NULL){
+    two_doubles result = {0, 0};
+    return result;
+  }
+  long forbidden_count = 0;
+  long denom = 0;
+  long ploidy = the_gtsset->ploidy;
+  double logPAB = 0;
+  double logPBA = 0;
+   Vlong* mdcs0 = the_gtsset->marker_dosage_counts[0];
+    Vlong* mdcs1 = the_gtsset->marker_dosage_counts[1];
+     Vlong* mdcs2 = the_gtsset->marker_dosage_counts[2];
+  for(long i=0; i<the_gtsset->n_markers; i++){
+   
+    long a_dosage = A->genotypes->a[i];
+    long b_dosage = B->genotypes->a[i];
+    if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
+    a_dosage -= 48; b_dosage -= 48;
+    
+    long delta_dosage = labs(a_dosage - b_dosage);
+    if(2*delta_dosage > ploidy){
+      forbidden_count++;
+    }
+    else if(2*a_dosage != ploidy  &&  2*b_dosage != ploidy){
+      denom++;
+    }
+    long n0 = mdcs0->a[i];
+    long n1 = mdcs1->a[i];
+    long n2 = mdcs2->a[i];
+    long ntot = n0 + n1 + n2;
+    double f0 = (double)n0/ntot;
+    double f1 = (double)n1/ntot;
+    double f2 = (double)n2/ntot;
+    if(a_dosage == 0){
+      if(b_dosage == 1){
+	double pab = 0.5*f1 + f2; // a parent of b
+	double pba = 0.5*(f0 + 0.5*f1);
+	logPAB += log(pab);
+	logPBA += log(pba);
+      }
+    }else if(a_dosage == 1){
+      if(b_dosage == 0){
+	double pab = 0.5*(f0 + 0.5*f1);
+	  double pba = 0.5*f1 + f2; // a parent of b
+	logPAB += log(pab);
+	logPBA += log(pba);
+      }else if(b_dosage == 2){
+	double pab = 0.5*(0.5*f1 + f2);
+	double pba = f0 + 0.5*f1;
+	logPAB += log(pab);
+	logPBA += log(pba);
+      }
+    }else if(a_dosage == 2){
+      if(b_dosage == 1){
+	double pab = 0.5*f1 + f0;
+	double pba = 0.5*(f2 + 0.5*f1);
+	logPAB += log(pab);
+	logPBA += log(pba);
+      }
+    }
+  }
+  denom += forbidden_count;
+  
+  two_doubles result = {logPAB, logPBA};
+  return result;
+}
 
