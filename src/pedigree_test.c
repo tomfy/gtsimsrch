@@ -291,12 +291,12 @@ main(int argc, char *argv[])
    
       if(0 || (F != NULL  ||  M != NULL)){ // at least one parent specified in pedigree
 
-	if(A != NULL  &&  F != NULL  && M != NULL){
-	  two_doubles lpabpba_AF = logPABPBA(the_genotypes_set, A, F);
-	  two_doubles lpabpba_AM = logPABPBA(the_genotypes_set, A, M);
-	  fprintf(lpabpba_stream, "A: %s  F: %s  %8.5f  %8.5f   M: %s  %8.5f  %8.5f\n",
-		  A->id->a, F->id->a, lpabpba_AF.x1, lpabpba_AF.x2, M->id->a, lpabpba_AM.x1, lpabpba_AM.x2);
-	}
+	/* if(A != NULL  &&  F != NULL  && M != NULL){ */
+	/*   two_doubles lpabpba_AF = logPABPBA(the_genotypes_set, A, F); */
+	/*   two_doubles lpabpba_AM = logPABPBA(the_genotypes_set, A, M); */
+	/*   fprintf(lpabpba_stream, "A: %s  F: %s  %8.5f  %8.5f   M: %s  %8.5f  %8.5f\n", */
+	/* 	  A->id->a, F->id->a, lpabpba_AF.x1, lpabpba_AF.x2, M->id->a, lpabpba_AM.x1, lpabpba_AM.x2); */
+	/* } */
 	
 	fprintf(o_stream, "%20s %5ld %20s %20s %ld  ",
 		A->id->a, A->missing_data_count,
