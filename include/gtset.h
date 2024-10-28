@@ -22,6 +22,7 @@ typedef struct{
   Vchar* id;
   long index; // the index in the accessions array of GenotypesSet
   Vchar* genotypes;
+  Vchar* phases; // 'p' or 'm' for +, -, 
   Vlong* chunk_patterns;
   //  long md_chunk_count; // the number of chunks with missing data
   long ok_chunk_count; // the number of chunks with no missing data = n_chunks - md_chunk_count
@@ -59,6 +60,7 @@ typedef struct{
   Vaccession* accessions;
   
   Vstr* marker_ids; // vector of marker_ids
+  Vlong* chromosomes; // the chromosome numbers for each marker.
   //  Vmarker* markers; // vector of markers
   Vlong* marker_missing_data_counts; //
   Vlong* marker_alt_allele_counts; //
@@ -94,11 +96,11 @@ typedef struct{
 // *****  functions  *****
 long int_power(long base, long power);
 long str_to_long(char* str);
-char token_to_dosage(char* token, long* ploidy);
+two_chars token_to_dosage(char* token, long* ploidy);
 //long determine_file_format(char* filename);
 
 // *****  Accession  *****
-Accession* construct_accession(char* id, long idx, char* genotypes, long accession_md_count);
+Accession* construct_accession(char* id, long idx, char* genotypes, char* phases, long accession_md_count);
 void set_accession_missing_data_count(Accession* the_accession, long missing_data_count);
 long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_chunks, long k, long ploidy);
 char* print_accession(Accession* the_gts, FILE* ostream);
@@ -140,7 +142,7 @@ void threaded_input(FILE* in_stream, long n_lines_in_chunk, double max_acc_md_fr
 void* input_lines_1thread(void* x); // for threaded processing of input lines.
 // void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
-char token_to_dosage(char* token, long* ploidy);
+// char token_to_dosage(char* token, long* ploidy);
 // void read_genotypes_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 
 void check_gtsset(GenotypesSet* gtsset);

@@ -17,6 +17,12 @@ typedef struct{
   long l1;
   long l2;
   long l3;
+} three_longs;
+
+typedef struct{
+  long l1;
+  long l2;
+  long l3;
   long l4;
 }four_longs;
 
@@ -24,6 +30,11 @@ typedef struct{
   double x1;
   double x2;
 }two_doubles;
+
+typedef struct{
+  char ch1;
+  char ch2;
+}two_chars;
 
 //double n_over_d(ND nd);
 double hi_res_time(void);

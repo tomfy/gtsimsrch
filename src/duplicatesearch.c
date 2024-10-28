@@ -139,6 +139,8 @@ double clock_time(clockid_t a_clock){
   return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
 }
 
+long check_phases(Accession* acc);
+
 
 // *************************  end of declarations  **********************************************
 
@@ -456,7 +458,10 @@ main(int argc, char *argv[])
   //t_setup += (t_after_input - t_start);
   
   check_genotypesset(the_genotypes_set);
-
+  for(long i=0; i < the_genotypes_set->accessions->size; i++){
+    Accession* an_acc = the_genotypes_set->accessions->a[i];
+     check_phases(an_acc);
+  }
   double t_after_chk = clock_time(clock1);
   fprintf(stdout, "# Time for check_genotypesset: %lf\n", t_after_chk - t_after_input);
   if(BITWISE || get_all_est_agmrs) set_Abits_Bbits(the_genotypes_set, Nthreads);
@@ -1151,6 +1156,22 @@ void print_command_line(FILE* ostream, int argc, char** argv){
     fprintf(ostream, "%s  ", argv[i]);
   }fprintf(ostream, "\n");
 }
+
+long check_phases(Accession* acc){
+  for(long i=0; i < acc->genotypes->length; i++){
+    // fprintf(stderr, "i: %ld\n", i);
+    char gt = acc->genotypes->a[i];
+    char phase = acc->phases->a[i];
+    if((gt == '0' || gt == '2') && (phase != 'x')){
+      fprintf(stderr, "%c %c \n", gt, phase);
+    }
+    if( (gt == '1') && (phase != 'p'  &&  phase != 'm') ){
+      fprintf(stderr, "%c %c \n", gt, phase);
+    }
+  }
+  return 0;
+}
+
 
 
 // ************ unused ******************************

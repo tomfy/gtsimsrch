@@ -62,7 +62,7 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, Gen
 Vpedigree* read_the_pedigrees_file_and_store(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset); 
 Vpedigree* construct_vpedigree(long cap);
 
-const Vlong* accessions_with_offspring(const Vpedigree* the_Vped); //, long n_accessions);
+const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
 
 //Vlong* alternative_parents(Accession* the_acc, const GenotypesSet* const the_gtsset, double max_ok_hgmr);
 Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
@@ -99,6 +99,10 @@ long long_max(long a, long b);
 // four_longs triple_forbidden_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 // Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, long* d0counts, long* d1counts, long* d2counts);
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
+
+three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
+// long check_phases(Accession* acc);
+
 
 // long marker_d_counts(Pedigree* the_pedigree, long* d0counts, long* d1counts, long* d2counts);
 void print_pedigree(FILE* fh, Pedigree* the_pedigree, bool verbose);

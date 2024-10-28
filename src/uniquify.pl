@@ -119,7 +119,7 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
-my $duplicatesearch_command = "duplicatesearch  -in $input_dosages_filename ";
+my $duplicatesearch_command = "duplicate_search  -in $input_dosages_filename ";
 $duplicatesearch_command .= " -distance $max_distance " if(defined $max_distance);
 $duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
 $duplicatesearch_command .= " -maf_min $min_maf ";

@@ -18,6 +18,117 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
   return the_pedigree;
 }
 
+three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
+  // Assuming that parent is indeed a parent of offspring,
+  // count the min number of crossovers needed to reconcile them
+  //fprintf(stdout, "n_markers: %ld \n", parent->genotypes->length);
+  if(parent == NULL  ||  offspring == NULL) return (three_longs){-1, -1, -1};
+  long Nhet = 0; // number of heterozyg gts in parent
+  long Xmin = 0;
+  long Xmax = 0;
+  long Xa = 0;
+  long Xb = 0;
+  long prev_chrom_number = -1;
+  long prev_phase_a = -1;
+  long prev_phase_b = -1;
+  long phase_a, phase_b;
+  for(long i=0; i < parent->genotypes->length; i++){
+    //fprintf(stderr, "i: %ld\n", i);
+    long chrom_number = the_gtsset->chromosomes->a[i];
+    if(chrom_number != prev_chrom_number){
+      if(Xa < Xb){
+	Xmin += Xa; Xmax += Xb;
+      }else{
+	Xmin += Xb; Xmax += Xa;
+      }
+      // fprintf(stderr, "X: \n");
+      // fprintf(stderr, "Xa: %ld\n", Xa);
+      // fprintf(stderr, "Xb: %ld\n", Xb);
+      // fprintf(stderr, "Xa, Xb, Xmin,max: %ld %ld  %ld %ld \n", Xa, Xb, Xmin, Xmax);
+      Xa = 0; Xb = 0;
+      prev_chrom_number = chrom_number;
+    }
+    char p_gt = parent->genotypes->a[i];
+    char p_phase = parent->phases->a[i];
+    if(p_gt != '1') continue; // skip if parent not heterozyg
+    long o_gt = parent->genotypes->a[i];
+    long o_phase = parent->phases->a[i];
+    if(o_gt == MISSING_DATA_CHAR) continue;
+    Nhet++;
+    long offA = (o_gt == 0  ||  (o_gt == 1  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    long offB = (o_gt == 0  ||  (o_gt == 1  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    if(p_phase == 'p'){ // i.e. 0|1 in vcf
+      if(offA == 0){ // A has ref allele
+	phase_a = 0;
+	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
+	  Xa++;
+	}
+	prev_phase_a = phase_a;
+      }else if(offA == 1){
+	phase_a = 1;
+	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
+	  Xa++;
+	}
+	prev_phase_a = phase_a;
+      }
+
+      if(offB == 0){ // B has ref allele
+	phase_b = 0; 
+	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
+	  Xb++;
+	}
+	prev_phase_b = phase_b;
+      }else if(offB == 1){
+	phase_b = 1;
+	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
+	  Xb++;
+	}
+	prev_phase_b = phase_b;
+      }
+
+    }else if(p_phase == 'm'){ // i.e. 1|0 in vcf
+
+      if(offA == 0){ // A has ref allele
+	phase_a = 1;
+	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
+	  Xa++;
+	}
+	prev_phase_a = phase_a;
+      }else if(offA == 1){
+	phase_a = 0;
+	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
+	  Xa++;
+	}
+	prev_phase_a = phase_a;
+      }
+
+      if(offB == 0){ // B has ref allele
+	phase_b = 1; 
+	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
+	  Xb++;
+	}
+	prev_phase_b = phase_b;
+      }else if(offB == 1){
+	phase_b = 0;
+	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
+	  Xb++;
+	}
+	prev_phase_b = phase_b;
+      }
+    } // end p_phase == 'm' branch
+  } // end loop over markers
+  if(Xa < Xb){
+    Xmin += Xa; Xmax += Xb;
+  }else{
+    Xmin += Xb; Xmax += Xa;
+  }
+  fprintf(stderr, "XXN: %ld %ld %ld \n", Xmin, Xmax, Nhet);
+  three_longs result = (three_longs){Xmin, Xmax, Nhet};
+
+} // end of count_crossovers
+
+
+
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy){ // 
 
   char c1, c2, c3;
@@ -602,14 +713,31 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
 }
 
 // get the indices of all the accessions which, according to the_vped, have offspring.
-const Vlong* accessions_with_offspring(const Vpedigree* the_vped){ // , long n_accessions){
-  Vlong* offspring_counts = construct_vlong_zeroes(the_vped->size);
+const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessions){ // , long n_accessions){
+  //fprintf(stderr, "n peds: %ld\n", the_vped->size);
+  Vlong* offspring_counts = construct_vlong_zeroes(n_accessions);
   for(long i=0; i<the_vped->size; i++){
     const Pedigree* the_ped = the_vped->a[i];
+    //fprintf(stderr, "i:  %ld   A index: %ld\n", i, the_vped->a[i]->A->index);
     // fprintf(stderr, "%ld %ld \n", the_ped->F->index, the_ped->Fparent->index);
-    if(the_ped->F != NULL) offspring_counts->a[the_ped->F->index]++;
-    if(the_ped->M != NULL) offspring_counts->a[the_ped->M->index]++; 
+    if(the_ped->F != NULL) {
+      // fprintf(stderr, "n peds: %ld\n", the_vped->size);
+      //fprintf(stderr, "F index: %ld\n", the_ped->F->index);
+      offspring_counts->a[the_ped->F->index]++;
+      //fprintf(stderr, "i: %ld  F index: %ld\n", i, the_ped->F->index);
+    }
+    //else{fprintf(stderr, "F is NULL\n");}
+    if(the_ped->M != NULL) {
+      // fprintf(stderr, "n peds: %ld\n", the_vped->size);
+      // fprintf(stderr, "M index: %ld\n", the_ped->M->index);
+      offspring_counts->a[the_ped->M->index]++;
+      // fprintf(stderr, "i: %ld  M index: %ld\n", i, the_ped->M->index);
+    }
+    //else{fprintf(stderr, "M is NULL\n");
   }
+  //fprintf(stderr, "XYZ\n");
+
+  //fprintf(stderr, "XXXXX %ld \n", offspring_counts->size);
   Vlong* accidxs_with_offspring = construct_vlong(100);
   //  Vaccession* accessions = construct_vaccession(100);
   for(long i=0; i<offspring_counts->size; i++){
@@ -1109,6 +1237,7 @@ long long_min(long a, long b){
 long long_max(long a, long b){
   return (a >= b)? a : b;
 }
+
 
 
 // ******************************************************************************

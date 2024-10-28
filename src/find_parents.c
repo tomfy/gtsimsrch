@@ -319,12 +319,14 @@ main(int argc, char *argv[])
     fclose(p_stream); 
     fprintf(stdout, "# Done reading pedigree file. Time to read pedigree file: %6.3f\n", hi_res_time() - t_d);
     fprintf(stdout, "# Stored genotypes of %ld accessions, and  %ld pedigrees. \n", the_genotypes_set->accessions->size, pedigrees->size);
-    const Vlong* parent_idxs = accessions_with_offspring(pedigrees); // , the_genotypes_set->n_gt_accessions);
+     
+    const Vlong* parent_idxs = accessions_with_offspring(pedigrees, the_genotypes_set->accessions->size); // , the_genotypes_set->n_gt_accessions);
     fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
-    
+  
     initialization_time = hi_res_time(); 
     fprintf(stdout, "# Cumulative time so far: %6.3f sec.\n", initialization_time - t_begin_main);
      fprintf(stderr, "# Analyzing %ld pedigrees from table. \n", pedigrees->size);
+    
      for(long i=0; i<pedigrees->size; i++){
        if(i % 100  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
        Pedigree* the_pedigree = pedigrees->a[i];
@@ -335,11 +337,24 @@ main(int argc, char *argv[])
        Accession* A = the_pedigree->A;
        Accession* F = the_pedigree->F;
        Accession* M = the_pedigree->M;
+
+       if(1  ||  (A != NULL && F != NULL && M != NULL)){
+	 /* for(long i=0; i<A->genotypes->length; i++){ */
+	 /*   fprintf(stdout, "%ld  %c %c\n", the_genotypes_set->chromosomes->a[i], A->genotypes->a[i], A->phases->a[i]); */
+	 /* } */
+
+       }
+       
        long A_gtset_idx = index_of_id_in_vidxid(the_gt_vidxid, A->id->a);
        if(0 || (F != NULL  ||  M != NULL)){ // at least one parent specified in pedigree
     
 	 fprintf(o_stream, "%s  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
 	 print_pedigree(o_stream, the_pedigree, long_output_format);
+
+	    three_longs F_phased_info = count_crossovers(the_genotypes_set, F, A);
+	    fprintf(o_stream, "  %ld %ld %ld ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3); 
+	    three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);
+	    fprintf(o_stream, "  %ld %ld %ld ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);  
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents
 	   long pedigree_ok_return_value = pedigree_ok_x(the_pedigree_stats, max_self_agmr, max_self_R, max_ok_d, max_ok_z);

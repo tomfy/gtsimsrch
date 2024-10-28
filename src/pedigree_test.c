@@ -273,7 +273,7 @@ main(int argc, char *argv[])
 
     // ***************  Done reading input files  ******************************
   
-    const Vlong* parent_idxs = accessions_with_offspring(pedigrees); // , the_genotypes_set->n_accessions);
+    const Vlong* parent_idxs = accessions_with_offspring(pedigrees, the_genotypes_set->accessions->size); // , the_genotypes_set->n_accessions);
     fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
     fprintf(stdout, "# Cumulative time so far: %6.3f sec.\n", hi_res_time() - t_begin_main);
     

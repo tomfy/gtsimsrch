@@ -64,7 +64,7 @@ while (<>) {
   print "$init_stuff";
   @gts = @gts[9..$#gts];
   for my $anid (@ids_to_keep) {
-    print STDERR "id to keep $anid\n";
+    # print STDERR "id to keep $anid\n";
    # sleep(1);
     my $acol = $id_col{$anid};
     print "\t", $gts[$acol];

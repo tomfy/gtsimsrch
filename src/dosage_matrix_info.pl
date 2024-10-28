@@ -21,14 +21,18 @@ while (<>) {
     # }
     $n_marker_ids = scalar @cols - 1;
     print "# n marker ids: $n_marker_ids\n";
+  }elsif(/^CHROMOSOME/) {
+    
   } else {
     s/^\s*(\S+)//; # delete first field (accession id)
    my $acc_id = $1;
  #  while (/\s+\S/g) { $marker_count++ } # slow compared to using tr as in following 4 lines.
     my $zero_count = $_ =~ tr/0/0/;
     my $one_count = $_ =~ tr/1/1/;
+    my $neg_count = $_ =~ tr/-/-/;
     my $two_count = $_ =~ tr/2/2/;
     my $X_count = $_ =~ tr/X/X/;
+    print STDERR "$acc_id   $zero_count  $one_count  $two_count  $X_count   $neg_count\n";
     my $marker_count =  $zero_count+$one_count+$two_count+$X_count;
     die "# Marker count discrepancy: n_marker_ids $n_marker_ids  n_markers: $marker_count\n" if($marker_count != $n_marker_ids);
     $cume_zero_count += $zero_count;
