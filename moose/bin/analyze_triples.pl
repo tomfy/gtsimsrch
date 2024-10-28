@@ -94,7 +94,8 @@ print STDERR "### N pp accession pairs kept: ", scalar @pppairs, "\n";
     my $Nhet_total = $Nhet1 + $Nhet2;
     if ($Nhet1 > 0  and $Nhet2 > 0) {
       print $fhout "$A $F $M  $Xmin1  $Xmin2  " .
-	#  $Xb1 $Xb2 $Xbest
+	  #  $Xb1 $Xb2
+	  "$Xbest  " .
 	" $Nhet1 $Nhet2  ", $Xmin1/$Nhet1, "  ", $Xmin2/$Nhet2, "  ", $Xbest/$Nhet_total, "  $Nbad_chrom  $info ", ($F eq $M)? 'S' : 'B', "\n";
     }
   }
