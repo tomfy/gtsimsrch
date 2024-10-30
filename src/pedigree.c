@@ -162,30 +162,16 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
   long prev_chrom_number = -1, prev_phase_a = -1, prev_phase_b = -1;
   long phase_a, phase_b, chrom_number;
  
-  for(long i=0; i < parent->genotypes->length; i++){    
-    chrom_number = the_gtsset->chromosomes->a[i];
-    if(chrom_number != prev_chrom_number){
-      if(Xa < Xb){ // add chromosome Xmin, Xmax to totals
-	Xmin += Xa; Xmax += Xb;
-      }else{
-	Xmin += Xb; Xmax += Xa;
-      }
+  for(long i=0; i < parent->genotypes->length; i++){
 
-      // reset for new chromosome:
-      Xa = 0; Xb = 0;
-      prev_chrom_number = chrom_number;
-      prev_phase_a = -1; // needed
-      prev_phase_b = -1;
-    }
-    
     char p_gt = parent->genotypes->a[i];
     char p_phase = parent->phases->a[i];
     if(p_gt != '1') continue; // skip if parent gt not heterozyg, i.e. if homozyg or missing.
-    
+        
     char o_gt = offspring->genotypes->a[i];
     char o_phase = offspring->phases->a[i];  
-    if(o_gt == MISSING_DATA_CHAR){ continue; }
-    
+    if(o_gt == MISSING_DATA_CHAR) continue;
+  
     Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
     
     long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
@@ -195,19 +181,33 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
       phase_a = (offA == 0)? 0 : 1;
       phase_b = (offB == 0)? 0 : 1; 
     }else if(p_phase == 'm'){ // i.e. 1|0 in vcf
-        phase_a = (offA == 0)? 1 : 0;
-        phase_b = (offB == 0)? 1 : 0;	
+      phase_a = (offA == 0)? 1 : 0;
+      phase_b = (offB == 0)? 1 : 0;	
     }else{
       fprintf(stderr, "p_phase is neither p nor m: %c\n", p_phase);
       exit(0);
     }
 
+    chrom_number = the_gtsset->chromosomes->a[i];
+    if(chrom_number != prev_chrom_number){ // now on next chromosome
+      if(Xa < Xb){ // add chromosome Xmin, Xmax to totals
+	Xmin += Xa; Xmax += Xb;
+      }else{
+	Xmin += Xb; Xmax += Xa;
+      }
+      // reset for new chromosome:
+      Xa = 0; Xb = 0;
+      prev_chrom_number = chrom_number;
+      prev_phase_a = -1; // needed
+      prev_phase_b = -1;
+    }
+
     // compare current phases with previous values,
     // update crossover counts, and
     // and  update prev_phase_a, prev_phase_b
-    if(prev_phase_a >= 0  &&  phase_a != prev_phase_a) Xa++;
+    if(prev_phase_a >= 0  &&  phase_a != prev_phase_a) Xa++; // phase has changed - crossover
     prev_phase_a = phase_a;
-    if(prev_phase_b >= 0  &&  phase_b != prev_phase_b) Xb++;
+    if(prev_phase_b >= 0  &&  phase_b != prev_phase_b) Xb++; // phase has changed - crossover
     prev_phase_b = phase_b;
     
   } // end loop over markers
@@ -219,7 +219,6 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
  
   return (three_longs){Xmin, Xmax, Nhet};
 } // end of count_crossovers_x
-
 
 
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy){ // 
