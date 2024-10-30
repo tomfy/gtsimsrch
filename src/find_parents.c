@@ -354,12 +354,14 @@ main(int argc, char *argv[])
 	 print_pedigree(o_stream, the_pedigree, long_output_format);
 
 	 //fprintf(stderr, "Before count_crossovers (F). %s %s \n", A->id->a,  (F != NULL)? F->id->a : "NULL");
+	 if(1){
 	    three_longs F_phased_info = count_crossovers(the_genotypes_set, F, A);
 	    fprintf(o_stream, "  %ld %ld %ld ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3);
 	    //fprintf(stderr, "Before count_crossovers (M). %s %s \n", A->id->a, (M != NULL)? M->id->a : "NULL");
 	    three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);
 	    //fprintf(stderr, "after count_crossovers (M)\n");
-	    fprintf(o_stream, "  %ld %ld %ld ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);  
+	    fprintf(o_stream, "  %ld %ld %ld ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);
+	 }
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents
 	   long pedigree_ok_return_value = pedigree_ok_x(the_pedigree_stats, max_self_agmr, max_self_R, max_ok_d, max_ok_z);
