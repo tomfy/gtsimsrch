@@ -295,6 +295,7 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time for other initial processing of genotype data: %6.3f sec.\n", t_d - t_c);
   fflush(stdout);
   long n_gt_accessions = the_genotypes_set->accessions->size;
+  // print_genotypesset(stderr, the_genotypes_set);
   
 
   // ****************************************************************
@@ -315,6 +316,7 @@ main(int argc, char *argv[])
     // ********************************************************* 
     // ***  Read the pedigrees file  ***************************
     // *********************************************************
+    fprintf(stderr, "About to read_and_store_pedigrees...\n");
     const Vpedigree* pedigrees = read_and_store_pedigrees_3col(p_stream, the_gt_vidxid, the_genotypes_set); // acc id and then female, male parent ids in first 3 cols.
     fclose(p_stream); 
     fprintf(stdout, "# Done reading pedigree file. Time to read pedigree file: %6.3f\n", hi_res_time() - t_d);
@@ -351,9 +353,12 @@ main(int argc, char *argv[])
 	 fprintf(o_stream, "%s  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
 	 print_pedigree(o_stream, the_pedigree, long_output_format);
 
+	 //fprintf(stderr, "Before count_crossovers (F). %s %s \n", A->id->a,  (F != NULL)? F->id->a : "NULL");
 	    three_longs F_phased_info = count_crossovers(the_genotypes_set, F, A);
-	    fprintf(o_stream, "  %ld %ld %ld ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3); 
+	    fprintf(o_stream, "  %ld %ld %ld ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3);
+	    //fprintf(stderr, "Before count_crossovers (M). %s %s \n", A->id->a, (M != NULL)? M->id->a : "NULL");
 	    three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);
+	    //fprintf(stderr, "after count_crossovers (M)\n");
 	    fprintf(o_stream, "  %ld %ld %ld ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);  
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents

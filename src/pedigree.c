@@ -18,11 +18,146 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
   return the_pedigree;
 }
 
+
+/* three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){ */
+/*   // Assuming that parent is indeed a parent of offspring, */
+/*   // count the min number of crossovers needed to reconcile them */
+/*   //fprintf(stdout, "n_markers: %ld ; %p %p \n", (parent != NULL)? parent->genotypes->length : -1, parent, offspring); */
+/*   if(parent == NULL  ||  offspring == NULL) { */
+/*     //fprintf(stderr, "par, off ptrs: %p %p \n", parent, offspring); */
+/*     return (three_longs){-1, -1, -1}; */
+/*   } */
+/*   long Nhet = 0; // number of heterozyg gts in parent */
+/*   long Xmin = 0; */
+/*   long Xmax = 0; */
+/*   long Xa = 0; */
+/*   long Xb = 0; */
+/*   long prev_chrom_number = -1; */
+/*   long prev_phase_a = -1; */
+/*   long prev_phase_b = -1; */
+/*   long phase_a, phase_b; */
+/*   long chrom_number = -1; */
+/*   fprintf(stderr, "n genotypes: %ld \n", parent->genotypes->length); */
+/*   // getc(stdin); */
+/*   for(long i=0; i < parent->genotypes->length; i++){ */
+    
+/*     //fprintf(stderr, "i: %ld\n", i); */
+/*     chrom_number = the_gtsset->chromosomes->a[i]; */
+/*     //fprintf(stderr, "i, ichr, previchr: %ld  %ld %ld \n", i, chrom_number, prev_chrom_number); */
+/*     if(chrom_number != prev_chrom_number){ */
+/*       if(Xa < Xb){ */
+/* 	Xmin += Xa; Xmax += Xb; */
+/*       }else{ */
+/* 	Xmin += Xb; Xmax += Xa; */
+/*       } */
+/*       // fprintf(stderr, "X: \n"); */
+/*       // fprintf(stderr, "Xa: %ld\n", Xa); */
+/*       // fprintf(stderr, "Xb: %ld\n", Xb); */
+/*       // fprintf(stderr, "prevchrom, chrom, Xa, Xb, Xmin,max: %ld %ld  %ld %ld  %ld %ld   %ld\n", prev_chrom_number, chrom_number, Xa, Xb, Xmin, Xmax, Nhet); */
+/*       Xa = 0; Xb = 0; */
+/*       prev_chrom_number = chrom_number; */
+/*     } */
+/*     char p_gt = parent->genotypes->a[i]; */
+/*     char p_phase = parent->phases->a[i]; */
+    
+/*     if(p_gt != '1') continue; // skip if parent not heterozyg */
+    
+/*     char o_gt = offspring->genotypes->a[i]; */
+/*     char o_phase = offspring->phases->a[i]; */
+   
+/*     if(o_gt == MISSING_DATA_CHAR){ */
+/*       fprintf(stderr, "o_gt: %c\n", o_gt); */
+/*       continue; */
+/*     } */
+/*     Nhet++; */
+/*     long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt. */
+/*     long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt. */
+
+/*     fprintf(stderr, "o_gt o_phase:  %c  %c   offA, offB: %ld %ld \n", o_gt, o_phase, offA, offB); */
+
+/*     //fprintf(stderr, "%ld  %c %c     %c %c   %ld %ld    %ld   ", i, p_gt, p_phase, o_gt, o_phase, offA, offB, Nhet);  */
+/*     if(p_phase == 'p'){ // i.e. 0|1 in vcf */
+/*       if(offA == 0){ // A has ref allele */
+/* 	phase_a = 0; */
+/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
+/* 	  Xa++; */
+/* 	} */
+/* 	prev_phase_a = phase_a; */
+/*       }else if(offA == 1){ */
+/* 	phase_a = 1; */
+/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
+/* 	  Xa++; */
+/* 	} */
+/* 	prev_phase_a = phase_a; */
+/*       } */
+
+/*       if(offB == 0){ // B has ref allele */
+/* 	phase_b = 0;  */
+/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
+/* 	  Xb++; */
+/* 	} */
+/* 	prev_phase_b = phase_b; */
+/*       }else if(offB == 1){ */
+/* 	phase_b = 1; */
+/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
+/* 	  Xb++; */
+/* 	} */
+/* 	prev_phase_b = phase_b; */
+/*       } */
+
+/*     }else if(p_phase == 'm'){ // i.e. 1|0 in vcf */
+
+/*       if(offA == 0){ // A has ref allele */
+/* 	phase_a = 1; */
+/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
+/* 	  Xa++; */
+/* 	} */
+/* 	prev_phase_a = phase_a; */
+/*       }else if(offA == 1){ */
+/* 	phase_a = 0; */
+/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
+/* 	  Xa++; */
+/* 	} */
+/* 	prev_phase_a = phase_a; */
+/*       } */
+
+/*       if(offB == 0){ // B has ref allele */
+/* 	phase_b = 1;  */
+/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
+/* 	  Xb++; */
+/* 	} */
+/* 	prev_phase_b = phase_b; */
+/*       }else if(offB == 1){ */
+/* 	phase_b = 0; */
+/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
+/* 	  Xb++; */
+/* 	} */
+/* 	prev_phase_b = phase_b; */
+/*       } */
+/*     } // end p_phase == 'm' branch */
+   
+/*   } // end loop over markers */
+/*   if(Xa < Xb){ */
+/*     Xmin += Xa; Xmax += Xb; */
+/*   }else{ */
+/*     Xmin += Xb; Xmax += Xa; */
+/*   } */
+/*   //fprintf(stderr, "prevchrom, chrom: Xa, Xb, Xmin,max: %ld %ld    %ld %ld  %ld %ld   %ld\n", prev_chrom_number, chrom_number, Xa, Xb, Xmin, Xmax, Nhet); /\**\/ */
+/*   /\* fprintf(stderr, "offspring, parent: %s %s\n", offspring->id->a, parent->id->a); *\/ */
+/*   /\* fprintf(stderr, "XXN: %ld %ld %ld \n", Xmin, Xmax, Nhet); *\/ */
+/*   three_longs result = (three_longs){Xmin, Xmax, Nhet}; */
+/*   //fprintf(stderr, "Xmin, Xmax, Nhet: %ld %ld %ld\n", result.l1, result.l2, result.l3); */
+/*   return result; */
+/* } // end of count_crossovers */
+
 three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
   // Assuming that parent is indeed a parent of offspring,
   // count the min number of crossovers needed to reconcile them
-  //fprintf(stdout, "n_markers: %ld \n", parent->genotypes->length);
-  if(parent == NULL  ||  offspring == NULL) return (three_longs){-1, -1, -1};
+  //fprintf(stdout, "n_markers: %ld ; %p %p \n", (parent != NULL)? parent->genotypes->length : -1, parent, offspring);
+  if(parent == NULL  ||  offspring == NULL) {
+    //fprintf(stderr, "par, off ptrs: %p %p \n", parent, offspring);
+    return (three_longs){-1, -1, -1};
+  }
   long Nhet = 0; // number of heterozyg gts in parent
   long Xmin = 0;
   long Xmax = 0;
@@ -32,9 +167,14 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
   long prev_phase_a = -1;
   long prev_phase_b = -1;
   long phase_a, phase_b;
+  long chrom_number = -1;
+  fprintf(stderr, "n genotypes: %ld \n", parent->genotypes->length);
+  // getc(stdin);
   for(long i=0; i < parent->genotypes->length; i++){
+    
     //fprintf(stderr, "i: %ld\n", i);
-    long chrom_number = the_gtsset->chromosomes->a[i];
+    chrom_number = the_gtsset->chromosomes->a[i];
+    //fprintf(stderr, "i, ichr, previchr: %ld  %ld %ld \n", i, chrom_number, prev_chrom_number);
     if(chrom_number != prev_chrom_number){
       if(Xa < Xb){
 	Xmin += Xa; Xmax += Xb;
@@ -44,88 +184,97 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
       // fprintf(stderr, "X: \n");
       // fprintf(stderr, "Xa: %ld\n", Xa);
       // fprintf(stderr, "Xb: %ld\n", Xb);
-      // fprintf(stderr, "Xa, Xb, Xmin,max: %ld %ld  %ld %ld \n", Xa, Xb, Xmin, Xmax);
+      // fprintf(stderr, "prevchrom, chrom, Xa, Xb, Xmin,max: %ld %ld  %ld %ld  %ld %ld   %ld\n", prev_chrom_number, chrom_number, Xa, Xb, Xmin, Xmax, Nhet);
       Xa = 0; Xb = 0;
       prev_chrom_number = chrom_number;
+      prev_phase_a = -1;
+      prev_phase_b = -1;
     }
     char p_gt = parent->genotypes->a[i];
     char p_phase = parent->phases->a[i];
+    
     if(p_gt != '1') continue; // skip if parent not heterozyg
-    long o_gt = parent->genotypes->a[i];
-    long o_phase = parent->phases->a[i];
-    if(o_gt == MISSING_DATA_CHAR) continue;
+    
+    char o_gt = offspring->genotypes->a[i];
+    char o_phase = offspring->phases->a[i];
+   
+    if(o_gt == MISSING_DATA_CHAR){
+      fprintf(stderr, "o_gt: %c\n", o_gt);
+      continue;
+    }
     Nhet++;
-    long offA = (o_gt == 0  ||  (o_gt == 1  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
-    long offB = (o_gt == 0  ||  (o_gt == 1  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+
+    // fprintf(stderr, "o_gt o_phase:  %c  %c   offA, offB: %ld %ld \n", o_gt, o_phase, offA, offB);
+
+    // fprintf(stderr, "%ld  par gt,ph: %c %c    off gt,ph: %c %c   offA,offB:  %ld %ld    %ld  Xa,Xb: %ld %ld \n", i, p_gt, p_phase, o_gt, o_phase, offA, offB, Nhet, Xa, Xb); 
     if(p_phase == 'p'){ // i.e. 0|1 in vcf
+      
       if(offA == 0){ // A has ref allele
 	phase_a = 0;
-	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
-	  Xa++;
-	}
-	prev_phase_a = phase_a;
       }else if(offA == 1){
 	phase_a = 1;
-	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
-	  Xa++;
-	}
-	prev_phase_a = phase_a;
+      }else{
+	fprintf(stderr, "offA: %ld\n", offA);
+	exit(0);
       }
 
       if(offB == 0){ // B has ref allele
 	phase_b = 0; 
-	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
-	  Xb++;
-	}
-	prev_phase_b = phase_b;
       }else if(offB == 1){
 	phase_b = 1;
-	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
-	  Xb++;
-	}
-	prev_phase_b = phase_b;
       }
 
     }else if(p_phase == 'm'){ // i.e. 1|0 in vcf
 
       if(offA == 0){ // A has ref allele
 	phase_a = 1;
-	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
-	  Xa++;
-	}
-	prev_phase_a = phase_a;
       }else if(offA == 1){
 	phase_a = 0;
-	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
-	  Xa++;
-	}
-	prev_phase_a = phase_a;
       }
 
       if(offB == 0){ // B has ref allele
 	phase_b = 1; 
-	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
-	  Xb++;
-	}
-	prev_phase_b = phase_b;
       }else if(offB == 1){
 	phase_b = 0;
-	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
-	  Xb++;
-	}
-	prev_phase_b = phase_b;
       }
+      
     } // end p_phase == 'm' branch
+    else{
+      fprintf(stderr, "p_phase is neither p nor m: %c\n", p_phase);
+      exit(0);
+    }
+    // fprintf(stderr, "   prev_phase_a, phase_a: %ld %ld  prev_phase_b, phase_b:  %ld %ld \n", prev_phase_a, phase_a, prev_phase_b, phase_b);
+
+    // compare current phases with previous values,
+    // update crossover counts, and
+    // and  update prev_phase_a, prev_phase_b
+    if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){
+      Xa++;
+    }
+      prev_phase_a = phase_a;
+      //}
+    if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){
+      Xb++;
+    }
+      prev_phase_b = phase_b;
+
+      // fprintf(stderr, "       Xa, Xb: %ld %ld \n", Xa, Xb);
+    
   } // end loop over markers
   if(Xa < Xb){
     Xmin += Xa; Xmax += Xb;
   }else{
     Xmin += Xb; Xmax += Xa;
   }
-  fprintf(stderr, "XXN: %ld %ld %ld \n", Xmin, Xmax, Nhet);
+  fprintf(stderr, "prevchrom, chrom: Xa, Xb, Xmin,max: %ld %ld    %ld %ld  %ld %ld   %ld\n", prev_chrom_number, chrom_number, Xa, Xb, Xmin, Xmax, Nhet); /**/
+  /* fprintf(stderr, "offspring, parent: %s %s\n", offspring->id->a, parent->id->a); */
+  /* fprintf(stderr, "XXN: %ld %ld %ld \n", Xmin, Xmax, Nhet); */
   three_longs result = (three_longs){Xmin, Xmax, Nhet};
-
-} // end of count_crossovers
+  //fprintf(stderr, "Xmin, Xmax, Nhet: %ld %ld %ld\n", result.l1, result.l2, result.l3);
+  return result;
+} // end of count_crossovers_x
 
 
 
