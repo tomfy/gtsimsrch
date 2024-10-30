@@ -122,6 +122,10 @@ while (my $line = <$fhpdsgs>) # each pass through this loop processes one access
   {
     my @pdosages = split(" ", $line);
     my $acc_id = shift @pdosages;
+    # print STDERR join(" ", @chromosome_numbers), "\n";
+    # print STDERR join(" ", @pdosages), "\n";
+
+    # print STDERR scalar @chromosome_numbers, "  ", scalar @pdosages, "\n";
     # print STDOUT "acc_id: $acc_id\n";
     push @acc_ids, $acc_id;
     die if(scalar @chromosome_numbers != scalar @pdosages);

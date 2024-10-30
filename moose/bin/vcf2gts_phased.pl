@@ -38,7 +38,7 @@ use Chromosome;
 
 #my $pedigree_file = undef;
 my $vcf_file = undef;
-my $output_file = "pp.out";
+my $output_file = undef;
 #my $rand_parents_to_do = 0; # for each accession with pedigree, also choose this many other pairs of accessions at random to test as parents.
 my $min_gt_prob = 0.9;	    # for 
 #my $do_reverse = 0;
@@ -62,6 +62,10 @@ GetOptions(
 if(!defined $vcf_file  or  $help){
   print_help();
   exit;
+}
+
+if(!defined $output_file){
+  $output_file = $vcf_file . '.pdsgs';
 }
 
 open my $fhout, ">", "$output_file";
@@ -191,7 +195,7 @@ for my $accid (@acc_ids){
   # 0 -> 0,  1 -> 1,  2 -> -1,  3 -> 2
   my $the_chroms = $acc_chrom_objs{$accid}; # $the_chroms is an array ref of Chromosome objs.
   print STDERR "$accid   number of chroms: ", scalar @$the_chroms, "\n";
-  print  $fhout "$accid ";
+  printf $fhout "%24s  ", $accid;
   while( my ($i, $achrom) = each @$the_chroms){
     print STDERR "$accid  $i  [", ref($achrom), "]\n";
     next if($i == 0  or  (!ref($achrom)));
@@ -199,7 +203,14 @@ for my $accid (@acc_ids){
   
     #sleep(1);
     my $the_gts = $achrom->genotypes();
-    print $fhout " ", join(" ", @$the_gts);
+    # printf $fhout " ", join(" ", @$the_gts);
+    for my $agt (@$the_gts){
+      if($agt eq 'X'){
+	printf $fhout "   X";
+      }else{
+	printf $fhout " %3d", $agt;
+      }
+    }
   }
   print $fhout "\n";
 }
