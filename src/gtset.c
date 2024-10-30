@@ -25,7 +25,7 @@ long int_power(long base, long power){ // calculate base^power using integer mat
 Accession* construct_accession(char* id, long idx, char* genotypes, char* phases, long accession_md_count){
   Accession* the_accession = (Accession*)malloc(1*sizeof(Accession));
   the_accession->id = construct_vchar_from_str(id);
-  the_accession->index = idx;
+  the_accession->index = idx;  
   the_accession->genotypes = construct_vchar_from_str(genotypes);
    the_accession->phases = construct_vchar_from_str(phases);
   the_accession->chunk_patterns = NULL; // set to NULL to avoid containing garbage which causes crash when freeing accession
@@ -418,6 +418,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   // i.e. in case of using reference set, make sure the set of markers is the same in both data sets.
   if(the_genotypes_set->marker_ids  == NULL){
     the_genotypes_set->marker_ids = marker_ids;
+    the_genotypes_set->chromosomes = chromosome_numbers;
     // fprintf(stderr, "the_genotypes_set->marker_ids->size: %ld \n", the_genotypes_set->marker_ids->size);
   }else{
     if(the_genotypes_set->marker_ids->size != marker_ids->size){
@@ -705,7 +706,7 @@ long str_to_long(char* str){ // using strtol and checking for various problems.
 two_chars token_to_dosage(char* token, long* ploidy){
   char dsg;
   char phase = 'p'; // for 'plus'; corresponds to 1 in pdsgs file, phase = 'm' for -1 in pdsgs file.
-  //fprintf(stderr, "token: %s  ", token);
+  // fprintf(stderr, "token: %s  ", token);
   if(strcmp(token, "X") == 0){ // missing data
     dsg = MISSING_DATA_CHAR;
     phase = NO_PHASE_CHAR;
@@ -725,7 +726,7 @@ two_chars token_to_dosage(char* token, long* ploidy){
       if(dsg != '1') phase = NO_PHASE_CHAR;
     }
   }
-  //fprintf(stderr, "%c %c\n", dsg, phase);
+  // fprintf(stderr, "%c %c\n", dsg, phase);
   return (two_chars){dsg, phase};
 }
 
@@ -931,18 +932,22 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
   append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
   
   // construct the filtered genotypes
+      Vlong* raw_chromosomes = the_gtsset->chromosomes;
+      Vlong* filtered_chromosomes = construct_vlong(n_markers_to_keep+1);
   Vaccession* the_accessions = construct_vaccession(the_gtsset->n_accessions); //(Accession*)malloc(the_gtsset->n_accessions*sizeof(Accession)); 
   for(long i=0; i<the_gtsset->n_accessions; i++){ // loop over accessions
     char* raw_gts = the_gtsset->accessions->a[i]->genotypes->a; // the string with all the genotypes for accession i
     char* filtered_gts = (char*)malloc((n_markers_to_keep+1)*sizeof(char));
     char* raw_phases = the_gtsset->accessions->a[i]->phases->a; 
     char* filtered_phases = (char*)malloc((n_markers_to_keep+1)*sizeof(char));
+
     long k=0; // k: index of kept markers
     long acc_md_count = 0;
     for(long j=0; j<the_gtsset->n_markers; j++){ // j: index of original markers
       if(md_ok->a[j] == 1){
 	filtered_gts[k] = raw_gts[j];
 	filtered_phases[k] = raw_phases[j];
+	if(i==0) filtered_chromosomes->a[k] = raw_chromosomes->a[j];
 	k++;
 	if(raw_gts[j] == MISSING_DATA_CHAR) acc_md_count++;
       }
@@ -954,6 +959,9 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
     push_to_vaccession(the_accessions, the_accession);
   }
   free_vlong(md_ok);
+
+free_vlong(the_gtsset->chromosomes);
+the_gtsset->chromosomes = filtered_chromosomes;
 
   free_vaccession(the_gtsset->accessions);
   the_gtsset->accessions = the_accessions;
@@ -993,17 +1001,26 @@ void rectify_markers(GenotypesSet* the_gtsset){ // if alt allele has frequency >
   for(long i=0; i<n_markers; i++){
     delta_dosage = 0;
     //  fprintf(stderr, "altallcounts, okmrkrs: %ld  %ld\n", the_gtsset->marker_alt_allele_counts->a[i], (n_accessions - the_gtsset->marker_missing_data_counts->a[i]) );
-    if(2*the_gtsset->marker_alt_allele_counts->a[i] > ploidy*(n_accessions - the_gtsset->marker_missing_data_counts->a[i])){ //
+    if(2*the_gtsset->marker_alt_allele_counts->a[i] > ploidy*(n_accessions - the_gtsset->marker_missing_data_counts->a[i])){ // for this marker switch 0 and 2, and 1, -1
       n_markers_rectified++;
       for(long j=0; j<n_accessions; j++){
 	char dosage = the_gtsset->accessions->a[j]->genotypes->a[i];
 	if(dosage != MISSING_DATA_CHAR){
 	  long ldosage = dosage-48;
-	  if(2*ldosage != ploidy){
+	  if(2*ldosage != ploidy){ 
 	    the_gtsset->accessions->a[j]->genotypes->a[i] = (char)(ploidy - ldosage) + 48;
 	    delta_dosage += ploidy - 2*ldosage;
 	  }
 	}
+	// reverse phases of heterozygs p->m, and m-> homozygs unaffected
+	char phase = the_gtsset->accessions->a[j]->phases->a[i];
+	if(phase == 'p'){
+	  phase = 'm';
+	}else if(phase == 'm'){
+	  phase = 'p';
+	}
+	the_gtsset->accessions->a[j]->phases->a[i] = phase;
+	
       }
     }
     // so far genotypes of each accession have (if necessary) been 'rectified', but now marker_alt_allele_counts needs to be updated
@@ -1613,7 +1630,7 @@ void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
   }fprintf(fh, "\n");
   for(long i=0; i<the_gtsset->n_accessions; i++){
     Accession* acc = the_gtsset->accessions->a[i];
-    fprintf(fh, "%s  ", acc->id->a);
+    fprintf(fh, "%24s  ", acc->id->a);
     for(long j=0; j < acc->genotypes->length; j++){
       char gt = acc->genotypes->a[j];
       if(gt == '~') gt = 'X';
