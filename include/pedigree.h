@@ -101,6 +101,7 @@ long long_max(long a, long b);
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
 three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
+three_longs count_crossovers_x(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 // long check_phases(Accession* acc);
 
 
