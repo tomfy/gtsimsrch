@@ -160,35 +160,16 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
   long Xmin = 0, Xmax = 0, Nhet = 0; // number of heterozyg gts in parent
   long Xa = 0, Xb = 0;
   long prev_chrom_number = -1, prev_phase_a = -1, prev_phase_b = -1;
-  long phase_a, phase_b, chrom_number;
+  long phase_a = -1, phase_b = -1, chrom_number;
  
   for(long i=0; i < parent->genotypes->length; i++){
 
-    char p_gt = parent->genotypes->a[i];
-    char p_phase = parent->phases->a[i];
-    if(p_gt != '1') continue; // skip if parent gt not heterozyg, i.e. if homozyg or missing.
-        
-    char o_gt = offspring->genotypes->a[i];
-    char o_phase = offspring->phases->a[i];  
+    char o_gt = offspring->genotypes->a[i]; 
     if(o_gt == MISSING_DATA_CHAR) continue;
-  
-    Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
-    
-    long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
-    long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    char o_phase = offspring->phases->a[i];
 
-    if(p_phase == 'p'){ // i.e. 0|1 in vcf    
-      phase_a = (offA == 0)? 0 : 1;
-      phase_b = (offB == 0)? 0 : 1; 
-    }else if(p_phase == 'm'){ // i.e. 1|0 in vcf
-      phase_a = (offA == 0)? 1 : 0;
-      phase_b = (offB == 0)? 1 : 0;	
-    }else{
-      fprintf(stderr, "p_phase is neither p nor m: %c\n", p_phase);
-      exit(0);
-    }
-
-    chrom_number = the_gtsset->chromosomes->a[i];
+       chrom_number = the_gtsset->chromosomes->a[i];
+       // fprintf(stderr, "i:  %ld  prevchr, chr: %ld %ld   Xa, Xb:  %ld %ld   %ld %ld  %ld %ld\n", i, prev_chrom_number, chrom_number, Xa, Xb, prev_phase_a, prev_phase_b, phase_a, phase_b);
     if(chrom_number != prev_chrom_number){ // now on next chromosome
       if(Xa < Xb){ // add chromosome Xmin, Xmax to totals
 	Xmin += Xa; Xmax += Xb;
@@ -198,9 +179,27 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
       // reset for new chromosome:
       Xa = 0; Xb = 0;
       prev_chrom_number = chrom_number;
+      phase_a = -1;
+      phase_b = -1;
       prev_phase_a = -1; // needed
       prev_phase_b = -1;
     }
+
+    // ########################################
+    char p_gt = parent->genotypes->a[i];
+    char p_phase = parent->phases->a[i];
+    //if(p_gt != '1') continue; // skip if parent gt not heterozyg, i.e. if homozyg or missing.
+
+    if(p_gt == '1'){
+      Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
+
+      two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
+      phase_a = phases_ab.l1;
+      phase_b = phases_ab.l2;
+    }
+    // ######################################
+
+ 
 
     // compare current phases with previous values,
     // update crossover counts, and
@@ -211,6 +210,7 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
     prev_phase_b = phase_b;
     
   } // end loop over markers
+  // fprintf(stderr, "XXprevchr, chr: %ld %ld   Xa, Xb:  %ld %ld \n",  prev_chrom_number, chrom_number, Xa, Xb);
   if(Xa < Xb){ // add the crossovers from the last chromosome.
     Xmin += Xa; Xmax += Xb;
   }else{
@@ -218,7 +218,176 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
   }
  
   return (three_longs){Xmin, Xmax, Nhet};
-} // end of count_crossovers_x
+} // end of count_crossovers
+
+
+Xover_info count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
+  // Assuming that parent is indeed a parent of offspring,
+  // count the min number of crossovers needed to reconcile them
+
+  Xover_info result = (Xover_info){-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  if( offspring == NULL
+      || Fparent == NULL
+      || Mparent == NULL) return result;
+  
+  long prev_chrom_number = -1, chrom_number;
+  
+  long prev_phase_Fa = -1, prev_phase_Fb = -1;
+  long phase_Fa, phase_Fb;
+  long XFa = 0, XFb = 0;
+
+   long prev_phase_Ma = -1, prev_phase_Mb = -1;
+  long phase_Ma, phase_Mb;
+  long XMa = 0, XMb = 0;
+
+  long XFmin = 0, XFmax = 0, NFhet = 0;
+  long XMmin = 0, XMmax = 0, NMhet = 0;
+
+  long XFmin_triple = 0, XFmax_triple = 0;
+  long XMmin_triple = 0, XMmax_triple = 0;
+  //long Xmin = 0, Xmax = 0; // number of heterozyg gts in parent
+  
+  for(long i=0; i < offspring->genotypes->length; i++){
+    
+    char o_gt = offspring->genotypes->a[i];
+    char o_phase = offspring->phases->a[i];  
+    if(o_gt == MISSING_DATA_CHAR) continue;
+
+    chrom_number = the_gtsset->chromosomes->a[i];
+    if(chrom_number != prev_chrom_number){ // now on next chromosome
+      if(XFa < XFb){ // add chromosome Xmin, Xmax to totals	
+	XFmin += XFa; XFmax += XFb;
+      }else{
+	XFmin += XFb; XFmax += XFa;
+      }
+      if(XMa < XMb){ // add the crossovers from the last chromosome.
+	XMmin += XMa; XMmax += XMb;
+      }else{
+	XMmin += XMb; XMmax += XMa;
+      }
+      long X_Fa_Mb = XFa + XMb; // crossovers for F parent of a, M parent of b.
+      long X_Fb_Ma = XFb + XMa; // crossovers for F parent of b, M parent of a.
+      if(X_Fa_Mb < X_Fb_Ma){
+	XFmin_triple += XFa;
+	XFmax_triple += XFb;
+	XMmin_triple += XMb;
+	XMmax_triple += XMa;
+      }else{
+	XFmin_triple += XFb;
+	XFmax_triple += XFa;
+	XMmin_triple += XMa;
+	XMmax_triple += XMb;
+      }
+      
+      // reset for new chromosome:
+         
+      prev_chrom_number = chrom_number;
+     
+      phase_Fa = -1; phase_Fb = -1;
+      prev_phase_Fa = -1; // needed
+      prev_phase_Fb = -1;
+      XFa = 0; XFb = 0;
+
+      phase_Ma = -1; phase_Mb = -1;
+      prev_phase_Ma = -1; // needed
+      prev_phase_Mb = -1;
+      XMa = 0; XMb = 0;
+    }
+    
+    // ##############  Female parent  ######################
+    if(1  ||  Fparent != NULL){
+    char Fp_gt = Fparent->genotypes->a[i];
+    if(Fp_gt == '1'){ // skip if parent gt not heterozyg, i.e. if homozyg or missing.
+      char Fp_phase = Fparent->phases->a[i]; 
+  
+      NFhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
+
+      two_longs phases_ab = get_1marker_phases_wrt_1parent(Fp_phase, o_gt, o_phase);
+      phase_Fa = phases_ab.l1;
+      phase_Fb = phases_ab.l2;
+    }
+    // compare current phases with previous values,
+    // update crossover counts, and
+    // and  update prev_phase_a, prev_phase_b
+    if(prev_phase_Fa >= 0  &&  phase_Fa != prev_phase_Fa) XFa++; // phase has changed - crossover
+    prev_phase_Fa = phase_Fa;
+    if(prev_phase_Fb >= 0  &&  phase_Fb != prev_phase_Fb) XFb++; // phase has changed - crossover
+    prev_phase_Fb = phase_Fb;
+    }
+    // ####################################################
+
+    
+    // ##############  Male parent  #######################
+    if(1  ||  Mparent != NULL){
+      char Mp_gt = Mparent->genotypes->a[i];
+      if(Mp_gt == '1'){ // skip if parent gt not heterozyg, i.e. if homozyg or missing.
+	char Mp_phase = Mparent->phases->a[i]; 
+  
+	NMhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
+
+	two_longs phases_ab = get_1marker_phases_wrt_1parent(Mp_phase, o_gt, o_phase);
+	phase_Ma = phases_ab.l1;
+	phase_Mb = phases_ab.l2;
+
+      }
+      // compare current phases with previous values,
+      // update crossover counts, and
+      // and  update prev_phase_a, prev_phase_b
+      if(prev_phase_Ma >= 0  &&  phase_Ma != prev_phase_Ma) XMa++; // phase has changed - crossover
+      prev_phase_Ma = phase_Ma;
+      if(prev_phase_Mb >= 0  &&  phase_Mb != prev_phase_Mb) XMb++; // phase has changed - crossover
+      prev_phase_Mb = phase_Mb;
+    }
+    // ####################################################
+
+    
+  } // ##########  end loop over markers  ##################
+  if(XFa < XFb){ // add the crossovers from the last chromosome.
+    XFmin += XFa; XFmax += XFb;
+  }else{
+    XFmin += XFb; XFmax += XFa;
+  }
+   if(XMa < XMb){ // add the crossovers from the last chromosome.
+    XMmin += XMa; XMmax += XMb;
+  }else{
+    XMmin += XMb; XMmax += XMa;
+  }
+      long X_Fa_Mb = XFa + XMb; // crossovers for F parent of a, M parent of b.
+      long X_Fb_Ma = XFb + XMa; // crossovers for F parent of b, M parent of a.
+      if(X_Fa_Mb < X_Fb_Ma){
+	XFmin_triple += XFa;
+	XFmax_triple += XFb;
+	XMmin_triple += XMb;
+	XMmax_triple += XMa;
+      }else{
+	XFmin_triple += XFb;
+	XFmax_triple += XFa;
+	XMmin_triple += XMa;
+	XMmax_triple += XMb;
+      }
+      
+      result = (Xover_info){XFmin, XFmax, NFhet, XMmin, XMmax, NMhet,
+			    XFmin_triple, XFmax_triple, XMmin_triple, XMmax_triple};
+  return result;
+} // end of count_chromosome_crossovers
+
+two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
+  long phase_a, phase_b;
+  long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+  long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+
+  if(p_phase == 'p'){ // i.e. 0|1 in vcf    
+    phase_a = (offA == 0)? 0 : 1;
+    phase_b = (offB == 0)? 0 : 1; 
+  }else if(p_phase == 'm'){ // i.e. 1|0 in vcf
+    phase_a = (offA == 0)? 1 : 0;
+    phase_b = (offB == 0)? 1 : 0;	
+  }else{
+    fprintf(stderr, "p_phase is neither p nor m: %c\n", p_phase);
+    exit(0);
+  }
+  return (two_longs){phase_a, phase_b};
+}
 
 
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy){ // 

@@ -36,6 +36,19 @@ typedef struct{
   char ch2;
 }two_chars;
 
+typedef struct{
+  long XFmin;
+  long XFmax;
+  long NFhet;
+  long XMmin;
+  long XMmax;
+  long NMhet;
+  long XFmin_triple;
+  long XFmax_triple;
+  long XMmin_triple;
+  long XMmax_triple;
+}Xover_info;
+
 //double n_over_d(ND nd);
 double hi_res_time(void);
 double clock_ticks_to_seconds(clock_t nticks);
