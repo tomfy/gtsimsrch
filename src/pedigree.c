@@ -227,10 +227,10 @@ Xcounts_2 count_crossovers_one_chromosome(GenotypesSet* the_gtsset, Accession* p
   if(parent == NULL  ||  offspring == NULL) {
     return (Xcounts_2){-1, -1, -1};
   }
-  long Xmin = 0, Xmax = 0, Nhet = 0; // number of heterozyg gts in parent
-  long Xa = 0, Xb = 0;
-  long prev_chrom_number = -1, prev_phase_a = -1, prev_phase_b = -1;
-  long phase_a = -1, phase_b = -1, chrom_number;
+ 
+  long Xa = 0, Xb = 0, Nhet = 0;
+  long prev_chrom_number = -1, chrom_number;
+  long prev_phase_a = -1, prev_phase_b = -1, phase_a = -1, phase_b = -1;
  
   for(long i=first; i < next; i++){
 
@@ -241,13 +241,9 @@ Xcounts_2 count_crossovers_one_chromosome(GenotypesSet* the_gtsset, Accession* p
     // ########################################
     char p_gt = parent->genotypes->a[i];
     char p_phase = parent->phases->a[i];
-    // fprintf(stderr, "X i: %ld  o_gt, o_phase, %c %c   p_gt, p_phase: %c %c \n", i, o_gt, o_phase, p_gt, p_phase); 
-
-    //if(p_gt != '1') continue; // skip if parent gt not heterozyg, i.e. if homozyg or missing.
 
     if(p_gt == '1'){
       Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
-
       two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
       phase_a = phases_ab.l1;
       phase_b = phases_ab.l2;
@@ -263,50 +259,29 @@ Xcounts_2 count_crossovers_one_chromosome(GenotypesSet* the_gtsset, Accession* p
     prev_phase_b = phase_b;
     
   } // end loop over markers
-  // fprintf(stderr, "XXprevchr, chr: %ld %ld   Xa, Xb:  %ld %ld \n",  prev_chrom_number, chrom_number, Xa, Xb);
-  if(Xa < Xb){ // add the crossovers from the last chromosome.
-    Xmin += Xa; Xmax += Xb;
-  }else{
-    Xmin += Xb; Xmax += Xa;
-  }
- 
-  return (Xcounts_2){Xmin, Xmax, Nhet};
+  return (Xcounts_2){Xa, Xb, Nhet};
 } // end of count_crossovers_one_chromosome
 
 Xcounts_3 count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
   Xcounts_3 result = (Xcounts_3){(Xcounts_2){-1,-1,-1}, (Xcounts_2){-1,-1,-1}, -1, -1, -1, -1};
-  long NhetF = 0;
-  long NhetM = 0;
-  long XFmin_2 = 0;
-  long XFmax_2 = 0;
-  long XMmin_2 = 0;
-  long XMmax_2 = 0;
-  long XFmin_3 = 0;
-  long XFmax_3 = 0;
-  long XMmin_3 = 0;
-  long XMmax_3 = 0;
+  long NhetF = 0, XFmin_2 = 0, XFmax_2 = 0, XFmin_3 = 0, XFmax_3 = 0;
+  long NhetM = 0, XMmin_2 = 0, XMmax_2 = 0, XMmin_3 = 0, XMmax_3 = 0;
  
   long n_chroms = the_gtsset->chromosome_start_indices->size - 1;
-   fprintf(stderr, "n chroms: %ld\n", n_chroms);
-   /* for(long i=0; i<= n_chroms; i++){ */
-   /*   fprintf(stderr, "i chromnumb: %ld %ld \n", i, the_gtsset->chromosome_start_indices->a[i]); */
-   /* } */
-  for(long i=0; // the_gtsset->chromosome_start_indices->a[i] i==0 for chromosome 1
-	i < n_chroms; i++){
-    //fprintf(stderr, "XXXX  i chromnumb: %ld %ld   %ld %ld \n", i, the_gtsset->chromosome_start_indices->a[i], i+1, the_gtsset->chromosome_start_indices->a[i+1] );
+  for(long i=0; i < n_chroms; i++){
+   
     long start_index = the_gtsset->chromosome_start_indices->a[i];
     long next_start_index = the_gtsset->chromosome_start_indices->a[i+1];
-    //fprintf(stderr, "YYY  i chromnumb: %ld %ld   %ld %ld \n", i, the_gtsset->chromosome_start_indices->a[i], i+1, the_gtsset->chromosome_start_indices->a[i+1] );
-    //fprintf(stderr, "ZZ: %ld %ld \n", start_index, next_start_index);
+    
     Xcounts_2 FX = count_crossovers_one_chromosome(the_gtsset, Fparent, offspring, start_index, next_start_index);
-    //fprintf(stderr, "i: %ld  %ld %ld ", i, start_index, next_start_index); getc(stdin);
-    print_Xcounts_2(stderr, FX); fprintf(stderr, "\n");
+   
     NhetF += FX.Nhet;
     if(FX.Xa < FX.Xb){
       XFmin_2 += FX.Xa; XFmax_2 += FX.Xb;
     }else{
       XFmin_2 += FX.Xb; XFmax_2 += FX.Xa;
     }
+
     Xcounts_2 MX = count_crossovers_one_chromosome(the_gtsset, Mparent, offspring, start_index, next_start_index);
     NhetM += MX.Nhet;
     if(MX.Xa < MX.Xb){
@@ -314,20 +289,23 @@ Xcounts_3 count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fpar
     }else{
       XMmin_2 += MX.Xb; XMmax_2 += MX.Xa;
     }
+    
+    // long chrnumber = the_gtsset->chromosomes->a[start_index];
+    // fprintf(stderr, "M  %ld %ld   %ld %ld  %ld\n", i, chrnumber, MX.Xa, MX.Xb, MX.Nhet);
+    // fprintf(stderr, "F  %ld %ld   %ld %ld  %ld\n", i, chrnumber, FX.Xa, FX.Xb, FX.Nhet);
+
     long X_Fa_Mb = FX.Xa + MX.Xb; // crossovers if F is parent of a, M is parent of b
     long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
-    if(X_Fa_Mb <= X_Fb_Ma){
+    if(X_Fa_Mb < X_Fb_Ma){
       XFmin_3 += FX.Xa;
       XFmax_3 += FX.Xb;
       XMmin_3 += MX.Xb;
       XMmax_3 += MX.Xa;
-    }else if(1 || X_Fb_Ma < X_Fa_Mb){
+    }else{
       XFmin_3 += FX.Xb;
       XFmax_3 += FX.Xa;
       XMmin_3 += MX.Xa;
       XMmax_3 += MX.Xb;
-    }else{
-      fprintf(stderr, "XFaMb == XFbMa: %ld \n", X_Fb_Ma);
     }
   } // end loop over chromosomes
   Xcounts_2 FX2 = (Xcounts_2){XFmin_2, XFmax_2, NhetF};

@@ -380,10 +380,7 @@ main(int argc, char *argv[])
 	       }
 	       fprintf(o_stream, " %ld %ld %ld %ld ", X3.XFmin_3, X3.XFmax_3, X3.XMmin_3, X3.XMmax_3);
 	     }
-	   }
-	   
-	   //fprintf(stderr, "Before count_crossovers (M). %s %s \n", A->id->a, (M != NULL)? M->id->a : "NULL");
-	 	    
+	   }	    
 	 }
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents
