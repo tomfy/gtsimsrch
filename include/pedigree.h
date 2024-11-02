@@ -43,6 +43,34 @@ typedef struct{
   double hgmr;
 }Idxhgmr;
 
+typedef struct{
+  long XFmin;
+  long XFmax;
+  long NFhet;
+  long XMmin;
+  long XMmax;
+  long NMhet;
+  long XFmin_triple;
+  long XFmax_triple;
+  long XMmin_triple;
+  long XMmax_triple;
+}Xover_info;
+
+typedef struct{
+  long Xa;
+  long Xb;
+  long Nhet;
+}Xcounts_2;
+
+typedef struct{
+  Xcounts_2 FA;
+  Xcounts_2 MA;
+  long XFmin_3;
+  long XFmax_3;
+  long XMmin_3;
+  long XMmax_3;
+}Xcounts_3;
+
 // *****  function declarations  *****
 
 // *****  Pedigree  *****
@@ -101,7 +129,9 @@ long long_max(long a, long b);
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
 three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
-Xover_info count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
+Xcounts_2 count_crossovers_one_chromosome(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long last);
+Xcounts_3 count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
+Xover_info count_crossovers_two_parents_old(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase);
 //three_longs count_crossovers_x(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 // long check_phases(Accession* acc);
@@ -114,6 +144,7 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
 //void sort_pedigree_stats_by_d(Pedigree_stats** the_pss, long size); // sort in place
 //int pscmp(const void* v1, const void* v2);
 
+void print_Xcounts_2(FILE* fh, Xcounts_2 X);
 void print_d_r(FILE* fh, ND nd);
 // double n_over_d(ND nd);
 

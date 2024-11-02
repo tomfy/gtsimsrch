@@ -958,10 +958,12 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
     free(filtered_gts); // this str was copied into newly allocated memory in the_accession->
     push_to_vaccession(the_accessions, the_accession);
   }
+  filtered_chromosomes->size = n_markers_to_keep;
   free_vlong(md_ok);
 
 free_vlong(the_gtsset->chromosomes);
 the_gtsset->chromosomes = filtered_chromosomes;
+ fprintf(stderr, "in filter_genotypesset. n chroms: %ld \n", the_gtsset->chromosomes->size);
 
   free_vaccession(the_gtsset->accessions);
   the_gtsset->accessions = the_accessions;
@@ -1158,8 +1160,23 @@ void store_homozygs(GenotypesSet* the_gtsset){ // for each accession,
       }else if(dosage == 0){
 	push_to_vlong(acc->ref_homozygs, j);
       }
+      
     }
   }
+}
+
+void set_chromosome_start_indices(GenotypesSet* the_gtsset){
+  Vlong* chrom_start_indices = construct_vlong(50);
+  long prev_chrom_number = -1; // the_gtsset->chromosomes->a[0];
+  //fprintf(stderr, "chroms size: %ld \n", the_gtsset->chromosomes->size);
+  for(long i=0; i<the_gtsset->chromosomes->size; i++){
+    long chrom_number = the_gtsset->chromosomes->a[i];
+    //fprintf(stderr, "XXX: %ld %ld \n", prev_chrom_number, chrom_number);
+    if(chrom_number != prev_chrom_number) push_to_vlong(chrom_start_indices, i); 
+    prev_chrom_number = chrom_number;
+  }
+  push_to_vlong(chrom_start_indices, the_gtsset->chromosomes->size); 
+  the_gtsset->chromosome_start_indices = chrom_start_indices;
 }
 
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset){

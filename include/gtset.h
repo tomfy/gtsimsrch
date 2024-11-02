@@ -61,6 +61,7 @@ typedef struct{
   
   Vstr* marker_ids; // vector of marker_ids
   Vlong* chromosomes; // the chromosome numbers for each marker.
+  Vlong* chromosome_start_indices; // the marker indices at which new chromosomes start.
   //  Vmarker* markers; // vector of markers
   Vlong* marker_missing_data_counts; //
   Vlong* marker_alt_allele_counts; //
@@ -156,6 +157,7 @@ void rectify_markers(GenotypesSet* the_gtsset);
 void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid only
 void* set_Abits_Bbits_1thread(void* x);
 void store_homozygs(GenotypesSet* the_gtsset);
+void set_chromosome_start_indices(GenotypesSet* the_gtsset);
 void set_agmr0s(GenotypesSet* the_gtsset);
 void set_n_00_1_22_1s(GenotypesSet* the_gtsset);
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);

@@ -286,6 +286,8 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to filter genotype data: %6.3f sec.\n", t_c - t_b);
   rectify_markers(the_genotypes_set); // needed for xhgmr to be fast.
   store_homozygs(the_genotypes_set); // needed?
+  fprintf(stderr, "before set_chromosome_start_indices.\n");
+  set_chromosome_start_indices(the_genotypes_set);
   populate_marker_dosage_counts(the_genotypes_set); // needed?
   // set_n_00_1_22_1s(the_genotypes_set);
   check_genotypesset(the_genotypes_set);
@@ -348,27 +350,40 @@ main(int argc, char *argv[])
 
 	 //fprintf(stderr, "Before count_crossovers (F). %s %s \n", A->id->a,  (F != NULL)? F->id->a : "NULL");
 	 if(1){
-	      // count_crossovers(the_genotypes_set, F, A);
-	      if(F == NULL){ // only have male parent in pedigree
-		three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);
-		fprintf(o_stream, "  -1 -1 -1  %ld %ld %ld  -1 -1 -1 -1 ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);
-		//fprintf(stderr, "after count_crossovers (M)\n");
-	      }else if(M == NULL){ // only have female parent in pedigree
-		three_longs F_phased_info = count_crossovers(the_genotypes_set, F, A);
-		fprintf(o_stream, "  %ld %ld %ld  -1 -1 -1  -1 -1 -1 -1 ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3);
-	      }else{ // both F and M are non-NULL
-		Xover_info triple_crossover_counts = count_crossovers_two_parents(the_genotypes_set, F, M, A);
-		fprintf(o_stream, "  %ld %ld %ld ", triple_crossover_counts.XFmin, triple_crossover_counts.XFmax, triple_crossover_counts.NFhet);
-		fprintf(o_stream, "  %ld %ld %ld ", triple_crossover_counts.XMmin, triple_crossover_counts.XMmax, triple_crossover_counts.NMhet);
-		fprintf(o_stream, "  %ld %ld %ld %ld ",
-			triple_crossover_counts.XFmin_triple, triple_crossover_counts.XFmax_triple,
-			triple_crossover_counts.XMmin_triple, triple_crossover_counts.XMmax_triple);
-
-	      }
+	   // count_crossovers(the_genotypes_set, F, A);
+	   if(F == NULL){ // only have male parent in pedigree
+	     three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);
+	     fprintf(o_stream, "  -1 -1 -1  %ld %ld %ld  -1 -1 -1 -1 ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);
+	     //fprintf(stderr, "after count_crossovers (M)\n");
+	   }else if(M == NULL){ // only have female parent in pedigree
+	     three_longs F_phased_info = count_crossovers(the_genotypes_set, F, A);
+	     fprintf(o_stream, "  %ld %ld %ld  -1 -1 -1  -1 -1 -1 -1 ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3);
+	   }else{ // both F and M are non-NULL
+	     if(0){
+	       Xover_info triple_crossover_counts = count_crossovers_two_parents_old(the_genotypes_set, F, M, A);
+	       fprintf(o_stream, "  %ld %ld %ld ", triple_crossover_counts.XFmin, triple_crossover_counts.XFmax, triple_crossover_counts.NFhet);
+	       fprintf(o_stream, "  %ld %ld %ld ", triple_crossover_counts.XMmin, triple_crossover_counts.XMmax, triple_crossover_counts.NMhet);
+	       fprintf(o_stream, "  %ld %ld %ld %ld ",
+		       triple_crossover_counts.XFmin_triple, triple_crossover_counts.XFmax_triple,
+		       triple_crossover_counts.XMmin_triple, triple_crossover_counts.XMmax_triple);
+	     }else{
+	       Xcounts_3 X3 = count_crossovers_two_parents(the_genotypes_set, F, M, A);
+	       if(X3.FA.Xa < X3.FA.Xb){
+		 fprintf(o_stream, " %ld %ld %ld ", X3.FA.Xa, X3.FA.Xb, X3.FA.Nhet);
+	       }else{
+		 fprintf(o_stream, " %ld %ld %ld ", X3.FA.Xb, X3.FA.Xa, X3.FA.Nhet);
+	       }
+	       if(X3.MA.Xa < X3.MA.Xb){
+		 fprintf(o_stream, " %ld %ld %ld ", X3.MA.Xa, X3.MA.Xb, X3.MA.Nhet);
+	       }else{
+		 fprintf(o_stream, " %ld %ld %ld ", X3.MA.Xb, X3.MA.Xa, X3.MA.Nhet);
+	       }
+	       fprintf(o_stream, " %ld %ld %ld %ld ", X3.XFmin_3, X3.XFmax_3, X3.XMmin_3, X3.XMmax_3);
+	     }
+	   }
 	   
-	    //fprintf(stderr, "Before count_crossovers (M). %s %s \n", A->id->a, (M != NULL)? M->id->a : "NULL");
-	   
-	    
+	   //fprintf(stderr, "Before count_crossovers (M). %s %s \n", A->id->a, (M != NULL)? M->id->a : "NULL");
+	 	    
 	 }
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents
