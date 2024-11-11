@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <sys/sysinfo.h> // needed for get_nprocs
 #include <assert.h>
 #include <stdbool.h>
 #include "gtset.h"
@@ -67,7 +68,8 @@ main(int argc, char *argv[])
   double d_scale_factor = 1.37; // sort on max(d_scale_factor*d, z)
   
   double ploidy = 2;
-  long Nthreads = 0;
+  long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
+  long Nthreads = -1; // (nprocs > 2)? nprocs/2 : 1; // default number of threads
   // ***** process command line *****
   if (argc < 2) {
     fprintf(stderr, "Usage:  %s -in <dosages_file> [-out <output_filename> -xhgmr_max <max_xhgmr>] \n", argv[0]);
@@ -103,6 +105,7 @@ main(int argc, char *argv[])
       {"R_self_max", required_argument, 0, 'R'},
       {"d_max", required_argument, 0, 'D'},
       {"z_max", required_argument, 0, 'Z'},
+      //   {"threads", required_argument, 0, 't'},
       {0,         0,                 0,  0 }
     };
      
@@ -141,6 +144,9 @@ main(int argc, char *argv[])
     case 'c':
       max_candidate_parents = atoi(optarg);
       break;
+    /* case 't': */
+    /*   Nthreads = atoi(optarg); */
+    /*   break; */
     case 'm':
       if(optarg == 0){
 	fprintf(stderr, "Option m requires a numerical argument > 0\n");
@@ -271,6 +277,7 @@ main(int argc, char *argv[])
   // *************************************************************
   // ***  Read the genotypes file  *******************************
   // *************************************************************
+  fprintf(stderr, "# Using %ld threads.\n", (long)Nthreads);
   double t_a = hi_res_time();
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
   add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction, Nthreads); // load the new set of accessions
@@ -280,6 +287,7 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
   
   filter_genotypesset(the_genotypes_set, o_stream);
+  fprintf(stderr, "after filter_genotypesset\n");
   print_vchar(stdout, the_genotypes_set->marker_filter_info);
   print_vchar(o_stream, the_genotypes_set->marker_filter_info);
   double t_c = hi_res_time();
@@ -287,7 +295,7 @@ main(int argc, char *argv[])
   rectify_markers(the_genotypes_set); // needed for xhgmr to be fast.
   store_homozygs(the_genotypes_set); // needed?
   fprintf(stderr, "before set_chromosome_start_indices.\n");
-  set_chromosome_start_indices(the_genotypes_set);
+  if(the_genotypes_set->phased) set_chromosome_start_indices(the_genotypes_set);
   populate_marker_dosage_counts(the_genotypes_set); // needed?
   // set_n_00_1_22_1s(the_genotypes_set);
   check_genotypesset(the_genotypes_set);
@@ -349,7 +357,7 @@ main(int argc, char *argv[])
 	 print_pedigree(o_stream, the_pedigree, long_output_format);
 
 	 //fprintf(stderr, "Before count_crossovers (F). %s %s \n", A->id->a,  (F != NULL)? F->id->a : "NULL");
-	 if(1){
+	 if(the_genotypes_set->phased){
 	   // count_crossovers(the_genotypes_set, F, A);
 	   if(F == NULL){ // only have male parent in pedigree
 	     three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);

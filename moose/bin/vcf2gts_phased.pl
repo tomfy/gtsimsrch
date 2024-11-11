@@ -181,7 +181,7 @@ while( my ($i, $achrom) = each @$the_chroms){
   next if($i == 0  or  (!ref($achrom)));
 
   my $the_markerids = $chrom_markerid{$achrom->i_chrom()};
-    print STDERR "XTZ i  ", $achrom->i_chrom(), "  ", scalar @$the_markerids, "\n";
+    # print STDERR "XTZ i  ", $achrom->i_chrom(), "  ", scalar @$the_markerids, "\n";
   $marker_id_string .= " " . join(" ", @$the_markerids);
   my @cs = map($achrom->i_chrom(), @$the_markerids);
   $chromosome_number_string .= " " . join(" ", @cs);
@@ -194,10 +194,10 @@ my $chrom_line_done = 0; # set to 1.
 for my $accid (@acc_ids){
   # 0 -> 0,  1 -> 1,  2 -> -1,  3 -> 2
   my $the_chroms = $acc_chrom_objs{$accid}; # $the_chroms is an array ref of Chromosome objs.
-  print STDERR "$accid   number of chroms: ", scalar @$the_chroms, "\n";
-  printf $fhout "%24s  ", $accid;
+  #print STDERR "$accid   number of chroms: ", scalar @$the_chroms, "\n";
+  printf $fhout "%s", $accid;
   while( my ($i, $achrom) = each @$the_chroms){
-    print STDERR "$accid  $i  [", ref($achrom), "]\n";
+    #print STDERR "$accid  $i  [", ref($achrom), "]\n";
     next if($i == 0  or  (!ref($achrom)));
     die "chrom numbers don't match.\n" if($i != $achrom->i_chrom());
   
@@ -206,9 +206,9 @@ for my $accid (@acc_ids){
     # printf $fhout " ", join(" ", @$the_gts);
     for my $agt (@$the_gts){
       if($agt eq 'X'){
-	printf $fhout "   X";
+	printf $fhout " X";
       }else{
-	printf $fhout " %3d", $agt;
+	printf $fhout " %d", $agt;
       }
     }
   }

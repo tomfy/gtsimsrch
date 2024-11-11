@@ -56,6 +56,7 @@ typedef struct{
   long n_ref_accessions; // ref accessions stored
   long n_markers; // redundant.
   long ploidy; //
+  bool phased; // true if input is phased data (as indicated by presence of CHROMOSOME line)
 
   Vaccession* accessions;
   

@@ -23,7 +23,8 @@
 // each thread will process the markers in the range from first_marker to last_marker
 typedef struct{
   long n_accessions;
-  Vstr* marker_ids;
+  Vlong* chrom_numbers;
+  Vstr* marker_ids; 
   Vstr* marker_lines; 
   long first_marker;
   long last_marker;
@@ -34,14 +35,15 @@ typedef struct{
   double delta;
   long ploidy;
 
-  Vstr* gntps; // gntps->a[i]->[j] is genotype (dosage) of ith stored marker for this thread, jth accession
+  Vstr* gntps; // gntps->a[i]->[j] is genotype (dosage) of ith stored marker for this thread, jth accession, coded as a char '0', '1', '2', 'X'
+  Vstr* phases; 
 } TD; // thread data
 
 void* process_marker_range(void* x);
 
-char token_to_genotype_GT(char* token, long TDgtidx, long gpidx, double minGP);
+two_chars token_to_genotype_GT(char* token, long TDgtidx, long gpidx, double minGP);
 char token_to_genotype_DS(char* token, long gtidx, long gpidx, double minGP, double delta);
-char GTstr_to_dosage(char* tkn);
+two_chars GTstr_to_dosage(char* tkn);
 char DSstr_to_dosage(char* tkn, double delta);
 void get_GT_GQ_GP_DS_indices(char* format, long* GTidx, long* GQidx, long* GPidx, long* DSidx);
 bool GP_to_quality_ok(char* token, double minGP);
@@ -300,13 +302,16 @@ int main(int argc, char *argv[]){
   // *****   Read the rest of the lines, one per marker  *****
   // *****   Each line has genotypes for all accessions  *****
   // *********************************************************
-  
+  double t1 = hi_res_time();
+  double t100 = clock_time(the_clock);
   fprintf(stderr, "# markers analyzed in each chunk: %ld ; which is %ld per thread\n",
 	  n_markers_in_chunk, (Nthreads >= 1)? n_markers_in_chunk/Nthreads : n_markers_in_chunk);
   Vstr* marker_lines = construct_vstr(n_markers_in_chunk);
 
+  Vlong* all_used_chrom_numbers = construct_vlong(1000);
   Vstr* all_used_markerids = construct_vstr(1000);
   Vstr* all_used_genos = construct_vstr(1000);
+  Vstr* all_used_phases = construct_vstr(1000);
   
   long total_lines_read = 0;
   while(nread >= 0){ // loop over chunks
@@ -340,17 +345,23 @@ int main(int argc, char *argv[]){
       td.minmaf = min_maf;
       td.maxmd = max_marker_md;
       td.ploidy = ploidy;
+      td.chrom_numbers = construct_vlong(1000);
       td.marker_ids = construct_vstr(1000);
       td.gntps = construct_vstr(100); // chunk_genos;
+      td.phases = construct_vstr(1000);
       process_marker_range((void*)(&td));
       for(long im=0; im<td.marker_ids->size; im++){ // loop over stored markers
 	push_to_vstr(all_used_genos, td.gntps->a[im]);
+	push_to_vstr(all_used_phases, td.phases->a[im]);
 	push_to_vstr(all_used_markerids, td.marker_ids->a[im]);
+	push_to_vlong(all_used_chrom_numbers, td.chrom_numbers->a[im]);
       }
       free(td.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
       free(td.marker_ids->a);
       free(td.gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
       free(td.gntps->a);
+      free(td.phases);
+      free(td.phases->a);
     }else{ // 1 or more pthreads
       TD* td = (TD*)malloc(Nthreads*sizeof(TD));
       for(long i_thread = 0; i_thread<Nthreads; i_thread++){
@@ -364,8 +375,10 @@ int main(int argc, char *argv[]){
 	td[i_thread].minmaf = min_maf;
 	td[i_thread].maxmd = max_marker_md;
 	td[i_thread].ploidy = ploidy;
+	td[i_thread].chrom_numbers = construct_vlong(1000);
 	td[i_thread].marker_ids = construct_vstr(1000);
 	td[i_thread].gntps = construct_vstr(1000); //chunk_genos[i_thread];
+	td[i_thread].phases = construct_vstr(1000);
       }
       td[Nthreads-1].last_marker = marker_lines->size-1;
     
@@ -382,12 +395,16 @@ int main(int argc, char *argv[]){
       for(long ith=0; ith<Nthreads; ith++){ // loop over threads
 	for(long im=0; im<td[ith].gntps->size; im++){ // loop over markers stored by thread ith
 	  push_to_vstr(all_used_genos, td[ith].gntps->a[im]); //chunk_genos[ith]->a[im]);
+	  push_to_vstr(all_used_phases, td[ith].phases->a[im]); //chunk_genos[ith]->a[im]);
 	  push_to_vstr(all_used_markerids, td[ith].marker_ids->a[im]);
+	  push_to_vlong(all_used_chrom_numbers, td[ith].chrom_numbers->a[im]);
 	}
 	free(td[ith].marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
 	free(td[ith].marker_ids->a);
 	free(td[ith].gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
 	free(td[ith].gntps->a);
+	free(td[ith].phases);
+	free(td[ith].phases->a);
       }
       
       free(td);
@@ -402,10 +419,12 @@ int main(int argc, char *argv[]){
   } // end of loop over chunks
   fprintf(stderr, "# marker_lines, size and capacity: %ld %ld\n", marker_lines->size, marker_lines->capacity);
   free_vstr(marker_lines);
-  fprintf(stderr, "# number of markers left after filtering: %ld  %ld\n", all_used_markerids->size, all_used_genos->size);
+  fprintf(stderr, "# number of markers left after filtering: %ld  %ld  %ld\n", all_used_chrom_numbers->size, all_used_markerids->size, all_used_genos->size);
   free(line);
   fclose(in_stream);
-  
+ 
+double t101 = clock_time(the_clock);
+fprintf(stderr, "time for read/parse vcf: %7.5f  %7.5f\n", hi_res_time() - t1, t101-t100);
   // **********************
   // *****  output  *******
   // **********************
@@ -417,11 +436,24 @@ int main(int argc, char *argv[]){
   for(long i_marker=0; i_marker<all_used_markerids->size; i_marker++){
     fprintf(out_stream, " %s", all_used_markerids->a[i_marker]);
   }fprintf(out_stream, "\n");
+  
+   fprintf(out_stream, "CHROMOSOME");
+  for(long i_chrom=0; i_chrom<all_used_chrom_numbers->size; i_chrom++){
+    fprintf(out_stream, " %ld", all_used_chrom_numbers->a[i_chrom]);
+  }fprintf(out_stream, "\n");
+  fprintf(stderr, "XXXXXXXXXXXXXXXXXX\n");
   for(long iacc=0; iacc< accid_count; iacc++){
     long i_accession = accession_indices->a[iacc];
     fprintf(out_stream, "%s", accession_ids->a[i_accession]);
     for(long im=0; im<all_used_markerids->size; im++){
-      fprintf(out_stream, " %c", all_used_genos->a[im][i_accession]);
+      char the_phase = all_used_phases->a[im][i_accession];
+      char the_geno = all_used_genos->a[im][i_accession];
+      // fprintf(stderr, "gt, ph: %c  %c \n", the_geno, the_phase);
+      if(1  && the_phase == 'm'){
+	fprintf(out_stream, " -%c",  all_used_genos->a[im][i_accession]);
+      }else{
+	fprintf(out_stream, " %c", all_used_genos->a[im][i_accession]);
+      }
     }
     fprintf(out_stream, "\n");
   }
@@ -464,6 +496,7 @@ void* process_marker_range(void* x){
   long last_marker = td->last_marker;
   
   Vstr* marker_ids = td->marker_ids;
+  Vlong* chrom_numbers = td->chrom_numbers;
 
   long marker_count = 0;
   char* line;
@@ -471,10 +504,12 @@ void* process_marker_range(void* x){
     line = marker_lines->a[i_marker];
 
     char* one_marker_gts = (char*)malloc((n_accessions+1)*sizeof(char)); // 
+    char* one_marker_phases = (char*)malloc((n_accessions+1)*sizeof(char)); //
       
     char* saveptr = line;
     long tidx = 0;
     Vchar* chromosome = construct_vchar_from_str(split_on_char(line, '\t', &tidx));
+    long chromosome_number = atoi(chromosome->a);
     Vchar* position = construct_vchar_from_str(split_on_char(line, '\t', &tidx)); 
 
     Vchar* marker_id;
@@ -486,7 +521,8 @@ void* process_marker_range(void* x){
     }else{
       marker_id = construct_vchar_from_str(token); // strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
     }
-  
+
+    // fprintf(stderr, "chrom, mrkrid: %ld  %s\n", chromosome_number, marker_id->a);
     free_vchar(chromosome);
     free_vchar(position);
     char* ref_allele =  split_on_char(line, '\t', &tidx); // strtok_r(NULL, split_str, &saveptr);
@@ -510,9 +546,12 @@ void* process_marker_range(void* x){
 	token = split_on_char(line, '\t', &tidx);
 	if(token == NULL)	break; // end of line has been reached.
 	// fprintf(stderr, "token: [%s]     ", token);
-	char genotype = token_to_genotype_GT(token, GTidx, GPidx, td->minGP);
+	two_chars gt_ph = token_to_genotype_GT(token, GTidx, GPidx, td->minGP);
+	char genotype = gt_ph.ch1;
 	//	fprintf(stderr, "[%s]     [%c]\n", token, genotype);
+	// fprintf(stderr, "Z: %c %c\n", gt_ph.ch1, gt_ph.ch2);
 	one_marker_gts[acc_index] = genotype;
+	one_marker_phases[acc_index] = gt_ph.ch2;
 	if(genotype == 'X') {
 	  md_count++;
 	}else{
@@ -529,6 +568,7 @@ void* process_marker_range(void* x){
 	}
 	char genotype = token_to_genotype_DS(token, DSidx, GPidx, td->minGP, td->delta);
 	one_marker_gts[acc_index] = genotype;
+	one_marker_phases[acc_index] = 'u';
 	if(genotype == 'X') {
 	  md_count++;
 	}else{
@@ -543,16 +583,18 @@ void* process_marker_range(void* x){
     double mdf = (double)md_count/n_accessions;
     double maf = (double)alt_allele_count/(td->ploidy*(n_accessions-md_count));
     if(maf > 0.5) maf = 1.0 - maf;
-    if((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker
-      // fprintf(stderr, "keep. marker: %s   max, actual mdf: %lf  %lf  min, actual maf: %lf %lf \n", marker_id->a, td->maxmd, mdf, td->minmaf, maf);
-      push_to_vstr(td->gntps, one_marker_gts);
-      push_to_vstr(marker_ids, marker_id->a);
-      free(marker_id); // but don't free marker_id->a
-    }else{ // this marker is not used
-      // fprintf(stderr, "reject. marker: %s  max,actual mdf: %lf  %lf  min,actual maf: %lf %lf \n", marker_id->a, td->maxmd, mdf, td->minmaf, maf);
-
-      free(one_marker_gts); 
+    // fprintf(stderr, "keep. marker: %s   max, actual mdf: %lf  %lf  min, actual maf: %lf %lf \n", marker_id->a, td->maxmd, mdf, td->minmaf, maf);
+    if((mdf > td->maxmd) || (maf < td->minmaf)){ // this marker is not used
+     free(one_marker_gts);
+      free(one_marker_phases);
       free_vchar(marker_id);
+    }else{ // keep this marker
+      //((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker 
+      push_to_vstr(td->gntps, one_marker_gts);
+      push_to_vstr(td->phases, one_marker_phases);
+      push_to_vstr(marker_ids, marker_id->a);
+      push_to_vlong(chrom_numbers, chromosome_number);
+      free(marker_id); // but don't free marker_id->a
     }
      
     assert(acc_index == td->n_accessions); // check that this line has number of accessions = number of accession ids.
@@ -561,8 +603,8 @@ void* process_marker_range(void* x){
   // fprintf(stdout, "# A thread is done processing markers %ld through %ld; %ld markers x %ld accessions\n", first_marker, last_marker, marker_count, td->n_accessions);
 }
 
-char token_to_genotype_GT(char* token, long gtidx, long gpidx, double minGP){
-  char result;
+two_chars token_to_genotype_GT(char* token, long gtidx, long gpidx, double minGP){
+  two_chars result;
   char* saveptr;
   bool quality_ok = true; // (gpidx >= 0  &&  minGP > 0)? false : true;
   long idx = 0;
@@ -587,7 +629,7 @@ char token_to_genotype_GT(char* token, long gtidx, long gpidx, double minGP){
     idx++;   
   }
 
-  if(! quality_ok) result = 'X';
+  if(! quality_ok) result = (two_chars){'X', 'x'};
   return result;
 }
 
@@ -625,31 +667,78 @@ char token_to_genotype_DS(char* token, long dsidx, long gpidx, double minGP, dou
 bool GP_to_quality_ok(char* token, double minGP){
   if(minGP > 0.0){
     bool quality_ok = false;
-    float p0, p1, p2;
-    if(sscanf(token, "%f,%f,%f", &p0, &p1, &p2) == 3){
+    double p0, p1, p2;
+    if(sscanf(token, "%lf,%lf,%lf", &p0, &p1, &p2) == 3){
       quality_ok = (p0 >= minGP  ||  p1 >= minGP  || p2 >= minGP);
+      //  fprintf(stderr, "A  p1, minGP, p1 >= minGP: %16.14f %16.14f   %s\n", p1, minGP, (p1 >= minGP)? "true" : "false");
+      //  fprintf(stderr, "AAA: %lf %16.14f %lf  ", p0, p1, p2);
     }
+    // fprintf(stderr, "  %s\n", (quality_ok)? "ok" : "ng");
     return quality_ok;
   }else{
     return true; 
   }
 }
 
-char GTstr_to_dosage(char* tkn){
+two_chars GTstr_to_dosage(char* tkn){
   long d = 0;
-  char a1 = tkn[0];
+  char a1 = tkn[0];  
   char a2 = tkn[2];
-  if(a1 == '1'){
-    d++;
-  }else if(a1 == '.'){
-    return 'X';
+  char phase; // 'u' if non-phased, otherwise 'p', 'm', or 'x' ('x' for homozygs and missing data)
+  char dosage = 'X';
+  if(tkn[1] == '|'){ // phased
+    phase = 'x'; // phased undefined (dosage is 'X' or homozygous)
+    if(a1 == '0'){
+      if(a2 == '0'){
+	dosage = '0';
+      }else if(a2 == '1'){ // 0|1  phase is 'p'
+	dosage = '1';
+	phase = 'p';
+      } // else leave dosage as 'X', phase as 'x'
+    }else if(a1 == '1'){
+      if(a2 == '0'){
+	dosage = '1';
+	phase = 'm'; 
+      }else if(a2 == '1'){
+	dosage = '2';
+      }
+    }
+    //fprintf(stderr, "dosage: %c \n", dosage);
+    return (two_chars){dosage, phase};
+  }else{ // unphased
+    phase = 'u'; // 'u' => unknown phase
+      if(a1 == '0'){
+	if(a2 == '0'){
+	  dosage = '0';
+	}else if(a2 == '1'){ // 0|1  phase is 'p'
+	  dosage = '1';
+	  //	phase = 'p';
+	} // else leave dosage as 'X', phase as 'x'
+      }else if(a1 == '1'){
+	if(a2 == '0'){
+	  dosage = '1';
+	  //	phase = 'm';
+	}else if(a2 == '1'){
+	  dosage = '2';
+	}
+      }
+      return (two_chars){dosage, phase};
+
+    /* else{ */
+  /*     if(a1 == '1'){ */
+  /* 	d++; */
+  /*     }else if(a1 == '.'){ */
+  /* 	return 'X'; */
+  /*     } */
+  /*     if(a2 == '1'){ */
+  /* 	d++; */
+  /*     }else if(a2 == '.'){ */
+  /* 	return 'X'; */
+  /*     } */
+  /*     return (char)(d + 48); */
+  /*   } */
+  /* } */
   }
-  if(a2 == '1'){
-    d++;
-  }else if(a2 == '.'){
-    return 'X';
-  }
-  return (char)(d + 48);
 }
 
 char DSstr_to_dosage(char* tkn, double delta){
