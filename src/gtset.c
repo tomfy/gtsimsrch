@@ -730,7 +730,7 @@ long str_to_long(char* str){ // using strtol and checking for various problems.
 
 two_chars token_to_dosage(char* token, long* ploidy){
   char dsg;
-  char phase = 'p'; // for 'plus'; corresponds to 1 in pdsgs file, phase = 'm' for -1 in pdsgs file.
+  char phase = 'x'; // for 'plus'; corresponds to 1 in pdsgs file, phase = 'm' for -1 in pdsgs file.
   // fprintf(stderr, "token: %s  ", token);
   if(strcmp(token, "X") == 0){ // missing data
     dsg = MISSING_DATA_CHAR;
@@ -739,6 +739,9 @@ two_chars token_to_dosage(char* token, long* ploidy){
     if(token[0] == '-'){ // set phase to 'm', remove the minus, process the rest of token.
       phase = 'm';
       token++; 
+    }else if(token[0] == '+'){
+      phase = 'p';
+      token++;
     }
     long l = str_to_long(token);
     if(errno != 0){
@@ -751,7 +754,7 @@ two_chars token_to_dosage(char* token, long* ploidy){
       if(dsg != '1') phase = NO_PHASE_CHAR;
     }
   }
-  // fprintf(stderr, "%c %c\n", dsg, phase);
+  // fprintf(stderr, "%s  %c %c\n", token,  dsg, phase);
   return (two_chars){dsg, phase};
 }
 

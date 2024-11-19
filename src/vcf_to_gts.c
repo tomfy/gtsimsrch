@@ -441,7 +441,7 @@ fprintf(stderr, "time for read/parse vcf: %7.5f  %7.5f\n", hi_res_time() - t1, t
   for(long i_chrom=0; i_chrom<all_used_chrom_numbers->size; i_chrom++){
     fprintf(out_stream, " %ld", all_used_chrom_numbers->a[i_chrom]);
   }fprintf(out_stream, "\n");
-  fprintf(stderr, "XXXXXXXXXXXXXXXXXX\n");
+  //fprintf(stderr, "XXXXXXXXXXXXXXXXXX\n");
   for(long iacc=0; iacc< accid_count; iacc++){
     long i_accession = accession_indices->a[iacc];
     fprintf(out_stream, "%s", accession_ids->a[i_accession]);
@@ -449,9 +449,11 @@ fprintf(stderr, "time for read/parse vcf: %7.5f  %7.5f\n", hi_res_time() - t1, t
       char the_phase = all_used_phases->a[im][i_accession];
       char the_geno = all_used_genos->a[im][i_accession];
       // fprintf(stderr, "gt, ph: %c  %c \n", the_geno, the_phase);
-      if(1  && the_phase == 'm'){
+      if(the_phase == 'm'){
 	fprintf(out_stream, " -%c",  all_used_genos->a[im][i_accession]);
-      }else{
+      }else if (the_phase == 'p'){
+	fprintf(out_stream, " +%c", all_used_genos->a[im][i_accession]);
+      }else {
 	fprintf(out_stream, " %c", all_used_genos->a[im][i_accession]);
       }
     }
