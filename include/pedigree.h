@@ -10,6 +10,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   ND par2_xhgmr; 
   ND par2_R;
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
+  ND xz;
   ND d; // (n1+n2)/(n0+n1+n2);
   ND d_2; // 
   ND d_22; // both parents homozyg, delta = 2  i.e. 00_2 + 22_0
@@ -21,6 +22,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   double hgmr2;
   double xhgmr1;
   double xhgmr2;
+
   long all_good_count; // number of markers with genotypes for all 3 (or both in case of only one parent) genotypes known (i.e. no missing gts)
   long n_01or10_1; // alternative denom for z
 }Pedigree_stats; // 
@@ -76,13 +78,14 @@ typedef struct{
 // *****  Pedigree  *****
 Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mparent);
 //double hgmr(char* gts1, char* gts2);
+ND xz(GenotypesSet* gtset, Accession* O, Accession* P1, Accession* P2);
 Pedigree_stats* construct_pedigree_stats(void); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
 Vpedigree* calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
-long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_d);
-long pedigree_ok_x(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d, double max_ok_z);
+long pedigree_ok_x(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_z);
+long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d, double max_ok_z);
 void free_pedigree(const Pedigree* the_pedigree);
 
 // *****  Vpedigree  *****

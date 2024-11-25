@@ -19,137 +19,6 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
 }
 
 
-/* three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){ */
-/*   // Assuming that parent is indeed a parent of offspring, */
-/*   // count the min number of crossovers needed to reconcile them */
-/*   //fprintf(stdout, "n_markers: %ld ; %p %p \n", (parent != NULL)? parent->genotypes->length : -1, parent, offspring); */
-/*   if(parent == NULL  ||  offspring == NULL) { */
-/*     //fprintf(stderr, "par, off ptrs: %p %p \n", parent, offspring); */
-/*     return (three_longs){-1, -1, -1}; */
-/*   } */
-/*   long Nhet = 0; // number of heterozyg gts in parent */
-/*   long Xmin = 0; */
-/*   long Xmax = 0; */
-/*   long Xa = 0; */
-/*   long Xb = 0; */
-/*   long prev_chrom_number = -1; */
-/*   long prev_phase_a = -1; */
-/*   long prev_phase_b = -1; */
-/*   long phase_a, phase_b; */
-/*   long chrom_number = -1; */
-/*   fprintf(stderr, "n genotypes: %ld \n", parent->genotypes->length); */
-/*   // getc(stdin); */
-/*   for(long i=0; i < parent->genotypes->length; i++){ */
-    
-/*     //fprintf(stderr, "i: %ld\n", i); */
-/*     chrom_number = the_gtsset->chromosomes->a[i]; */
-/*     //fprintf(stderr, "i, ichr, previchr: %ld  %ld %ld \n", i, chrom_number, prev_chrom_number); */
-/*     if(chrom_number != prev_chrom_number){ */
-/*       if(Xa < Xb){ */
-/* 	Xmin += Xa; Xmax += Xb; */
-/*       }else{ */
-/* 	Xmin += Xb; Xmax += Xa; */
-/*       } */
-/*       // fprintf(stderr, "X: \n"); */
-/*       // fprintf(stderr, "Xa: %ld\n", Xa); */
-/*       // fprintf(stderr, "Xb: %ld\n", Xb); */
-/*       // fprintf(stderr, "prevchrom, chrom, Xa, Xb, Xmin,max: %ld %ld  %ld %ld  %ld %ld   %ld\n", prev_chrom_number, chrom_number, Xa, Xb, Xmin, Xmax, Nhet); */
-/*       Xa = 0; Xb = 0; */
-/*       prev_chrom_number = chrom_number; */
-/*     } */
-/*     char p_gt = parent->genotypes->a[i]; */
-/*     char p_phase = parent->phases->a[i]; */
-    
-/*     if(p_gt != '1') continue; // skip if parent not heterozyg */
-    
-/*     char o_gt = offspring->genotypes->a[i]; */
-/*     char o_phase = offspring->phases->a[i]; */
-   
-/*     if(o_gt == MISSING_DATA_CHAR){ */
-/*       fprintf(stderr, "o_gt: %c\n", o_gt); */
-/*       continue; */
-/*     } */
-/*     Nhet++; */
-/*     long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt. */
-/*     long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt. */
-
-/*     fprintf(stderr, "o_gt o_phase:  %c  %c   offA, offB: %ld %ld \n", o_gt, o_phase, offA, offB); */
-
-/*     //fprintf(stderr, "%ld  %c %c     %c %c   %ld %ld    %ld   ", i, p_gt, p_phase, o_gt, o_phase, offA, offB, Nhet);  */
-/*     if(p_phase == 'p'){ // i.e. 0|1 in vcf */
-/*       if(offA == 0){ // A has ref allele */
-/* 	phase_a = 0; */
-/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
-/* 	  Xa++; */
-/* 	} */
-/* 	prev_phase_a = phase_a; */
-/*       }else if(offA == 1){ */
-/* 	phase_a = 1; */
-/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
-/* 	  Xa++; */
-/* 	} */
-/* 	prev_phase_a = phase_a; */
-/*       } */
-
-/*       if(offB == 0){ // B has ref allele */
-/* 	phase_b = 0;  */
-/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
-/* 	  Xb++; */
-/* 	} */
-/* 	prev_phase_b = phase_b; */
-/*       }else if(offB == 1){ */
-/* 	phase_b = 1; */
-/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
-/* 	  Xb++; */
-/* 	} */
-/* 	prev_phase_b = phase_b; */
-/*       } */
-
-/*     }else if(p_phase == 'm'){ // i.e. 1|0 in vcf */
-
-/*       if(offA == 0){ // A has ref allele */
-/* 	phase_a = 1; */
-/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
-/* 	  Xa++; */
-/* 	} */
-/* 	prev_phase_a = phase_a; */
-/*       }else if(offA == 1){ */
-/* 	phase_a = 0; */
-/* 	if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ */
-/* 	  Xa++; */
-/* 	} */
-/* 	prev_phase_a = phase_a; */
-/*       } */
-
-/*       if(offB == 0){ // B has ref allele */
-/* 	phase_b = 1;  */
-/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
-/* 	  Xb++; */
-/* 	} */
-/* 	prev_phase_b = phase_b; */
-/*       }else if(offB == 1){ */
-/* 	phase_b = 0; */
-/* 	if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ */
-/* 	  Xb++; */
-/* 	} */
-/* 	prev_phase_b = phase_b; */
-/*       } */
-/*     } // end p_phase == 'm' branch */
-   
-/*   } // end loop over markers */
-/*   if(Xa < Xb){ */
-/*     Xmin += Xa; Xmax += Xb; */
-/*   }else{ */
-/*     Xmin += Xb; Xmax += Xa; */
-/*   } */
-/*   //fprintf(stderr, "prevchrom, chrom: Xa, Xb, Xmin,max: %ld %ld    %ld %ld  %ld %ld   %ld\n", prev_chrom_number, chrom_number, Xa, Xb, Xmin, Xmax, Nhet); /\**\/ */
-/*   /\* fprintf(stderr, "offspring, parent: %s %s\n", offspring->id->a, parent->id->a); *\/ */
-/*   /\* fprintf(stderr, "XXN: %ld %ld %ld \n", Xmin, Xmax, Nhet); *\/ */
-/*   three_longs result = (three_longs){Xmin, Xmax, Nhet}; */
-/*   //fprintf(stderr, "Xmin, Xmax, Nhet: %ld %ld %ld\n", result.l1, result.l2, result.l3); */
-/*   return result; */
-/* } // end of count_crossovers */
-
 three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
   // Assuming that parent is indeed a parent of offspring,
   // count the min number of crossovers needed to reconcile them
@@ -987,6 +856,35 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, GenotypesSet* t
   return alt_pedigrees;
 } //
 
+ND xz(GenotypesSet* gtset, Accession* O, Accession* P1, Accession* P2){
+  //fprintf(stderr, "top of Zn\n");
+  long numerator = 0;
+  double denominator = 0;
+  for(long i = 0; i<P1->genotypes->length; i++){
+    char gt1 = P1->genotypes->a[i];
+    if(gt1 == '0'){
+      char gt2 = P2->genotypes->a[i];
+      char gtO = O->genotypes->a[i];
+      if(gt2 == '0'){
+	if(gtO == '1') numerator++;
+	double Ohet_fraction = (double)gtset->marker_dosage_counts[1]->a[i]/(double)gtset->accessions->size;
+	denominator += Ohet_fraction;
+      }
+    }else if(gt1 == '2'){
+      char gt2 = P2->genotypes->a[i];
+      char gtO = O->genotypes->a[i];
+      if(gt2 == '2'){
+	if(gtO == '1') numerator++;
+	double Ohet_fraction = (double)gtset->marker_dosage_counts[1]->a[i]/(double)gtset->accessions->size;
+	denominator += Ohet_fraction;
+      }
+    }
+  }
+  //fprintf(stderr, "bottom of xz\n");
+  // fprintf(stderr, "xz, numerator: %ld  denominator: %7.5f\n", numerator, denominator);
+  return (ND) {numerator, (long)(denominator+0.5)};
+}
+
 Pedigree_stats* construct_pedigree_stats(void){
   Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
   the_ps->agmr12 = (ND) {0, 0};
@@ -1032,11 +930,12 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
        
      the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
      the_ps->par2_xhgmr = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, false);
-
+     the_ps->xz = xz(the_gtsset, the_pedigree->A, the_pedigree->F, the_pedigree->M);
   }else{ // one of the parents is NULL
     the_ps = construct_pedigree_stats();
     the_ps->agmr12 = (ND) {0, 0};
     the_ps->z = (ND) {0, 0};
+    the_ps->xz = (ND) {0, 0}; 
     // return the_ps;
     if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
       //       fprintf(stderr, "pedigree with female parent only.\n");
@@ -1167,19 +1066,15 @@ void print_Xcounts_2(FILE* fh, Xcounts_2 X){
   }
 }
 
-long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_z){
+long pedigree_ok_x(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_z){
   // returns 2 for ok biparental, 1 for ok self, 0 for bad
   double agmr12 = n_over_d(p->agmr12);
   double hgmr1 = n_over_d(p->par1_hgmr);
   double r1 = n_over_d(p->par1_R);
   double hgmr2 = n_over_d(p->par2_hgmr);
   double r2 = n_over_d(p->par2_R);
-  // double d = n_over_d(p->d);
   double z = n_over_d(p->z);
   long result = 0;
-  /* fprintf(stderr, "%7.4lf %7.4lf %7.4lf %7.4lf    %7.4lf %7.4lf %7.4lf %7.4lf %7.4lf %7.4lf\n", */
-  /* 	  max_self_agmr12, max_ok_hgmr, max_self_r, max_ok_d1, */
-  /* 	  agmr12, hgmr1, r1, hgmr2, r2, d1); */
   if(agmr12 <= max_self_agmr12){ // pedigree says self (or parents very similar)
     if( /*(agmr12 <= max_self_agmr12) && */ (hgmr1 <= max_ok_hgmr) && (hgmr2 <= max_ok_hgmr) && (r1 <= max_self_r) && (r2 <= max_self_r) && (z <= max_ok_z) ){
       result = 1;
@@ -1189,11 +1084,10 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, 
       result = 2;
     }
   }
-  //  fprintf(stderr, "pedigree_ok?: %ld\n", result);
   return result;
 }
 
-long pedigree_ok_x(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d, double max_ok_z){
+long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d, double max_ok_z){
   //  > 0 pedigree looks good
   //  <= 0 pedigree looks bad
   //  0  pedigree bad, not self
@@ -1210,21 +1104,19 @@ long pedigree_ok_x(Pedigree_stats* p, double max_self_agmr12, double max_self_r,
   double d = n_over_d(p->d);
   double z = n_over_d(p->z);
   long result = 0;
-  /* fprintf(stderr, "%7.4lf %7.4lf %7.4lf %7.4lf   %7.4lf  %7.4lf %7.4lf %7.4lf %7.4lf\n",
-	  max_self_agmr12, max_self_r, max_ok_d, max_ok_z,
-  	  agmr12, r1, r2, d, z); /* */
-  if(agmr12 <= max_self_agmr12){ // pedigree says self (or parents very similar)
+
+  if(agmr12 <= max_self_agmr12){ // parents in pedigree are identical or very similar)
     if((r1 <= max_self_r) && (r2 <= max_self_r) && (d <= max_ok_d) && (z <= max_ok_z) ){
       result = 1;
     }
-  }else{ // pedigree says biparental
-	if((r1 > max_self_r) && (r2 > max_self_r) && (d <= max_ok_d) && (z <= max_ok_z) ){
+  }else{ // parents in pedigree are not very similar
+    if((r1 > max_self_r) && (r2 > max_self_r) && (d <= max_ok_d) && (z <= max_ok_z) ){
       result = 2;
-	}else if( (r1 <= max_self_r) && ((d > max_ok_d) || (z > max_ok_z)) ){
-	  result = -1;
-	}else if( (r2 <= max_self_r) && ((d > max_ok_d) || (z > max_ok_z)) ){
-	  result = -2;
-	}
+    }else if( (r1 <= max_self_r) && ((d > max_ok_d) || (z > max_ok_z)) ){
+      result = -1;
+    }else if( (r2 <= max_self_r) && ((d > max_ok_d) || (z > max_ok_z)) ){
+      result = -2;
+    }
   }
   //  fprintf(stderr, "pedigree_ok?: %ld\n", result);
   return result;
