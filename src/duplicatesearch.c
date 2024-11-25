@@ -458,10 +458,10 @@ main(int argc, char *argv[])
   //t_setup += (t_after_input - t_start);
   
   check_genotypesset(the_genotypes_set);
-  for(long i=0; i < the_genotypes_set->accessions->size; i++){
-    Accession* an_acc = the_genotypes_set->accessions->a[i];
-     check_phases(an_acc);
-  }
+  /* for(long i=0; i < the_genotypes_set->accessions->size; i++){ */
+  /*   Accession* an_acc = the_genotypes_set->accessions->a[i]; */
+  /*    check_phases(an_acc); */
+  /* } */
   double t_after_chk = clock_time(clock1);
   fprintf(stdout, "# Time for check_genotypesset: %lf\n", t_after_chk - t_after_input);
   if(BITWISE || get_all_est_agmrs) set_Abits_Bbits(the_genotypes_set, Nthreads);
