@@ -50,11 +50,17 @@ bool GP_to_quality_ok(char* token, double minGP);
 char* split_on_char(char* str, char c, long* iptr); 
 //void chomp(char* str); // remove any trailing newlines from str
 void print_usage_info(FILE* ostream);
+
+void print_marker_ids(FILE* ostream, Vstr* used_marker_ids);
+void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers);
+void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases);
+
 double clock_time(clockid_t the_clock){
   struct timespec tspec;
   clock_gettime(the_clock, &tspec);
   return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
 }
+
 
 extern int errno;
 
@@ -423,42 +429,18 @@ int main(int argc, char *argv[]){
   free(line);
   fclose(in_stream);
  
-double t101 = clock_time(the_clock);
-fprintf(stderr, "time for read/parse vcf: %7.5f  %7.5f\n", hi_res_time() - t1, t101-t100);
+  double t101 = clock_time(the_clock);
+  fprintf(stderr, "time for read/parse vcf: %7.5f  %7.5f\n", hi_res_time() - t1, t101-t100);
   // **********************
   // *****  output  *******
   // **********************
   fprintf(stderr, "# Begin output.\n");
   Vlong* accession_indices = construct_vlong_whole_numbers(accession_ids->size);
   if(shuffle_accessions) shuffle_vlong(accession_indices); 
-    
-  fprintf(out_stream, "MARKER");
-  for(long i_marker=0; i_marker<all_used_markerids->size; i_marker++){
-    fprintf(out_stream, " %s", all_used_markerids->a[i_marker]);
-  }fprintf(out_stream, "\n");
-  
-   fprintf(out_stream, "CHROMOSOME");
-  for(long i_chrom=0; i_chrom<all_used_chrom_numbers->size; i_chrom++){
-    fprintf(out_stream, " %ld", all_used_chrom_numbers->a[i_chrom]);
-  }fprintf(out_stream, "\n");
-  //fprintf(stderr, "XXXXXXXXXXXXXXXXXX\n");
-  for(long iacc=0; iacc< accid_count; iacc++){
-    long i_accession = accession_indices->a[iacc];
-    fprintf(out_stream, "%s", accession_ids->a[i_accession]);
-    for(long im=0; im<all_used_markerids->size; im++){
-      char the_phase = all_used_phases->a[im][i_accession];
-      char the_geno = all_used_genos->a[im][i_accession];
-      // fprintf(stderr, "gt, ph: %c  %c \n", the_geno, the_phase);
-      if(the_phase == 'm'){
-	fprintf(out_stream, " -%c",  all_used_genos->a[im][i_accession]);
-      }else if (the_phase == 'p'){
-	fprintf(out_stream, " +%c", all_used_genos->a[im][i_accession]);
-      }else {
-	fprintf(out_stream, " %c", all_used_genos->a[im][i_accession]);
-      }
-    }
-    fprintf(out_stream, "\n");
-  }
+
+  print_marker_ids(out_stream, all_used_markerids);
+  print_chromosome_numbers(out_stream, all_used_chrom_numbers);
+  print_accessions_genotypes(out_stream, accession_indices, accession_ids, all_used_genos, all_used_phases);
   fclose(out_stream);
 
   double t3 = clock_time(the_clock);
@@ -823,6 +805,40 @@ void print_usage_info(FILE* ostream){
    
   //  fprintf(stdout, "-r  -randomize   Randomize the order of accessions in output (Default: 0 (false))\n");
   //  fprintf(stdout, "-s  -seed        Random number generator seed. Only relevant if randomizing accession output order.\n");
+}
+
+void print_marker_ids(FILE* ostream, Vstr* used_marker_ids){
+  fprintf(ostream, "MARKER");
+  for(long i_marker=0; i_marker < used_marker_ids->size; i_marker++){
+    fprintf(ostream, " %s", used_marker_ids->a[i_marker]);
+  }fprintf(ostream, "\n");
+}
+
+void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers){
+  fprintf(ostream, "CHROMOSOME");
+  for(long i_chrom=0; i_chrom < used_chrom_numbers->size; i_chrom++){
+    fprintf(ostream, " %ld", used_chrom_numbers->a[i_chrom]);
+  }fprintf(ostream, "\n");
+}
+
+void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases){
+  for(long iacc=0; iacc< accession_indices->size; iacc++){
+    long i_accession = accession_indices->a[iacc];
+    fprintf(ostream, "%s", accession_ids->a[i_accession]);
+    for(long im=0; im < used_genos->size; im++){
+      char the_phase = used_phases->a[im][i_accession];
+      char the_geno = used_genos->a[im][i_accession];
+      // fprintf(stderr, "gt, ph: %c  %c \n", the_geno, the_phase);
+      if(the_phase == 'm'){ // negative phase
+	fprintf(ostream, " -%c",  used_genos->a[im][i_accession]);
+      }else if (the_phase == 'p'){ // positive phase
+	fprintf(ostream, " +%c", used_genos->a[im][i_accession]);
+      }else { // phase undefined (homozygotes) or unknown 
+	fprintf(ostream, " %c", used_genos->a[im][i_accession]);
+      }
+    }
+    fprintf(ostream, "\n");
+  }
 }
 
 // unused
