@@ -14,7 +14,7 @@
 #define GENOTYPES 1
 #define MAX_PLOIDY 2
 #define MAX_PATTERNS 10000
-#define MISSING_DATA_CHAR 126 // value which will be stored in char for missing data; bigger than ploidy likely to be.
+#define MISSING_DATA_CHAR 'X'   // 126 // value which will be stored in char for missing data; bigger than ploidy likely to be.
 #define INIT_VACC_CAPACITY 4000
 #define STRTOL_FAIL 1  // set errno to this in str_to_long if strtol fails (in some other way besides out of range)
 
@@ -34,6 +34,7 @@ typedef struct{
   double agmr0;
   double n_exp_00_1_22_1;
   double  n_exp_00_1_22_1_self;
+  long n2exp0s; // considering markers with 2 in this accession, expected number of 0's in a random other accession (for xhgmr denom). 
   long Fpar_idx; // index of female parent according to pedigree file (or ID_NA_INDEX if not in file)
   long Mpar_idx; // index of male parent according to pedigree file (or ID_NA_INDEX if not in file)
   bool has_pedigree; // true iff pedigree file gives at least one parent for this accession.
@@ -67,7 +68,7 @@ typedef struct{
   Vlong* marker_missing_data_counts; //
   Vlong* marker_alt_allele_counts; //
   Vdouble* mafs; 
-  Vlong** marker_dosage_counts; // counts of dosages for each marker
+  Vlong** marker_dosage_counts; // counts of dosages for each marker. marker_dosage_counts->[i]->a[j] is count of dosage i for marker j
   Vlong* dosage_counts; // counts of dosages for whole
   double agmr0;
 
@@ -110,13 +111,6 @@ char* print_accession(Accession* the_gts, FILE* ostream);
 void free_accession(Accession* the_accession);
 void free_accession_innards(Accession* the_accession);
 
-double agmr0(GenotypesSet* the_gtsset);
-double agmr0_qvsall(const GenotypesSet* the_gtsset, Accession* A);
-double agmr0_accvsall(const GenotypesSet* the_gtsset, Accession* A);
-double pair_agmr0(Accession* A, Accession* B);
-void n_00_1_22_1_accvsall(const GenotypesSet* the_gtsset, Accession* A );
-
-
 // *****  Vaccession  *****
 Vaccession* construct_vaccession(long cap);
 void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc);
@@ -125,14 +119,6 @@ void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices,
 void print_vaccession(Vaccession* the_accessions, FILE* ostream);
 void check_accession_indices(Vaccession* the_accessions);
 void free_vaccession(Vaccession* the_vacc);
-
-/* // *****  Marker  ***** */
-/* Marker* construct_marker(char* id, double alt_allele_freq); */
-
-/* // *****  Vmarker  ***** */
-/* Vmarker* construct_vmarker(long cap); // construct empty Vmarker with capacity cap */
-/* add_marker_to_vmarker(Vmarker* the_vmarker, Marker* the_marker); */
-/* free_vmarker(Vmarker* the_vmarker); */
 
 // *****  GenotypesSet  *****
 GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double min_min_allele_freq, long ploidy);
@@ -161,6 +147,7 @@ void store_homozygs(GenotypesSet* the_gtsset);
 void set_chromosome_start_indices(GenotypesSet* the_gtsset);
 void set_agmr0s(GenotypesSet* the_gtsset);
 void set_n_00_1_22_1s(GenotypesSet* the_gtsset);
+void set_n2exp0s(GenotypesSet* gtsset, long i);
 Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);
@@ -186,5 +173,13 @@ void free_genotypesset(GenotypesSet* the_gtsset);
 Vidxid* construct_vidxid(const Vaccession* accessions);
 Vidxid* construct_sorted_vidxid(const Vaccession* accessions);
 long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);
+
+// ##### unused #####
+
+double agmr0(GenotypesSet* the_gtsset);
+double agmr0_qvsall(const GenotypesSet* the_gtsset, Accession* A);
+double agmr0_accvsall(const GenotypesSet* the_gtsset, Accession* A);
+double pair_agmr0(Accession* A, Accession* B);
+void n_00_1_22_1_accvsall(const GenotypesSet* the_gtsset, Accession* A );
 
 two_doubles logPABPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B);
