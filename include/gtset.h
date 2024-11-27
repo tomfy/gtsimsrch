@@ -74,6 +74,11 @@ typedef struct{
 
   Vchar* acc_filter_info;
   Vchar* marker_filter_info;
+  double d_scale_factor;
+  double mean_hgmr;
+  double mean_R;
+  double mean_d;
+  double mean_z;
 }GenotypesSet;
 
 typedef struct{

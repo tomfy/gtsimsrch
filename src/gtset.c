@@ -1372,7 +1372,7 @@ void calculate_xhgmrs(GenotypesSet* the_genotypes_set, Viaxh** pairwise_info, bo
       Accession* A2 = the_genotypes_set->accessions->a[jj];
       ND the_xhgmr = xhgmr(the_genotypes_set, A1, A2, quick_xhgmr);
       n_xhgmrs_calculated++;
-      double dbl_xhgmr = (the_xhgmr.d > 0)? (double)the_xhgmr.n/the_xhgmr.d : -1;
+      double dbl_xhgmr = (the_xhgmr.d > 0)? (double)the_xhgmr.n/the_xhgmr.d : NAN;
       if(dbl_xhgmr <= max_xhgmr){
 	n_xhgmrs_le_max++;
 	push_to_viaxh(pairwise_info[ii], jj, 10, dbl_xhgmr, 10);

@@ -82,7 +82,7 @@ ND xz(GenotypesSet* gtset, Accession* O, Accession* P1, Accession* P2);
 Pedigree_stats* construct_pedigree_stats(void); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
 Vpedigree* calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset, double d_scale_factor);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
 long pedigree_ok_x(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_z);
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d, double max_ok_z);
@@ -143,6 +143,10 @@ two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase);
 // long marker_d_counts(Pedigree* the_pedigree, long* d0counts, long* d1counts, long* d2counts);
 void print_pedigree(FILE* fh, Pedigree* the_pedigree, bool verbose);
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose);
+void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree, GenotypesSet* gtset);
+void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, GenotypesSet* gtset);
+void print_double_nan_as_hyphen(FILE* fh, double x);
+   //double mean_hgmr, double mean_R, double mean_d, double mean_z);
 
 //void sort_pedigree_stats_by_d(Pedigree_stats** the_pss, long size); // sort in place
 //int pscmp(const void* v1, const void* v2);

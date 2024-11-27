@@ -31,7 +31,9 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
 void set_scaled_d_in_one_pedigree(Pedigree_stats* the_ps, double d_scale_factor);
 void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor);
 void print_X3_info(FILE* o_stream, Xcounts_3 X3);
-void d_z_of_random_set(GenotypesSet* gtset, long sample_size, double* mean_d, double* mean_z);
+// void d_z_of_random_set(GenotypesSet* gtset, long sample_size, double* mean_d, double* mean_z);
+void random_set_means(GenotypesSet* gtset, long sample_size);
+// double* mean_hgmr, double* mean_R, double* mean_d, double* mean_z);
 // **********************************************************************************************
 // ***********************************  main  ***************************************************
 // **********************************************************************************************
@@ -67,7 +69,7 @@ main(int argc, char *argv[])
   double max_ok_z = 0.05;
 
   bool long_output_format = false; // true; true -> output denominators as well as 
-  double d_scale_factor = 1.37; // sort on max(d_scale_factor*d, z)
+  double d_scale_factor = 1.17; // sort on max(d_scale_factor*d, z)
   
   double ploidy = 2;
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
@@ -110,6 +112,7 @@ main(int argc, char *argv[])
       {"R_self_max", required_argument, 0, 'R'},
       {"d_max", required_argument, 0, 'D'},
       {"z_max", required_argument, 0, 'Z'},
+      {"scale_factor", required_argument, 0, 'F'}, 
       //   {"threads", required_argument, 0, 't'},
       {0,         0,                 0,  0 }
     };
@@ -229,7 +232,13 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       break;
-
+    case 'F': 
+      d_scale_factor = (double)atof(optarg);
+      if( d_scale_factor <= 0){
+	fprintf(stderr, "option d_scale_factor requires an real argument > 0\n");
+	exit(EXIT_FAILURE);
+      }
+      break;
 
       
     case 'd':
@@ -321,10 +330,14 @@ main(int argc, char *argv[])
   double t_d = hi_res_time();
   fprintf(stdout, "# Time for other initial processing of genotype data: %6.3f sec.\n", t_d - t_c);
 
-  double mean_D, mean_Z;
+  // double mean_hgmr, mean_R, mean_D, mean_Z;
   long sample_size = 1000;
-   d_z_of_random_set(the_genotypes_set, sample_size, &mean_D, &mean_Z);
-   fprintf(stderr, "mean D, Z: %8.5f  %8.5f\n", mean_D, mean_Z);
+  random_set_means(the_genotypes_set, sample_size);
+  /* fprintf(stderr, "mean hgmr, R, D, Z: %8.5f  %8.5f  %8.5f  %8.5f\n", mean_hgmr, mean_R, mean_D, mean_Z); */
+  /* the_genotypes_set->mean_hgmr = mean_hgmr; */
+  /* the_genotypes_set->mean_R = mean_R; */
+  /* the_genotypes_set->mean_d = mean_D; */
+  /* the_genotypes_set->mean_z = mean_z; */
    // exit(0);
    
   fflush(stdout);
@@ -366,8 +379,8 @@ main(int argc, char *argv[])
      for(long i=0; i<pedigrees->size; i++){
        if(i % 100  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
        Pedigree* the_pedigree = pedigrees->a[i];
-       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(the_pedigree, the_genotypes_set); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
-       set_scaled_d_in_one_pedigree(the_pedigree_stats, d_scale_factor);
+       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(the_pedigree, the_genotypes_set, d_scale_factor); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
+       //set_scaled_d_in_one_pedigree(the_pedigree_stats, d_scale_factor);
        the_pedigree->pedigree_stats = the_pedigree_stats;
       
        Accession* A = the_pedigree->A;
@@ -378,26 +391,30 @@ main(int argc, char *argv[])
        if(0 || (F != NULL  ||  M != NULL)){ // at least one parent specified in pedigree
     
 	 fprintf(o_stream, "%s  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
-	 print_pedigree(o_stream, the_pedigree, long_output_format);
+	 print_pedigree_normalized(o_stream, the_pedigree, the_genotypes_set);
+	 //mean_hgmr, mean_R, mean_D, mean_Z);
+	 //				   1, 1, 1, 1);
 	 // double ZeeN = Zn(the_genotypes_set, A, F, M);
 	 // fprintf(o_stream, "  %8.5f  ", the_pedigree->pedigree_stats->Zn); // exit(0);
-	 print_n_over_d(o_stream, the_pedigree->pedigree_stats->xz);
-	 double ddd = n_over_d(the_pedigree->pedigree_stats->d)/mean_D;
-	 if(ddd < 0){ fprintf(o_stream, " - ");}else{ fprintf(o_stream, " %8.5f ", ddd); }
-	 double zzz = n_over_d(the_pedigree->pedigree_stats->z)/mean_Z;
-	 if(zzz < 0){ fprintf(o_stream, " - ");}else{ fprintf(o_stream, " %8.5f ", zzz); }
-	  
+	 /*  print_n_over_d(o_stream, the_pedigree->pedigree_stats->xz, 1.0); */
+	 /* /\* double ddd = n_over_d(the_pedigree->pedigree_stats->d)/mean_D; *\/ */
+	 /* /\* if(ddd < 0){ fprintf(o_stream, " - ");}else{ fprintf(o_stream, " %8.5f ", ddd); } *\/ */
+	 /* /\* double zzz = n_over_d(the_pedigree->pedigree_stats->z)/mean_Z; *\/ */
+	 /* /\* if(zzz < 0){ fprintf(o_stream, " - ");}else{ fprintf(o_stream, " %8.5f ", zzz); } *\/ */
+	 /* print_n_over_d(o_stream, the_pedigree->pedigree_stats->d, 1.0); */
+	 /* print_n_over_d(o_stream, the_pedigree->pedigree_stats->z, 1.0); */
+
 	  //fprintf(o_stream, "  %8.5f  %8.5f ", , n_over_d(the_pedigree->pedigree_stats->z)/mean_Z);
 	 //fprintf(stderr, "Before count_crossovers (F). %s %s \n", A->id->a,  (F != NULL)? F->id->a : "NULL");
 	 if(the_genotypes_set->phased){
 	   // count_crossovers(the_genotypes_set, F, A);
 	   if(F == NULL){ // only have male parent in pedigree
 	     three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);
-	     fprintf(o_stream, "  -1 -1 -1  %ld %ld %ld  -1 -1 -1 -1 ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);
+	     fprintf(o_stream, "  - - -  %ld %ld %ld  - - - - ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);
 	     //fprintf(stderr, "after count_crossovers (M)\n");
 	   }else if(M == NULL){ // only have female parent in pedigree
 	     three_longs F_phased_info = count_crossovers(the_genotypes_set, F, A);
-	     fprintf(o_stream, "  %ld %ld %ld  -1 -1 -1  -1 -1 -1 -1 ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3);
+	     fprintf(o_stream, "  %ld %ld %ld  - - -  - - - - ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3);
 	   }else{ // both F and M are non-NULL
 	       Xcounts_3 X3 = count_crossovers_two_parents(the_genotypes_set, F, M, A);
 	       print_X3_info(o_stream, X3);
@@ -423,7 +440,7 @@ main(int argc, char *argv[])
 	       if(ii != A_gtset_idx){
 		 ND the_xhgmr = xhgmr(the_genotypes_set, A, A2, quick_xhgmr);
 		 //n_xhgmrs_calculated++;
-		 double dbl_xhgmr = (the_xhgmr.d > 0)? (double)the_xhgmr.n/the_xhgmr.d : -1;
+		 double dbl_xhgmr = (the_xhgmr.d > 0)? (double)the_xhgmr.n/the_xhgmr.d : NAN;
 		 if(dbl_xhgmr <= max_xhgmr){ // xhgmr is small enough 
 		   //n_xhgmrs_le_max++;
 		   push_to_viaxh(pwi_wrt_A, ii, 10, dbl_xhgmr, 10);
@@ -542,7 +559,7 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
   // *******************************************************************************
   if(the_pedigrees->size > 0){
     if(the_pedigrees->size > 1)
-      set_scaled_d_in_vpedigree(the_pedigrees, d_scale_factor);
+      //set_scaled_d_in_vpedigree(the_pedigrees, d_scale_factor);
       // sort_vpedigree_by_maxh1h2z(the_pedigrees);
       sort_vpedigree_by_maxdz(the_pedigrees);
       long n_out = (max_solns_out < the_pedigrees->size)? max_solns_out : the_pedigrees->size;
@@ -561,18 +578,21 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
   }
 } // end of sort_and_output_pedigrees
 
-void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor){
-  for(long i = 0; i < the_pedigrees->size; i++){
-    Pedigree_stats* the_ps = the_pedigrees->a[i]->pedigree_stats;
-    set_scaled_d_in_one_pedigree(the_ps, d_scale_factor);
-  }
-}
+/* void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor){ */
+/*   for(long i = 0; i < the_pedigrees->size; i++){ */
+/*     Pedigree_stats* the_ps = the_pedigrees->a[i]->pedigree_stats; */
+/*     set_scaled_d_in_one_pedigree(the_ps, d_scale_factor); */
+/*   } */
+/* } */
 
-void set_scaled_d_in_one_pedigree(Pedigree_stats* the_ps, double d_scale_factor){
-  double d = n_over_d(the_ps->d);
-  if(d < 0) d = 10; // when denom is 0, make it big (i.e. bad)
-  the_ps->scaled_d = d_scale_factor*d;
-}
+/* void set_scaled_d_in_one_pedigree(Pedigree_stats* the_ps, double d_scale_factor){ */
+/*   if(the_ps->d.d == 0){ */
+/*     the_ps->scaled_d = NAN; */
+/*   }else{ */
+/*     double d = n_over_d(the_ps->d); */
+/*     the_ps->scaled_d = d_scale_factor*d; */
+/*   } */
+/* } */
 
 void print_X3_info(FILE* o_stream, Xcounts_3 X3){
   if(X3.FA.Xa < X3.FA.Xb){
@@ -588,9 +608,14 @@ void print_X3_info(FILE* o_stream, Xcounts_3 X3){
   fprintf(o_stream, " %ld %ld %ld %ld ", X3.XFmin_3, X3.XFmax_3, X3.XMmin_3, X3.XMmax_3);
 }
 
-void d_z_of_random_set(GenotypesSet* gtset, long sample_size, double* mean_d, double* mean_z){
-  *mean_d = 0;
-  *mean_z = 0;
+void random_set_means(GenotypesSet* gtset, long sample_size){
+  // double* mean_hgmr, double* mean_R, double* mean_d, double* mean_z){
+  
+  double mean_hgmr = 0;
+  double mean_R = 0;
+  double mean_d = 0;
+  double mean_z = 0;
+
   for(long j=0; j<sample_size; ){
     long i = (long)(rand()*(double)gtset->accessions->size/((double)RAND_MAX+1) );
     Accession* O = gtset->accessions->a[i];
@@ -608,11 +633,19 @@ void d_z_of_random_set(GenotypesSet* gtset, long sample_size, double* mean_d, do
     
     Pedigree_stats* ps = bitwise_triple_counts(P1, P2, O);
     if(ps->d.d > 0  &&  ps->z.d > 0){
-      *mean_d += n_over_d(ps->d);
-      *mean_z += n_over_d(ps->z);
+      mean_d += n_over_d(ps->d);
+      mean_z += n_over_d(ps->z);
+      mean_hgmr += n_over_d(ps->par1_hgmr) + n_over_d(ps->par2_hgmr);
+      mean_R += n_over_d(ps->par1_R) + n_over_d(ps->par2_R);
       j++;
   }
   }
-  *mean_d /= (double)sample_size;
-  *mean_z /= (double)sample_size;
+  mean_hgmr /= (double)(2*sample_size);
+  mean_R /= (double)(2*sample_size);
+  mean_d /= (double)sample_size;
+  mean_z /= (double)sample_size;
+  gtset->mean_hgmr = mean_hgmr;
+  gtset->mean_R = mean_R;
+  gtset->mean_d = mean_d;
+  gtset->mean_z = mean_z;
 }

@@ -668,16 +668,16 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
    // fprintf(stderr, "n1, n2, n0,  num, denom: %ld  %ld  %ld   %ld %ld  n1 n2: %ld %ld\n", n_1, n_2, n_0, n_1+n_2, n_1+n_2+n_0, n_1, n_2);
   pedigree_stats->z = (ND) {z_numer, z_denom};
 
-  double scaled_d = pedigree_stats->scaled_d;
-  double z = n_over_d(pedigree_stats->z);
-  pedigree_stats->max_scaleddz = (scaled_d>z)? scaled_d : z;
+  /* double scaled_d = pedigree_stats->scaled_d; */
+  /* double z = n_over_d(pedigree_stats->z); */
+  /* pedigree_stats->max_scaleddz = (scaled_d>z)? scaled_d : z; */
 
   pedigree_stats->all_good_count = n_0 + n_1 + n_2;
 
   return pedigree_stats;
 } // end of triple_counts
 
-Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){
+Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){ // , GenotypesSet* gtset){
   
   long n_00_1_22_1 = 0, n_total_no_md = 0, n_00_22 = 0, n_total_x_11 = 0;
   long n_00_2_22_0 = 0, n_00_2 = 0, n_22_0 = 0;
@@ -790,15 +790,16 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   /* long d_old_numer = n_1 + n_2; */
   /* long d_old_denom = n_total_no_md; */
   pedigree_stats->d = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd + n_00_1_22_1, n_total_no_md};
+  // fprintf(stderr, "d d d %8.5f\n", n_over_d(pedigree_stats->d));
   // fprintf(stdout, "d num, denom:  %ld %ld\n",  n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11);
   pedigree_stats->z = (ND) {n_00_1_22_1, n_00_22};
   pedigree_stats->par1_hgmr = (ND) {hgmr1_numerator, hgmr1_denominator};
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numerator, hgmr2_denominator};
   pedigree_stats->par1_R = (ND) {n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2};
   pedigree_stats->par2_R = (ND) {n_x0_1_x2_1, n_x0_1_x2_1 + n_x0_0_x2_2};
-  double scaled_d = pedigree_stats->scaled_d;
-  double z = n_over_d(pedigree_stats->z);
-  pedigree_stats->max_scaleddz = (scaled_d>z)? scaled_d : z;
+  /* double scaled_d = pedigree_stats->scaled_d; */
+  /* double z = n_over_d(pedigree_stats->z); */
+  /* pedigree_stats->max_scaleddz = (scaled_d>z)? scaled_d : z; */
   //fprintf(stderr, "bwtc: %ld %ld %ld %ld \n", n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2, n_x0_1_x2_1, n_x0_1_x2_1 + n_x0_0_x2_2);
   //fprintf(stderr, "bw d_old. N, D, N/D:  %ld  %ld  %8.5f n1 n2: %ld %ld\n", d_old_numer, d_old_denom, (d_old_denom > 0)? (double)d_old_numer/(double)d_old_denom : -1, n_1, n_2 );
   // fprintf(stderr, "xxx: %ld %ld %ld %ld  %ld %ld\n", n_0xorx0_2_nomd, n_2xorx2_0_nomd, n_00_1_22_1, n_00_2_22_0, n_00_2, n_22_0);
@@ -904,11 +905,13 @@ Pedigree_stats* construct_pedigree_stats(void){
 
   the_ps->all_good_count = 0;
 
-  the_ps->xhgmr1 = -1;
-  the_ps->xhgmr2 = -1;
+  the_ps->scaled_d = NAN;
+  the_ps->max_scaleddz = NAN;
+  the_ps->xhgmr1 = NAN;
+  the_ps->xhgmr2 = NAN;
   return the_ps;
 }
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset, double d_scale_factor){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
   long ploidy = the_gtsset->ploidy;
   Pedigree_stats* the_ps; //  = construct_pedigree_stats(); // (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
   assert(the_pedigree->F != NULL  ||  the_pedigree->M != NULL); // shouldn't have both parents NULL //
@@ -927,6 +930,20 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
     /*   assert(NDs_equal(the_ps->d, nobw_ps->d)); */
     /*   assert(NDs_equal(the_ps->z, nobw_ps->z)); */
     /* } */
+     /* double d = n_over_d(the_ps->d); */
+     /* fprintf(stderr, "d: %8.5lf  ", d); */
+     /* d /= the_gtsset->mean_d; // NAN if mean_d is 0 */
+     /* //pedigree_stats->s */
+     /* fprintf(stderr, " %8.5f   ", d); */
+     double scaled_d = n_over_d(the_ps->d)*d_scale_factor/the_gtsset->mean_d;
+     the_ps->scaled_d = scaled_d;
+      
+     // double scaled_d = pedigree_stats->scaled_d;
+     double zn = n_over_d(the_ps->z)/the_gtsset->mean_z;
+     if(! isnan(zn) && !isnan(scaled_d)){
+       the_ps->max_scaleddz = (scaled_d>zn)? scaled_d : zn;
+     }
+     // fprintf(stderr, " %8.5lf  %8.5lf  %8.5lf\n", d_scale_factor, scaled_d, zn);
        
      the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
      the_ps->par2_xhgmr = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, false);
@@ -935,7 +952,7 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
     the_ps = construct_pedigree_stats();
     the_ps->agmr12 = (ND) {0, 0};
     the_ps->z = (ND) {0, 0};
-    the_ps->xz = (ND) {0, 0}; 
+    the_ps->xz = (ND) {0, 0};
     // return the_ps;
     if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
       //       fprintf(stderr, "pedigree with female parent only.\n");
@@ -1029,15 +1046,15 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
     //print_d_r(fh, the_pedigree_stats->d_old);
 
   }else{ // print ratios but not denominators
-    print_n_over_d(fh, the_pedigree_stats->agmr12);
-    print_n_over_d(fh, the_pedigree_stats->par1_hgmr);
+    print_n_over_d(fh, the_pedigree_stats->agmr12, 1.0);
+    print_n_over_d(fh, the_pedigree_stats->par1_hgmr, 1.0);
     // print_n_over_d(fh, the_pedigree_stats->par1_xhgmr);
-    print_n_over_d(fh, the_pedigree_stats->par1_R);
-    print_n_over_d(fh, the_pedigree_stats->par2_hgmr);
+    print_n_over_d(fh, the_pedigree_stats->par1_R, 1.0);
+    print_n_over_d(fh, the_pedigree_stats->par2_hgmr, 1.0);
     //  print_n_over_d(fh, the_pedigree_stats->par2_xhgmr);
-    print_n_over_d(fh, the_pedigree_stats->par2_R);
-    print_n_over_d(fh, the_pedigree_stats->d);
-    print_n_over_d(fh, the_pedigree_stats->z);
+    print_n_over_d(fh, the_pedigree_stats->par2_R, 1.0);
+    print_n_over_d(fh, the_pedigree_stats->d, 1.0);
+    print_n_over_d(fh, the_pedigree_stats->z, 1.0);
     // print_n_over_d(fh, the_pedigree_stats->d_old);
   }
   fprintf(fh, "%7.5f  ", the_pedigree_stats->scaled_d);
@@ -1046,6 +1063,51 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
   fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr1);
   //  fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr2);
   fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr2);	     	   
+}
+
+void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree, GenotypesSet* gtset){
+  //double mean_hgmr, double mean_R, double mean_d, double mean_z){
+  Accession* F = the_pedigree->F;
+  Accession* M = the_pedigree->M;
+  fprintf(fh, "%s  %s  %ld  ", (F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA",  the_pedigree->pedigree_stats->all_good_count);
+  print_normalized_pedigree_stats(fh, the_pedigree->pedigree_stats, gtset);
+}
+
+void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, GenotypesSet* gtset){ 
+  double mean_hgmr = gtset->mean_hgmr;
+  double mean_R = gtset->mean_R;
+  double mean_d = gtset->mean_d;
+  double mean_z = gtset->mean_z;
+  // print ratios but not denominators
+  print_n_over_d(fh, the_pedigree_stats->agmr12, 1.0);
+  print_n_over_d(fh, the_pedigree_stats->par1_hgmr, mean_hgmr);
+  // print_n_over_d(fh, the_pedigree_stats->par1_xhgmr);
+  print_n_over_d(fh, the_pedigree_stats->par1_R, mean_R);
+  print_n_over_d(fh, the_pedigree_stats->par2_hgmr, mean_hgmr);
+  //  print_n_over_d(fh, the_pedigree_stats->par2_xhgmr);
+  print_n_over_d(fh, the_pedigree_stats->par2_R, mean_R);
+  print_n_over_d(fh, the_pedigree_stats->d, mean_d);
+  print_n_over_d(fh, the_pedigree_stats->z, mean_z);
+  // print_n_over_d(fh, the_pedigree_stats->d_old);
+  
+  // fprintf(fh, "%7.5f  ", the_pedigree_stats->scaled_d);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->scaled_d);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->max_scaleddz);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->xhgmr1);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->xhgmr2);
+  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->max_scaleddz);
+  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr1);
+  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr1);
+  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr2);
+  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr2);	
+}
+
+void print_double_nan_as_hyphen(FILE* fh, double x){
+  if(isnan(x)){
+    fprintf(fh, "-  ");
+  }else{
+    fprintf(fh, "%7.5lf  ", x);
+  }
 }
 
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose){
