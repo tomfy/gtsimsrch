@@ -20,7 +20,7 @@ my $edge_count = 0;
 while (<>) { # read pedigree_test output file and add edges to the graph
   next if(/^\s*#/);		# skip comment lines
   my @cols = split(" ", $_);
-  my ($aid, $pid1, $pid2) = @cols[0,2,3];
+  my ($aid, $pid1, $pid2) = @cols[0,3,4]; # @cols[0,2,3];
   next if($aid eq 'NA');
   $ids{$aid} = 1;
   if ($pid1 ne 'NA') {
@@ -61,26 +61,34 @@ for my $anid (keys %ids){
 	    # too few parents known, can't do case 1
 	}
     }elsif($case == 2){
-	if($out_degree >= 2){
-	    # my $str = "$anid ";
-	    my @edges_from = $g->edges_from($anid);
-	    #for my $e (@edges_from){
-	    for(my $i=0; $i < $#edges_from; $i+=2){
-		my $e1 = $edges_from[$i];
-		my $e2 = $edges_from[$i+1];
-		my $str = "$anid " . $e1->[1] . " " . $e2->[1];
-		print "$str\n";
-	    }
-	}
-    }elsif($case == 3){
-	if($in_degree >=1  and $out_degree  >= 2){
+      if ($out_degree >= 2) {
+	# my $str = "$anid ";
+	my @edges_from = $g->edges_from($anid);
+	#for my $e (@edges_from){
+	# for(my $i=0; $i < $#edges_from; $i+=2){
+	# 	my $e1 = $edges_from[$i];
+	# 	my $e2 = $edges_from[$i+1];
+	# 	my $str = "$anid " . $e1->[1] . " " . $e2->[1];
+	# 	print "$str\n";
+	#   }
+	my $n_out = scalar @edges_from;
+	my $e1 = $edges_from[int(rand($n_out))];
+	my $e2 = $edges_from[int(rand($n_out))];
+  	my $str = "$anid " . $e1->[1] . " " . $e2->[1];
+	print "$str\n";
+      }
+    } elsif ($case == 3) {
+      if ($in_degree >=1  and $out_degree  >= 2){
 	    my @edges_to = $g->edges_to($anid);
 	    my @edges_from = $g->edges_from($anid);
-	    my $in_edge = $edges_to[0];
-	    for my $out_edge (@edges_from){
+	    my $n_in = scalar @edges_to;
+	    my $n_out = scalar @edges_from;
+	    my $in_edge = $edges_to[int(rand($n_in))];
+	    my $out_edge = $edges_from[int(rand($n_out))];
+	    #for my $out_edge (@edges_from){
 		my $str =  "$anid " . $in_edge->[0] . " " . $out_edge->[1];
 		print "$str\n";
-	    }
+	    #}
 	}
     }else{
 	die "unknown case: $case\n"

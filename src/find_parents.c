@@ -30,7 +30,9 @@ Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candid
 void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream, bool long_output_format, double d_scale_factor);
 void set_scaled_d_in_one_pedigree(Pedigree_stats* the_ps, double d_scale_factor);
 void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor);
+void print_Xover2_rates(FILE* fh, Xcounts_2 X2);
 void print_X3_info(FILE* o_stream, Xcounts_3 X3);
+void print_Xover_rates(FILE* fh, Xcounts_3 X3);
 // void d_z_of_random_set(GenotypesSet* gtset, long sample_size, double* mean_d, double* mean_z);
 void random_set_means(GenotypesSet* gtset, long sample_size);
 // double* mean_hgmr, double* mean_R, double* mean_d, double* mean_z);
@@ -55,18 +57,18 @@ main(int argc, char *argv[])
   // double max_hgmr = 0.03;
   long max_candidate_parents = 80;
   bool quick_xhgmr = true;
-  bool bitwise = false;
-  long max_solns_out = 8;
+  //bool bitwise = false;
+  long max_solns_out = 4;
   bool multiple_solns_on_one_line = true;
   // bool sort_by_z = false; // if false, sort by d
-  bool use_xhgmr = true;
+  //bool use_xhgmr = true;
   
   // the following used in categorizing pedigrees from file as good or bad:
-  double max_self_agmr = 0.04;
-  double max_ok_hgmr = 0.04;
-  double max_self_R = 0.04;
-  double max_ok_d = 0.04;
-  double max_ok_z = 0.05;
+  double max_self_agmr = 0.03;
+  double max_ok_hgmr = 0.16;
+  double max_self_R = 0.1;
+  double max_ok_d = 0.15;
+  double max_ok_z = 0.15;
 
   bool long_output_format = false; // true; true -> output denominators as well as 
   double d_scale_factor = 1.17; // sort on max(d_scale_factor*d, z)
@@ -102,7 +104,7 @@ main(int argc, char *argv[])
       {"candidate_parents_max", required_argument, 0, 'c'},
       {"xhgmr_max", required_argument, 0, 'x'},
       {"help", no_argument, 0, 'h'},
-      {"bitwise", no_argument, 0, 'b'},
+      //  {"bitwise", no_argument, 0, 'b'},
       //  {"sort_by_z", no_argument, 0, 's'},
       {"check", no_argument, 0, 'k'}, // not implemented
       {"alternative_pedigrees_level", required_argument, 0, 'd'},
@@ -247,9 +249,9 @@ main(int argc, char *argv[])
 	fprintf(stderr, "option alternative_pedigrees requires one of 0, 1, 2, 3, or 4 as argument.\n");
 	exit(EXIT_FAILURE);
       }
-    case 'b':
-      bitwise = true;
-      break;
+    /* case 'b': */
+    /*   bitwise = true; */
+    /*   break; */
     /* case 's': */
     /*   sort_by_z = true; */
     /*   break; */
@@ -333,7 +335,9 @@ main(int argc, char *argv[])
   // double mean_hgmr, mean_R, mean_D, mean_Z;
   long sample_size = 1000;
   random_set_means(the_genotypes_set, sample_size);
-  /* fprintf(stderr, "mean hgmr, R, D, Z: %8.5f  %8.5f  %8.5f  %8.5f\n", mean_hgmr, mean_R, mean_D, mean_Z); */
+  the_genotypes_set->d_scale_factor = d_scale_factor;
+  fprintf(stderr, "mean hgmr, R, d, z: %8.5f  %8.5f  %8.5f  %8.5f\n",
+	  the_genotypes_set->mean_hgmr, the_genotypes_set->mean_R, the_genotypes_set->mean_d, the_genotypes_set->mean_z); 
   /* the_genotypes_set->mean_hgmr = mean_hgmr; */
   /* the_genotypes_set->mean_R = mean_R; */
   /* the_genotypes_set->mean_d = mean_D; */
@@ -379,7 +383,7 @@ main(int argc, char *argv[])
      for(long i=0; i<pedigrees->size; i++){
        if(i % 100  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
        Pedigree* the_pedigree = pedigrees->a[i];
-       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(the_pedigree, the_genotypes_set, d_scale_factor); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
+       Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(the_pedigree, the_genotypes_set); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
        //set_scaled_d_in_one_pedigree(the_pedigree_stats, d_scale_factor);
        the_pedigree->pedigree_stats = the_pedigree_stats;
       
@@ -390,8 +394,8 @@ main(int argc, char *argv[])
        long A_gtset_idx = index_of_id_in_vidxid(the_gt_vidxid, A->id->a);
        if(0 || (F != NULL  ||  M != NULL)){ // at least one parent specified in pedigree
     
-	 fprintf(o_stream, "%s  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
-	 print_pedigree_normalized(o_stream, the_pedigree, the_genotypes_set);
+	 fprintf(o_stream, "%s  x  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
+	 print_pedigree_normalized(o_stream, the_pedigree); //, the_genotypes_set);
 	 //mean_hgmr, mean_R, mean_D, mean_Z);
 	 //				   1, 1, 1, 1);
 	 // double ZeeN = Zn(the_genotypes_set, A, F, M);
@@ -407,18 +411,23 @@ main(int argc, char *argv[])
 	  //fprintf(o_stream, "  %8.5f  %8.5f ", , n_over_d(the_pedigree->pedigree_stats->z)/mean_Z);
 	 //fprintf(stderr, "Before count_crossovers (F). %s %s \n", A->id->a,  (F != NULL)? F->id->a : "NULL");
 	 if(the_genotypes_set->phased){
-	   // count_crossovers(the_genotypes_set, F, A);
-	   if(F == NULL){ // only have male parent in pedigree
-	     three_longs M_phased_info = count_crossovers(the_genotypes_set, M, A);
-	     fprintf(o_stream, "  - - -  %ld %ld %ld  - - - - ", M_phased_info.l1, M_phased_info.l2, M_phased_info.l3);
-	     //fprintf(stderr, "after count_crossovers (M)\n");
-	   }else if(M == NULL){ // only have female parent in pedigree
-	     three_longs F_phased_info = count_crossovers(the_genotypes_set, F, A);
-	     fprintf(o_stream, "  %ld %ld %ld  - - -  - - - - ", F_phased_info.l1, F_phased_info.l2, F_phased_info.l3);
-	   }else{ // both F and M are non-NULL
-	       Xcounts_3 X3 = count_crossovers_two_parents(the_genotypes_set, F, M, A);
-	       print_X3_info(o_stream, X3);
-	   }	    
+	   /* // count_crossovers(the_genotypes_set, F, A); */
+	   /* if(F == NULL){ // only have male parent in pedigree */
+	   /*   Xcounts_2 M_phased_info = count_crossovers_one_parent(the_genotypes_set, M, A); */
+	   /*   // fprintf(o_stream, "  - - -  %ld %ld %ld  - - - - ", M_phased_info.Xa, M_phased_info.Xb, M_phased_info.Nhet); */
+	   /*   fprintf(o_stream, "  - %7.5f - - - ", M_phased_info.Xa/(double)M_phased_info.Nhet); */
+	   /*   //fprintf(stderr, "after count_crossovers (M)\n"); */
+	   /* }else if(M == NULL){ // only have female parent in pedigree */
+	   /*   Xcounts_2 F_phased_info = count_crossovers_one_parent(the_genotypes_set, F, A); */
+	   /*   // fprintf(o_stream, "  %ld %ld %ld  - - -  - - - - ", F_phased_info.Xa, F_phased_info.Xb, F_phased_info.Nhet); */
+	   /*   fprintf(o_stream, "  %7.5f - - - - ", F_phased_info.Xa/(double)F_phased_info.Nhet); */
+	   /* }else{ // both F and M are non-NULL */
+	   /*     Xcounts_3 X3 = count_crossovers_two_parents(the_genotypes_set, F, M, A); */
+	   /*     // print_X3_info(o_stream, X3); */
+	   /*     print_Xover_rates(o_stream, X3); */
+	   /* } */
+	   Xcounts_3 X3 = count_crossovers(the_genotypes_set, F, M, A);
+	   print_Xover_rates(o_stream, X3);
 	 } // end of if phased branch
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents
@@ -443,7 +452,7 @@ main(int argc, char *argv[])
 		 double dbl_xhgmr = (the_xhgmr.d > 0)? (double)the_xhgmr.n/the_xhgmr.d : NAN;
 		 if(dbl_xhgmr <= max_xhgmr){ // xhgmr is small enough 
 		   //n_xhgmrs_le_max++;
-		   push_to_viaxh(pwi_wrt_A, ii, 10, dbl_xhgmr, 10);
+		   push_to_viaxh(pwi_wrt_A, ii, dbl_xhgmr);
 		 }
 	       }
 	     }
@@ -488,7 +497,7 @@ main(int argc, char *argv[])
 	
       // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]	
       Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(prog, the_genotypes_set, pairwise_info[i], max_candidate_parents);
-      fprintf(o_stream, "%s  %ld   ", prog->id->a, pairwise_info[i]->size); // output progeny id
+      fprintf(o_stream, "%s  %ld   ", prog->id->a, pairwise_info[i]->size); // output the progeny id
       sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format, d_scale_factor);
       if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
       fprintf(o_stream, "\n");
@@ -536,20 +545,22 @@ void print_usage_info(FILE* stream){
   fprintf(stream, "-h   -help                           print this message and exit.\n");
 }
 
-Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_xhgmr, bool quick_xhgmr){
+Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents,
+				double max_xhgmr, bool quick_xhgmr){
   long n_gt_accessions = the_genotypes_set->accessions->size;
   Viaxh** pairwise_info = (Viaxh**)malloc(n_gt_accessions*sizeof(Viaxh*)); // array of Viaxh*. pairwise_info[i]->a[j].xhgmr 
   for(long ii=0; ii<n_gt_accessions; ii++){
     pairwise_info[ii] = construct_viaxh(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii
   }
-    
-  // if(use_xhgmr){ // Calculate xhgmr
-  calculate_xhgmrs(the_genotypes_set, pairwise_info, quick_xhgmr, max_xhgmr);
-  
-  /* } else{  // hgmr - bitwise */
-  /*   calculate_hgmrs(the_genotypes_set, pairwise_info, max_hgmr); */
-  /*   fprintf(stdout, "# time for hgmrs: %10.3f \n", hi_res_time() - t0); */
-  /* } */
+
+  double t0 = hi_res_time();
+  if(0){ // Calculate xhgmr
+    calculate_xhgmrs(the_genotypes_set, pairwise_info, quick_xhgmr, max_xhgmr);
+     fprintf(stdout, "# time for xhgmrs: %10.3f \n", hi_res_time() - t0);
+  } else{  // hgmr - bitwise
+    calculate_hgmrs(the_genotypes_set, pairwise_info, max_xhgmr);
+    fprintf(stdout, "# time for hgmrs: %10.3f \n", hi_res_time() - t0);
+  }
   return pairwise_info;
 }
 
@@ -558,10 +569,7 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
   // ***  sort alt_pedigrees_array, output best parent pairs for this accession  ***
   // *******************************************************************************
   if(the_pedigrees->size > 0){
-    if(the_pedigrees->size > 1)
-      //set_scaled_d_in_vpedigree(the_pedigrees, d_scale_factor);
-      // sort_vpedigree_by_maxh1h2z(the_pedigrees);
-      sort_vpedigree_by_maxdz(the_pedigrees);
+    if(the_pedigrees->size > 1) sort_vpedigree_by_d(the_pedigrees); // sort_vpedigree_by_maxdz(the_pedigrees);
       long n_out = (max_solns_out < the_pedigrees->size)? max_solns_out : the_pedigrees->size;
       for(long iii=0; iii < n_out; iii++){
 	/* Accession* par1 = the_pedigrees->a[iii]->F; */
@@ -571,7 +579,8 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
 	/* fprintf(o_stream, "%s %s %ld  ", par1->id->a, par2->id->a, the_ps->all_good_count); // output candidate pair of parents */
 	/* print_pedigree_stats(o_stream, the_ps, long_output_format); */
 	fprintf(o_stream, "A  "); // to indicate alternative parents (not those from pedigree file)
-	print_pedigree(o_stream, the_pedigrees->a[iii], long_output_format);
+	// print_pedigree(o_stream, the_pedigrees->a[iii], long_output_format);
+	 print_pedigree_normalized(o_stream, the_pedigrees->a[iii]);
 	// if((!multiple_solns_on_one_line) || (iii == n_out-1)) fprintf(o_stream, "\n");
       } // loop over solutions for one progeny accession
       //fprintf(o_stream, "\n");
@@ -595,15 +604,15 @@ void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FIL
 /* } */
 
 void print_X3_info(FILE* o_stream, Xcounts_3 X3){
-  if(X3.FA.Xa < X3.FA.Xb){
-    fprintf(o_stream, " %ld %ld %ld ", X3.FA.Xa, X3.FA.Xb, X3.FA.Nhet);
+  if(X3.XFA.Xa < X3.XFA.Xb){
+    fprintf(o_stream, " %ld %ld %ld ", X3.XFA.Xa, X3.XFA.Xb, X3.XFA.Nhet);
   }else{
-    fprintf(o_stream, " %ld %ld %ld ", X3.FA.Xb, X3.FA.Xa, X3.FA.Nhet);
+    fprintf(o_stream, " %ld %ld %ld ", X3.XFA.Xb, X3.XFA.Xa, X3.XFA.Nhet);
   }
-  if(X3.MA.Xa < X3.MA.Xb){
-    fprintf(o_stream, " %ld %ld %ld ", X3.MA.Xa, X3.MA.Xb, X3.MA.Nhet);
+  if(X3.XMA.Xa < X3.XMA.Xb){
+    fprintf(o_stream, " %ld %ld %ld ", X3.XMA.Xa, X3.XMA.Xb, X3.XMA.Nhet);
   }else{
-    fprintf(o_stream, " %ld %ld %ld ", X3.MA.Xb, X3.MA.Xa, X3.MA.Nhet);
+    fprintf(o_stream, " %ld %ld %ld ", X3.XMA.Xb, X3.XMA.Xa, X3.XMA.Nhet);
   }
   fprintf(o_stream, " %ld %ld %ld %ld ", X3.XFmin_3, X3.XFmax_3, X3.XMmin_3, X3.XMmax_3);
 }
@@ -648,4 +657,36 @@ void random_set_means(GenotypesSet* gtset, long sample_size){
   gtset->mean_R = mean_R;
   gtset->mean_d = mean_d;
   gtset->mean_z = mean_z;
+
+  /* Vaccessions* accs = gtset->accessions; */
+  /* for(long i=0; i< accs->size; i++){ */
+  /*   Accession* A = accs->a[i]; */
+  /*   A->hgmr1_n = A->par1_hgmr/mean_hgmr; */
+  /*   A->hgmr2_n = A->par2_hgmr/mean_hgmr; */
+  /*   A->R1_n = A->par1_R/mean_R; */
+  /*   A->R2_n = A->par2_R/mean_R; */
+  /*   A->d_n = A->d/mean_d; */
+  /*   A->z_n = A->z/mean_z; */
+  /* } */
+}
+
+void print_Xover2_rates(FILE* fh, Xcounts_2 X2){
+  print_double_nan_as_hyphen(fh, X2.Xa/(double)X2.Nhet);
+}
+
+void print_Xover_rates(FILE* fh, Xcounts_3 X3){
+  double Fnhet = X3.XFA.Nhet;
+  double Mnhet = X3.XMA.Nhet;
+  double XFA_rate = X3.XFA.Xa/Fnhet;
+  double XMA_rate = X3.XMA.Xa/Mnhet;
+  print_double_nan_as_hyphen(fh, XFA_rate);
+  print_double_nan_as_hyphen(fh, XMA_rate);
+
+  if(isnan(XFA_rate)  ||  isnan(XMA_rate)){ // if either parent is unknown, one of these will be nan.
+    fprintf(fh, " - - - ");
+  }else{
+    print_double_nan_as_hyphen(fh, X3.XFmin_3/Fnhet);
+    print_double_nan_as_hyphen(fh, X3.XMmin_3/Mnhet);
+    print_double_nan_as_hyphen(fh, (X3.XFmin_3+X3.XMmin_3)/(Fnhet+Mnhet));
+  }
 }

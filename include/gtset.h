@@ -8,7 +8,6 @@
 #include "vect.h"
 // #include "pedigree.h"
 
-#define DO_ASSERT 0
 #define UNKNOWN -1
 #define DOSAGES 0
 #define GENOTYPES 1
@@ -157,6 +156,7 @@ Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);
 ND bitwise_hgmr(Accession* acc1, Accession* acc2);
+ND bitwise_R(Accession* parent, Accession* offspring);
 void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, double max_hgmr);
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
 ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);

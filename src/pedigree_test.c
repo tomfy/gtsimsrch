@@ -283,7 +283,7 @@ main(int argc, char *argv[])
     for(long i=0; i<pedigrees->size; i++){
       if(i % 100  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
       
-      Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set, 1.0); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
+      Pedigree_stats* the_pedigree_stats = calculate_pedigree_stats(pedigrees->a[i], the_genotypes_set); //, nd0, nd1, nd2); //, the_cleaned_genotypes_set);
       // assert(strcmp(pedigrees->a[i]->Accession->id, pedigrees->a[i]->A->id->a) == 0);
       Accession* A = pedigrees->a[i]->A;
       Accession* F = pedigrees->a[i]->F;

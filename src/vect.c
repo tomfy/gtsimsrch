@@ -510,12 +510,16 @@ Viaxh* construct_viaxh(long init_capacity){
   the_viaxh->a = (Iaxh**)malloc(init_capacity*sizeof(Iaxh*));
   return the_viaxh;		      
 }
-void push_to_viaxh(Viaxh* the_viaxh, long idx, double agmr, double xhgmr, double hgmr){
+void push_to_viaxh(Viaxh* the_viaxh, long idx,
+		   //double agmr,
+		   double xhgmr
+		   //, double hgmr
+		   ){
   Iaxh* new_iaxh = (Iaxh*)malloc(sizeof(Iaxh));
   new_iaxh->idx = idx;
-  new_iaxh->agmr = agmr;
+  //new_iaxh->agmr = agmr;
   new_iaxh->xhgmr = xhgmr;
-  new_iaxh->hgmr = hgmr;
+  // new_iaxh->hgmr = hgmr;
   if(the_viaxh->size >= the_viaxh->capacity){
     the_viaxh->capacity *= 2;
     the_viaxh->a = (Iaxh**)realloc(the_viaxh->a, the_viaxh->capacity*sizeof(Iaxh*));
@@ -540,21 +544,21 @@ int compare_xhgmr(const void* a, const void* b){
   }
 }
 
-void sort_viaxh_by_hgmr(Viaxh* the_viaxh){
-  qsort(the_viaxh->a, the_viaxh->size, sizeof(Iaxh*), compare_hgmr);
-}
+/* void sort_viaxh_by_hgmr(Viaxh* the_viaxh){ */
+/*   qsort(the_viaxh->a, the_viaxh->size, sizeof(Iaxh*), compare_hgmr); */
+/* } */
 
-int compare_hgmr(const void* a, const void* b){
-  double d1 = (*((Iaxh**)a))->hgmr;
-  double d2 = (*((Iaxh**)b))->hgmr;
-  if(d1 > d2){
-    return 1;
-  }else if(d1 < d2){
-    return -1;
-  }else{
-    return 0;
-  }
-}
+/* int compare_hgmr(const void* a, const void* b){ */
+/*   double d1 = (*((Iaxh**)a))->hgmr; */
+/*   double d2 = (*((Iaxh**)b))->hgmr; */
+/*   if(d1 > d2){ */
+/*     return 1; */
+/*   }else if(d1 < d2){ */
+/*     return -1; */
+/*   }else{ */
+/*     return 0; */
+/*   } */
+/* } */
 
 void free_viaxh(Viaxh* the_viaxh){
   if(the_viaxh == NULL) return;

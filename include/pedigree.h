@@ -9,15 +9,25 @@ typedef struct{ // 0: progeny, 1, 2: parents
   ND par2_hgmr;
   ND par2_xhgmr; 
   ND par2_R;
-  ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
-  ND xz;
   ND d; // (n1+n2)/(n0+n1+n2);
-  ND d_2; // 
-  ND d_22; // both parents homozyg, delta = 2  i.e. 00_2 + 22_0
-  ND d_21; // both parents homozyg, delta = 1
-  ND d_11; // one parent homozyg, one heterozyg, delta = 1
+  ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
+
+  // ND xz;
+  //ND d_2; // 
+  //ND d_22; // both parents homozyg, delta = 2  i.e. 00_2 + 22_0
+  //ND d_21; // both parents homozyg, delta = 1
+  //ND d_11; // one parent homozyg, one heterozyg, delta = 1
+
+  double hgmr1_n;
+  double R1_n;
+  double hgmr2_n;
+  double R2_n;
+  double d_n;
+  double z_n;
+  
   double scaled_d; // to make threshold agree with z threshold
   double max_scaleddz;
+
   double hgmr1;
   double hgmr2;
   double xhgmr1;
@@ -59,14 +69,14 @@ typedef struct{
 }Xover_info;
 
 typedef struct{
-  long Xa;
+  long Xa; 
   long Xb;
   long Nhet;
 }Xcounts_2;
 
 typedef struct{
-  Xcounts_2 FA;
-  Xcounts_2 MA;
+  Xcounts_2 XFA;
+  Xcounts_2 XMA;
   long XFmin_3;
   long XFmax_3;
   long XMmin_3;
@@ -82,7 +92,7 @@ ND xz(GenotypesSet* gtset, Accession* O, Accession* P1, Accession* P2);
 Pedigree_stats* construct_pedigree_stats(void); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
 Vpedigree* calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset, double d_scale_factor);
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
 //, long* d0counts, long* d1counts, long* d2counts); // , GenotypesSet* the_gtsset);
 long pedigree_ok_x(Pedigree_stats* p, double max_self_agmr12, double max_ok_hgmr, double max_self_r, double max_ok_z);
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d, double max_ok_z);
@@ -106,6 +116,8 @@ void sort_vpedigree_by_z(Vpedigree* the_vped);
 int compare_pedigree_d(const void* a, const void* b);
 int compare_pedigree_z(const void* a, const void* b); /* */
 
+void sort_vpedigree_by_d(Vpedigree* the_vped);
+int compare_pedigree_d(const void* a, const void* b);
 void sort_vpedigree_by_maxdz(Vpedigree* the_vped);
 int compare_pedigree_maxdz(const void* a, const void* b);
 void sort_vpedigree_by_maxh1h2z(Vpedigree* the_vped);
@@ -131,7 +143,8 @@ long long_max(long a, long b);
 // Pedigree_stats* triple_counts_x(char* gts1, char* gts2, char* proggts, long* d0counts, long* d1counts, long* d2counts);
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
-three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
+Xcounts_3 count_crossovers(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
+Xcounts_2 count_crossovers_one_parent(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 Xcounts_2 count_crossovers_one_chromosome(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long last);
 Xcounts_3 count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
 Xover_info count_crossovers_two_parents_old(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
@@ -143,8 +156,8 @@ two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase);
 // long marker_d_counts(Pedigree* the_pedigree, long* d0counts, long* d1counts, long* d2counts);
 void print_pedigree(FILE* fh, Pedigree* the_pedigree, bool verbose);
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose);
-void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree, GenotypesSet* gtset);
-void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, GenotypesSet* gtset);
+void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree);
+void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
 void print_double_nan_as_hyphen(FILE* fh, double x);
    //double mean_hgmr, double mean_R, double mean_d, double mean_z);
 

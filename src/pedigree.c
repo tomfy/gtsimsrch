@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "pedigree.h"
 
-#define PEDIGREE_FIELDS 7 // number of whitespace-separated fields in pedigree file, with ids in last 3 fields.
+#define PEDIGREE_FIELDS 7 // >= to number of whitespace-separated fields in pedigree file.
 // extern int do_checks; // option -c sets this to 1 to do some checks.
 
 // *****  Pedigree  *****
@@ -18,15 +18,30 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
   return the_pedigree;
 }
 
+Xcounts_3 count_crossovers(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
+  if(offspring == NULL){
+    fprintf(stderr, "# in count_crossovers offspring Accession* is NULL. Bye.\n");
+    exit(EXIT_FAILURE);
+  }
+  Xcounts_3 X3;
+    if(Fparent == NULL){ // only have male parent in pedigree
+      X3 = (Xcounts_3){(Xcounts_2){0, 0, 0}, count_crossovers_one_parent(the_gtsset, Mparent, offspring), 0, 0, 0, 0};
+    }else if(Mparent == NULL){ // only have female parent in pedigree
+      X3 = (Xcounts_3){count_crossovers_one_parent(the_gtsset, Fparent, offspring), (Xcounts_2){0, 0, 0}, 0, 0, 0, 0};
+    }else{ // both F and M are non-NULL
+      X3 = count_crossovers_two_parents(the_gtsset, Fparent, Mparent, offspring);   
+    }
+  return X3;
+}
 
-three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
+Xcounts_2 count_crossovers_one_parent(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
   // Assuming that parent is indeed a parent of offspring,
   // count the min number of crossovers needed to reconcile them
 
   if(parent == NULL  ||  offspring == NULL) {
-    return (three_longs){-1, -1, -1};
+    return (Xcounts_2){-1, -1, -1};
   }
-  long Xmin = 0, Xmax = 0, Nhet = 0; // number of heterozyg gts in parent
+  long Xmin = 0, Xmax = 0, Nhet = 0; // Nhet = number of heterozyg gts in parent
   long Xa = 0, Xb = 0;
   long prev_chrom_number = -1, prev_phase_a = -1, prev_phase_b = -1;
   long phase_a = -1, phase_b = -1, chrom_number;
@@ -38,7 +53,6 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
     char o_phase = offspring->phases->a[i];
 
        chrom_number = the_gtsset->chromosomes->a[i];
-       // fprintf(stderr, "i:  %ld  prevchr, chr: %ld %ld   Xa, Xb:  %ld %ld   %ld %ld  %ld %ld\n", i, prev_chrom_number, chrom_number, Xa, Xb, prev_phase_a, prev_phase_b, phase_a, phase_b);
     if(chrom_number != prev_chrom_number){ // now on next chromosome
       if(Xa < Xb){ // add chromosome Xmin, Xmax to totals
 	Xmin += Xa; Xmax += Xb;
@@ -57,7 +71,6 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
     // ########################################
     char p_gt = parent->genotypes->a[i];
     char p_phase = parent->phases->a[i];
-    //if(p_gt != '1') continue; // skip if parent gt not heterozyg, i.e. if homozyg or missing.
 
     if(p_gt == '1'){
       Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
@@ -68,8 +81,6 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
     }
     // ######################################
 
- 
-
     // compare current phases with previous values,
     // update crossover counts, and
     // and  update prev_phase_a, prev_phase_b
@@ -79,14 +90,13 @@ three_longs count_crossovers(GenotypesSet* the_gtsset, Accession* parent, Access
     prev_phase_b = phase_b;
     
   } // end loop over markers
-  // fprintf(stderr, "XXprevchr, chr: %ld %ld   Xa, Xb:  %ld %ld \n",  prev_chrom_number, chrom_number, Xa, Xb);
   if(Xa < Xb){ // add the crossovers from the last chromosome.
     Xmin += Xa; Xmax += Xb;
   }else{
     Xmin += Xb; Xmax += Xa;
   }
  
-  return (three_longs){Xmin, Xmax, Nhet};
+  return (Xcounts_2){Xmin, Xmax, Nhet};
 } // end of count_crossovers
 
 Xcounts_2 count_crossovers_one_chromosome(GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long next){
@@ -132,7 +142,6 @@ Xcounts_2 count_crossovers_one_chromosome(GenotypesSet* the_gtsset, Accession* p
 } // end of count_crossovers_one_chromosome
 
 Xcounts_3 count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
-  Xcounts_3 result = (Xcounts_3){(Xcounts_2){-1,-1,-1}, (Xcounts_2){-1,-1,-1}, -1, -1, -1, -1};
   long NhetF = 0, XFmin_2 = 0, XFmax_2 = 0, XFmin_3 = 0, XFmax_3 = 0;
   long NhetM = 0, XMmin_2 = 0, XMmax_2 = 0, XMmin_3 = 0, XMmax_3 = 0;
  
@@ -158,10 +167,6 @@ Xcounts_3 count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fpar
     }else{
       XMmin_2 += MX.Xb; XMmax_2 += MX.Xa;
     }
-    
-    // long chrnumber = the_gtsset->chromosomes->a[start_index];
-    // fprintf(stderr, "M  %ld %ld   %ld %ld  %ld\n", i, chrnumber, MX.Xa, MX.Xb, MX.Nhet);
-    // fprintf(stderr, "F  %ld %ld   %ld %ld  %ld\n", i, chrnumber, FX.Xa, FX.Xb, FX.Nhet);
 
     long X_Fa_Mb = FX.Xa + MX.Xb; // crossovers if F is parent of a, M is parent of b
     long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
@@ -177,166 +182,11 @@ Xcounts_3 count_crossovers_two_parents(GenotypesSet* the_gtsset, Accession* Fpar
       XMmax_3 += MX.Xb;
     }
   } // end loop over chromosomes
-  Xcounts_2 FX2 = (Xcounts_2){XFmin_2, XFmax_2, NhetF};
-  Xcounts_2 MX2 = (Xcounts_2){XMmin_2, XMmax_2, NhetM};
-  result.FA = FX2;
-  result.MA = MX2;
-  result.XFmin_3 = XFmin_3;
-  result.XFmax_3 = XFmax_3;
-  result.XMmin_3 = XMmin_3;
-  result.XMmax_3 = XMmax_3;
-  return result;
+  Xcounts_3 X3 = {(Xcounts_2){XFmin_2, XFmax_2, NhetF}, (Xcounts_2){XMmin_2, XMmax_2, NhetM}, XFmin_3, XFmax_3, XMmin_3, XMmax_3};
+  return X3;
 }
 
-Xover_info count_crossovers_two_parents_old(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
-  // Assuming that parent is indeed a parent of offspring,
-  // count the min number of crossovers needed to reconcile them
 
-  Xover_info result = (Xover_info){-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-  if( offspring == NULL
-      || Fparent == NULL
-      || Mparent == NULL) return result;
-  
-  long prev_chrom_number = -1, chrom_number;
-  
-  long prev_phase_Fa = -1, prev_phase_Fb = -1;
-  long phase_Fa, phase_Fb;
-  long XFa = 0, XFb = 0;
-
-   long prev_phase_Ma = -1, prev_phase_Mb = -1;
-  long phase_Ma, phase_Mb;
-  long XMa = 0, XMb = 0;
-
-  long XFmin = 0, XFmax = 0, NFhet = 0;
-  long XMmin = 0, XMmax = 0, NMhet = 0;
-
-  long XFmin_triple = 0, XFmax_triple = 0;
-  long XMmin_triple = 0, XMmax_triple = 0;
-  //long Xmin = 0, Xmax = 0; // number of heterozyg gts in parent
-  
-  for(long i=0; i < offspring->genotypes->length; i++){
-    
-    char o_gt = offspring->genotypes->a[i];
-    char o_phase = offspring->phases->a[i];  
-    if(o_gt == MISSING_DATA_CHAR) continue;
-
-    chrom_number = the_gtsset->chromosomes->a[i];
-    if(chrom_number != prev_chrom_number){ // now on next chromosome
-      if(XFa < XFb){ // add chromosome Xmin, Xmax to totals	
-	XFmin += XFa; XFmax += XFb;
-      }else{
-	XFmin += XFb; XFmax += XFa;
-      }
-      if(XMa < XMb){ // add the crossovers from the last chromosome.
-	XMmin += XMa; XMmax += XMb;
-      }else{
-	XMmin += XMb; XMmax += XMa;
-      }
-      long X_Fa_Mb = XFa + XMb; // crossovers for F parent of a, M parent of b.
-      long X_Fb_Ma = XFb + XMa; // crossovers for F parent of b, M parent of a.
-      if(X_Fa_Mb < X_Fb_Ma){
-	XFmin_triple += XFa;
-	XFmax_triple += XFb;
-	XMmin_triple += XMb;
-	XMmax_triple += XMa;
-      }else{
-	XFmin_triple += XFb;
-	XFmax_triple += XFa;
-	XMmin_triple += XMa;
-	XMmax_triple += XMb;
-      }
-      
-      // reset for new chromosome:
-         
-      prev_chrom_number = chrom_number;
-     
-      phase_Fa = -1; phase_Fb = -1;
-      prev_phase_Fa = -1; // needed
-      prev_phase_Fb = -1;
-      XFa = 0; XFb = 0;
-
-      phase_Ma = -1; phase_Mb = -1;
-      prev_phase_Ma = -1; // needed
-      prev_phase_Mb = -1;
-      XMa = 0; XMb = 0;
-    }
-    
-    // ##############  Female parent  ######################
-    if(1  ||  Fparent != NULL){
-    char Fp_gt = Fparent->genotypes->a[i];
-    if(Fp_gt == '1'){ // skip if parent gt not heterozyg, i.e. if homozyg or missing.
-      char Fp_phase = Fparent->phases->a[i]; 
-  
-      NFhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
-
-      two_longs phases_ab = get_1marker_phases_wrt_1parent(Fp_phase, o_gt, o_phase);
-      phase_Fa = phases_ab.l1;
-      phase_Fb = phases_ab.l2;
-    }
-    // compare current phases with previous values,
-    // update crossover counts, and
-    // and  update prev_phase_a, prev_phase_b
-    if(prev_phase_Fa >= 0  &&  phase_Fa != prev_phase_Fa) XFa++; // phase has changed - crossover
-    prev_phase_Fa = phase_Fa;
-    if(prev_phase_Fb >= 0  &&  phase_Fb != prev_phase_Fb) XFb++; // phase has changed - crossover
-    prev_phase_Fb = phase_Fb;
-    }
-    // ####################################################
-
-    
-    // ##############  Male parent  #######################
-    if(1  ||  Mparent != NULL){
-      char Mp_gt = Mparent->genotypes->a[i];
-      if(Mp_gt == '1'){ // skip if parent gt not heterozyg, i.e. if homozyg or missing.
-	char Mp_phase = Mparent->phases->a[i]; 
-  
-	NMhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
-
-	two_longs phases_ab = get_1marker_phases_wrt_1parent(Mp_phase, o_gt, o_phase);
-	phase_Ma = phases_ab.l1;
-	phase_Mb = phases_ab.l2;
-
-      }
-      // compare current phases with previous values,
-      // update crossover counts, and
-      // and  update prev_phase_a, prev_phase_b
-      if(prev_phase_Ma >= 0  &&  phase_Ma != prev_phase_Ma) XMa++; // phase has changed - crossover
-      prev_phase_Ma = phase_Ma;
-      if(prev_phase_Mb >= 0  &&  phase_Mb != prev_phase_Mb) XMb++; // phase has changed - crossover
-      prev_phase_Mb = phase_Mb;
-    }
-    // ####################################################
-
-    
-  } // ##########  end loop over markers  ##################
-  if(XFa < XFb){ // add the crossovers from the last chromosome.
-    XFmin += XFa; XFmax += XFb;
-  }else{
-    XFmin += XFb; XFmax += XFa;
-  }
-   if(XMa < XMb){ // add the crossovers from the last chromosome.
-    XMmin += XMa; XMmax += XMb;
-  }else{
-    XMmin += XMb; XMmax += XMa;
-  }
-      long X_Fa_Mb = XFa + XMb; // crossovers for F parent of a, M parent of b.
-      long X_Fb_Ma = XFb + XMa; // crossovers for F parent of b, M parent of a.
-      if(X_Fa_Mb < X_Fb_Ma){
-	XFmin_triple += XFa;
-	XFmax_triple += XFb;
-	XMmin_triple += XMb;
-	XMmax_triple += XMa;
-      }else{
-	XFmin_triple += XFb;
-	XFmax_triple += XFa;
-	XMmin_triple += XMa;
-	XMmax_triple += XMb;
-      }
-      
-      result = (Xover_info){XFmin, XFmax, NFhet, XMmin, XMmax, NMhet,
-			    XFmin_triple, XFmax_triple, XMmin_triple, XMmax_triple};
-  return result;
-} // end of count_chromosome_crossovers
 
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
   long phase_a, phase_b;
@@ -531,19 +381,6 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
     i++;
   }
   Pedigree_stats* pedigree_stats = construct_pedigree_stats(); // (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
-  //  pedigree_stats->agmr12 = {0, -1};
-  //  pedigree_stats->par1_hgmr = {0, -1};
-  /* ND par1_R; */
-  /* ND par2_hgmr; */
-  /* ND par2_R; */
-  /* ND z; // (n00_1 + n22_1)/(n00_x + n22_x) */
-  /* ND d; */
-  /* // ND pseudo_hgmr; */
-  /* ND xhgmr1; */
-  /* ND xhgmr2; */
-  /* ND d_22; // both parents homozyg, delta = 2  */
-  /* ND d_21; // both parents homozyg, delta = 1 */
-  /* ND d_11; // one  */
   long n_0 = // 15 triples consistent with true parents-offspring relationship,
     // with no genotyping errors
     n_00_0 + n_01_0 + n_01_1 + n_02_1 +
@@ -576,20 +413,15 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   long n_12 = n_12_0 + n_12_1 + n_12_2;
   long n_21 = n_21_0 + n_21_1 + n_21_2;
 
-  // 'apparent': (n_a2 + 0.5*n_a1)/(n_00 + n_22 + n_02 + n_20)
-  // find_parents: (n_a2 + n_a1 + n_o1)/(n_00 + n_02 + n_20 + n_22 + n_01 + n_10 + n_12 + n_21);
-  // to try:  (n_a2 + wa*n_a1 + wo*n_o1))/(n_00 + n_02 + n_20 + n_22 + wx*(n_01 + n_10 + n_12 + n_21));
-  // so wa=1/2, wo=wx=0
-  // also just look at n_o1/(n_01 + n_10 + n_02 + n_20);
   // ************************************
-  ND d_22 = {n_a2, n_00 + n_22}; // parents both homozyg, delta = 2
-  pedigree_stats->d_22 = d_22;
-  ND d_21 = {n_a1, n_00 + n_22 + n_02 + n_20}; // parents both homozyg, delta = 1
-  pedigree_stats->d_21 = d_21;
+  //ND d_22 = {n_a2, n_00 + n_22}; // parents both homozyg, delta = 2
+  //pedigree_stats->d_22 = d_22;
+  //ND d_21 = {n_a1, n_00 + n_22 + n_02 + n_20}; // parents both homozyg, delta = 1
+  //pedigree_stats->d_21 = d_21;
   
-  ND d_11 = {n_o1, n_01 + n_10 + n_12 + n_21}; // one parents homozyg, one heterozyg, delta = 1;
+  //ND d_11 = {n_o1, n_01 + n_10 + n_12 + n_21}; // one parents homozyg, one heterozyg, delta = 1;
   //  fprintf(stderr, "### %ld %ld \n", d_11.n, d_11.d);
-  pedigree_stats->d_11 = d_11; 
+  //pedigree_stats->d_11 = d_11; 
   
   long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0; // par2 gt can be missing
   long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1; // par2 gt can be missing
@@ -661,7 +493,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numer, hgmr2_denom};
   pedigree_stats->par2_R = (ND)  {r2_numer, r2_denom};
 
-  pedigree_stats->d_2 = (ND) {n_1 + n_2 - n_00_1 - n_22_1, n_0 + n_1 + n_2 - n_11_x}; // d_nd;
+  //pedigree_stats->d_2 = (ND) {n_1 + n_2 - n_00_1 - n_22_1, n_0 + n_1 + n_2 - n_11_x}; // d_nd;
 
   pedigree_stats->d = (ND){n_1 + n_2, n_0 + n_1 + n_2};
   // fprintf(stderr, "rg d_old. N, D, N/D:  %ld  %ld  %8.5f  n1 n2: %ld %ld\n", d_old_numer, d_old_denom, (d_old_denom > 0)? (double)d_old_numer/(double)d_old_denom : -1, n_1, n_2);
@@ -758,10 +590,10 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
 
     n_00_22 += __builtin_popcountll(is00_22);
     
-    n_0x_1_2x_1 += __builtin_popcountll(is_i0or2_k1);
-    n_0x_0_2x_2 += __builtin_popcountll(is0x_0_or_2x_2);   
-    n_x0_1_x2_1 += __builtin_popcountll(is_j0or2_k1);
-    n_x0_0_x2_2 += __builtin_popcountll(isx0_0_or_x2_2);   
+    n_0x_1_2x_1 += __builtin_popcountll(is_i0or2_k1); // R1 numerator
+    n_0x_0_2x_2 += __builtin_popcountll(is0x_0_or_2x_2); // R1 denominator is this + R1 numerator
+    n_x0_1_x2_1 += __builtin_popcountll(is_j0or2_k1); // R2 numerator
+    n_x0_0_x2_2 += __builtin_popcountll(isx0_0_or_x2_2); // R2 denominator is this + R2 numerator
     //   n_01or10_1 += __builtin_popcountll(is1_01or10);
 
     hgmr1_numerator += __builtin_popcountll(is2_0x_or_0_2x);
@@ -777,35 +609,32 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
     ndiff02 += __builtin_popcountll(j_ne_k);
 
   } // end of loop over 64 bit chunks
+  //fprintf(stderr, "ZZZAAA: %ld %ld %ld %ld \n", n_0x_1_2x_1, n_0x_0_2x_2, n_x0_1_x2_1, n_x0_0_x2_2);
 	
   Pedigree_stats* pedigree_stats = construct_pedigree_stats(); //(Pedigree_stats*)malloc(sizeof(Pedigree_stats));
   // if(ndiff12 > n_total_no_md) fprintf(stderr, "%ld  %ld\n", ndiff12, n_total_no_md);
   pedigree_stats->agmr12 = (ND) {ndiff12, n_total_no_md}; // agmr between parents
+  
   pedigree_stats->agmr01 = (ND) {ndiff01, n_total_no_md}; 
   pedigree_stats->agmr02 = (ND) {ndiff02, n_total_no_md};
 
-  pedigree_stats->d_2 = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11};
-  /* long n_1 = n_0xorx0_2_nomd + n_2xorx2_0_nomd + n_00_1_22_1 - n_00_2_22_0;; */
-  /* long n_2 = n_00_2_22_0; */
-  /* long d_old_numer = n_1 + n_2; */
-  /* long d_old_denom = n_total_no_md; */
-  pedigree_stats->d = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd + n_00_1_22_1, n_total_no_md};
-  // fprintf(stderr, "d d d %8.5f\n", n_over_d(pedigree_stats->d));
-  // fprintf(stdout, "d num, denom:  %ld %ld\n",  n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11);
+  // pedigree_stats->d_2 = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11};
+
+  long F = 3;
+  pedigree_stats->d = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd
+			    + F*n_00_1_22_1
+			    , n_total_no_md};
   pedigree_stats->z = (ND) {n_00_1_22_1, n_00_22};
   pedigree_stats->par1_hgmr = (ND) {hgmr1_numerator, hgmr1_denominator};
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numerator, hgmr2_denominator};
   pedigree_stats->par1_R = (ND) {n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2};
   pedigree_stats->par2_R = (ND) {n_x0_1_x2_1, n_x0_1_x2_1 + n_x0_0_x2_2};
-  /* double scaled_d = pedigree_stats->scaled_d; */
-  /* double z = n_over_d(pedigree_stats->z); */
-  /* pedigree_stats->max_scaleddz = (scaled_d>z)? scaled_d : z; */
-  //fprintf(stderr, "bwtc: %ld %ld %ld %ld \n", n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2, n_x0_1_x2_1, n_x0_1_x2_1 + n_x0_0_x2_2);
-  //fprintf(stderr, "bw d_old. N, D, N/D:  %ld  %ld  %8.5f n1 n2: %ld %ld\n", d_old_numer, d_old_denom, (d_old_denom > 0)? (double)d_old_numer/(double)d_old_denom : -1, n_1, n_2 );
-  // fprintf(stderr, "xxx: %ld %ld %ld %ld  %ld %ld\n", n_0xorx0_2_nomd, n_2xorx2_0_nomd, n_00_1_22_1, n_00_2_22_0, n_00_2, n_22_0);
   pedigree_stats->n_01or10_1 = n_01or10_1;
   pedigree_stats->all_good_count = n_total_no_md;
-  
+  //ND Rnd = bitwise_R(par1, prog);
+  //fprintf(stderr, "    AA:  %s %s %ld %ld   %ld %ld\n", par1->id->a, prog->id->a, pedigree_stats->par1_R.n, pedigree_stats->par1_R.d, Rnd.n, Rnd.d);
+  //assert(pedigree_stats->par1_R.n == Rnd.n);
+  //assert(pedigree_stats->par1_R.d == Rnd.d);
   return pedigree_stats;
 } // end of bitwise_triple_counts
 
@@ -821,10 +650,7 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, GenotypesSet* t
     limited_n_candpairs = max_candidate_parents; // limit candidate to max_candidate_parents
     // count_accs_w_too_many_cand_parents++;
   }
-  //   fprintf(stderr, "cppps->size: %ld limited_n_candpairs: %ld\n", cppps->size, limited_n_candpairs);
-
-
-  
+ 
   Vpedigree* alt_pedigrees = construct_vpedigree(1000);
   for(long ii=0; ii<limited_n_candpairs; ii++){
     long par1idx = cppps->a[ii]->idx;
@@ -837,16 +663,22 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, GenotypesSet* t
       //	fprintf(stderr, "jj: %ld   %ld  %8.5f %8.5f %8.5f\n", jj, iaxhjj->idx, iaxhjj->agmr, iaxhjj->hgmr, iaxhjj->xhgmr);
       Accession* par2 = the_genotypes_set->accessions->a[par2idx];
       // fprintf(stderr, "# %s %s %s \n", prog->id->a, par1->id->a, par2->id->a);
-      Pedigree_stats* the_ps = bitwise_triple_counts(par1, par2, prog);
+      Pedigree_stats* the_ps;
 
-      the_ps->xhgmr1 = cppps->a[ii]->xhgmr;
-      the_ps->xhgmr2 = cppps->a[jj]->xhgmr;
-
-      the_ps->hgmr1 = cppps->a[ii]->hgmr;
-      the_ps->hgmr2 = cppps->a[jj]->hgmr;
-	
       Pedigree* the_pedigree = construct_pedigree(prog, par1, par2);
+    
+      if(0){
+	the_ps = bitwise_triple_counts(par1, par2, prog);
+	the_ps->xhgmr1 = cppps->a[ii]->xhgmr;
+	the_ps->xhgmr2 = cppps->a[jj]->xhgmr;
+	//	the_ps->hgmr1 = cppps->a[ii]->hgmr;
+	//	the_ps->hgmr2 = cppps->a[jj]->hgmr;
+      }else{
+	the_ps = calculate_pedigree_stats(the_pedigree, the_genotypes_set);
+      }
       the_pedigree->pedigree_stats = the_ps;
+      //   fprintf(stderr, "XXXXX: %7.5f  %7.5f %7.5f\n", n_over_d(the_ps->par1_hgmr), the_ps->hgmr1, the_ps->xhgmr1);
+    
       //	the_ps->xhgmr1 = xhgmr(the_genotypes_set, par1, prog, 0); // do full (not 'quick') xhgmr
       //	the_ps->xhgmr2 = xhgmr(the_genotypes_set, par2, prog, 0); // do full (not 'quick') xhgmr
 	
@@ -856,35 +688,6 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, GenotypesSet* t
   } // end loop over parent 1
   return alt_pedigrees;
 } //
-
-ND xz(GenotypesSet* gtset, Accession* O, Accession* P1, Accession* P2){
-  //fprintf(stderr, "top of Zn\n");
-  long numerator = 0;
-  double denominator = 0;
-  for(long i = 0; i<P1->genotypes->length; i++){
-    char gt1 = P1->genotypes->a[i];
-    if(gt1 == '0'){
-      char gt2 = P2->genotypes->a[i];
-      char gtO = O->genotypes->a[i];
-      if(gt2 == '0'){
-	if(gtO == '1') numerator++;
-	double Ohet_fraction = (double)gtset->marker_dosage_counts[1]->a[i]/(double)gtset->accessions->size;
-	denominator += Ohet_fraction;
-      }
-    }else if(gt1 == '2'){
-      char gt2 = P2->genotypes->a[i];
-      char gtO = O->genotypes->a[i];
-      if(gt2 == '2'){
-	if(gtO == '1') numerator++;
-	double Ohet_fraction = (double)gtset->marker_dosage_counts[1]->a[i]/(double)gtset->accessions->size;
-	denominator += Ohet_fraction;
-      }
-    }
-  }
-  //fprintf(stderr, "bottom of xz\n");
-  // fprintf(stderr, "xz, numerator: %ld  denominator: %7.5f\n", numerator, denominator);
-  return (ND) {numerator, (long)(denominator+0.5)};
-}
 
 Pedigree_stats* construct_pedigree_stats(void){
   Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
@@ -905,66 +708,59 @@ Pedigree_stats* construct_pedigree_stats(void){
 
   the_ps->all_good_count = 0;
 
+  the_ps->hgmr1_n = NAN;
+  the_ps->hgmr2_n = NAN;
+  the_ps->R1_n = NAN;
+  the_ps->R2_n = NAN;
+  the_ps->d_n = NAN;
+  the_ps->z_n = NAN;
   the_ps->scaled_d = NAN;
   the_ps->max_scaleddz = NAN;
   the_ps->xhgmr1 = NAN;
   the_ps->xhgmr2 = NAN;
   return the_ps;
 }
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset, double d_scale_factor){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
   long ploidy = the_gtsset->ploidy;
+  double d_scale_factor = the_gtsset->d_scale_factor;
   Pedigree_stats* the_ps; //  = construct_pedigree_stats(); // (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
   assert(the_pedigree->F != NULL  ||  the_pedigree->M != NULL); // shouldn't have both parents NULL //
   if(the_pedigree->F != NULL  &&  the_pedigree->M != NULL){
    
-    // the_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
-     the_ps = bitwise_triple_counts(the_pedigree->F,  the_pedigree->M,  the_pedigree->A);
+    the_ps = bitwise_triple_counts(the_pedigree->F,  the_pedigree->M,  the_pedigree->A);
 
-    /* if(0){ // compare bitwise, nonbitwise calculations as check */
-    /*   Pedigree_stats* nobw_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );  */
-    /*   assert(NDs_equal(the_ps->agmr12, nobw_ps->agmr12)); */
-    /*   assert(NDs_equal(the_ps->par1_hgmr, nobw_ps->par1_hgmr)); */
-    /*   assert(NDs_equal(the_ps->par1_R, nobw_ps->par1_R)); */
-    /*   assert(NDs_equal(the_ps->par2_hgmr, nobw_ps->par2_hgmr)); */
-    /*   assert(NDs_equal(the_ps->par2_R, nobw_ps->par2_R)); */
-    /*   assert(NDs_equal(the_ps->d, nobw_ps->d)); */
-    /*   assert(NDs_equal(the_ps->z, nobw_ps->z)); */
-    /* } */
-     /* double d = n_over_d(the_ps->d); */
-     /* fprintf(stderr, "d: %8.5lf  ", d); */
-     /* d /= the_gtsset->mean_d; // NAN if mean_d is 0 */
-     /* //pedigree_stats->s */
-     /* fprintf(stderr, " %8.5f   ", d); */
-     double scaled_d = n_over_d(the_ps->d)*d_scale_factor/the_gtsset->mean_d;
-     the_ps->scaled_d = scaled_d;
-      
-     // double scaled_d = pedigree_stats->scaled_d;
-     double zn = n_over_d(the_ps->z)/the_gtsset->mean_z;
-     if(! isnan(zn) && !isnan(scaled_d)){
-       the_ps->max_scaleddz = (scaled_d>zn)? scaled_d : zn;
-     }
-     // fprintf(stderr, " %8.5lf  %8.5lf  %8.5lf\n", d_scale_factor, scaled_d, zn);
+    if(0){ // compare bitwise, nonbitwise calculations as check - slow
+      Pedigree_stats* nobw_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
+      assert(NDs_equal(the_ps->agmr12, nobw_ps->agmr12));
+      assert(NDs_equal(the_ps->par1_hgmr, nobw_ps->par1_hgmr));
+      assert(NDs_equal(the_ps->par1_R, nobw_ps->par1_R));
+      assert(NDs_equal(the_ps->par2_hgmr, nobw_ps->par2_hgmr));
+      assert(NDs_equal(the_ps->par2_R, nobw_ps->par2_R));
+      assert(NDs_equal(the_ps->d, nobw_ps->d));
+      assert(NDs_equal(the_ps->z, nobw_ps->z));
+    }
        
      the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
      the_ps->par2_xhgmr = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, false);
-     the_ps->xz = xz(the_gtsset, the_pedigree->A, the_pedigree->F, the_pedigree->M);
+    // the_ps->xz = xz(the_gtsset, the_pedigree->A, the_pedigree->F, the_pedigree->M);
   }else{ // one of the parents is NULL
     the_ps = construct_pedigree_stats();
     the_ps->agmr12 = (ND) {0, 0};
     the_ps->z = (ND) {0, 0};
-    the_ps->xz = (ND) {0, 0};
-    // return the_ps;
+    // the_ps->xz = (ND) {0, 0};
     if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
       //       fprintf(stderr, "pedigree with female parent only.\n");
       four_longs hgmrR = hgmr_R(the_pedigree->F->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
+      // ND Rf = bitwise_R(the_pedigree->F, the_pedigree->A);
+      // fprintf(stderr, "Rnd: %ld %ld  Rnd(bw): %ld %ld\n", hgmrR.l3, hgmrR.l4, Rf.n, Rf.d);
       the_ps->par1_hgmr.n = hgmrR.l1;
       the_ps->par1_hgmr.d = hgmrR.l2;
       the_ps->par1_R.n = hgmrR.l3;
       the_ps->par1_R.d = hgmrR.l4;
       the_ps->par2_hgmr = (ND) {0, 0};
       the_ps->par2_R = (ND) {0, 0};
-      the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
-      the_ps->par2_xhgmr = (ND) {0, 0};
+        the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
+        the_ps->par2_xhgmr = (ND) {0, 0};
     }else{ // we have male parent id, no female parent id
       if(DO_ASSERT) assert(the_pedigree->M != NULL);
       //        fprintf(stderr, "pedigree with male parent only.\n");
@@ -975,13 +771,23 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
       the_ps->par2_hgmr.d = hgmrR.l2;
       the_ps->par2_R.n = hgmrR.l3;
       the_ps->par2_R.d = hgmrR.l4;
-      the_ps->par1_xhgmr = (ND) {0, 0};
-      the_ps->par2_xhgmr = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, false);  
+        the_ps->par1_xhgmr = (ND) {0, 0};
+        the_ps->par2_xhgmr = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, false);  
     }   
-    //construct_pedigree_stats(the_pedigree); //the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
-    // the_ps->agmr12.n = 0;
-    //   fprintf(stderr, "######  %ld %ld   %ld %ld\n", the_ps->xhgmr1.n, the_ps->xhgmr1.d, the_ps->xhgmr2.n, the_ps->xhgmr2.d);
   }
+  the_ps->hgmr1_n = n_over_d(the_ps->par1_hgmr)/the_gtsset->mean_hgmr;
+  the_ps->hgmr2_n = n_over_d(the_ps->par2_hgmr)/the_gtsset->mean_hgmr;
+  the_ps->R1_n = n_over_d(the_ps->par1_R)/the_gtsset->mean_R;
+  the_ps->R2_n = n_over_d(the_ps->par2_R)/the_gtsset->mean_R;
+  the_ps->d_n = n_over_d(the_ps->d)/the_gtsset->mean_d;
+  the_ps->z_n = n_over_d(the_ps->z)/the_gtsset->mean_z;
+  //fprintf(stderr, "X X X: %7.5f %7.5f %7.5f\n", d_scale_factor, the_ps->d_n, the_gtsset->mean_d);
+  the_ps->scaled_d = d_scale_factor*the_ps->d_n;
+      
+  if(! isnan(the_ps->scaled_d) && !isnan(the_ps->z_n)){
+    the_ps->max_scaleddz = (the_ps->scaled_d > the_ps->z_n)? the_ps->scaled_d : the_ps->z_n;
+  }
+  
   the_ps->xhgmr1 = n_over_d(the_ps->par1_xhgmr);
   the_ps->xhgmr2 = n_over_d(the_ps->par2_xhgmr);
   return the_ps;
@@ -1046,60 +852,52 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
     //print_d_r(fh, the_pedigree_stats->d_old);
 
   }else{ // print ratios but not denominators
-    print_n_over_d(fh, the_pedigree_stats->agmr12, 1.0);
-    print_n_over_d(fh, the_pedigree_stats->par1_hgmr, 1.0);
+    print_n_over_d(fh, the_pedigree_stats->agmr12);
+    print_n_over_d(fh, the_pedigree_stats->par1_hgmr);
     // print_n_over_d(fh, the_pedigree_stats->par1_xhgmr);
-    print_n_over_d(fh, the_pedigree_stats->par1_R, 1.0);
-    print_n_over_d(fh, the_pedigree_stats->par2_hgmr, 1.0);
+    print_n_over_d(fh, the_pedigree_stats->par1_R);
+    print_n_over_d(fh, the_pedigree_stats->par2_hgmr);
     //  print_n_over_d(fh, the_pedigree_stats->par2_xhgmr);
-    print_n_over_d(fh, the_pedigree_stats->par2_R, 1.0);
-    print_n_over_d(fh, the_pedigree_stats->d, 1.0);
-    print_n_over_d(fh, the_pedigree_stats->z, 1.0);
+    print_n_over_d(fh, the_pedigree_stats->par2_R);
+    print_n_over_d(fh, the_pedigree_stats->d);
+    print_n_over_d(fh, the_pedigree_stats->z);
     // print_n_over_d(fh, the_pedigree_stats->d_old);
   }
   fprintf(fh, "%7.5f  ", the_pedigree_stats->scaled_d);
   fprintf(fh, "%7.5lf  ", the_pedigree_stats->max_scaleddz);
   //   fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr1);
-  fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr1);
+  //fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr1);
   //  fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr2);
-  fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr2);	     	   
+  //fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr2);	     	   
 }
 
-void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree, GenotypesSet* gtset){
+void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree){
   //double mean_hgmr, double mean_R, double mean_d, double mean_z){
   Accession* F = the_pedigree->F;
   Accession* M = the_pedigree->M;
   fprintf(fh, "%s  %s  %ld  ", (F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA",  the_pedigree->pedigree_stats->all_good_count);
-  print_normalized_pedigree_stats(fh, the_pedigree->pedigree_stats, gtset);
+  print_normalized_pedigree_stats(fh, the_pedigree->pedigree_stats);
 }
 
-void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, GenotypesSet* gtset){ 
-  double mean_hgmr = gtset->mean_hgmr;
-  double mean_R = gtset->mean_R;
-  double mean_d = gtset->mean_d;
-  double mean_z = gtset->mean_z;
-  // print ratios but not denominators
-  print_n_over_d(fh, the_pedigree_stats->agmr12, 1.0);
-  print_n_over_d(fh, the_pedigree_stats->par1_hgmr, mean_hgmr);
-  // print_n_over_d(fh, the_pedigree_stats->par1_xhgmr);
-  print_n_over_d(fh, the_pedigree_stats->par1_R, mean_R);
-  print_n_over_d(fh, the_pedigree_stats->par2_hgmr, mean_hgmr);
-  //  print_n_over_d(fh, the_pedigree_stats->par2_xhgmr);
-  print_n_over_d(fh, the_pedigree_stats->par2_R, mean_R);
-  print_n_over_d(fh, the_pedigree_stats->d, mean_d);
-  print_n_over_d(fh, the_pedigree_stats->z, mean_z);
-  // print_n_over_d(fh, the_pedigree_stats->d_old);
-  
-  // fprintf(fh, "%7.5f  ", the_pedigree_stats->scaled_d);
-  print_double_nan_as_hyphen(fh, the_pedigree_stats->scaled_d);
-  print_double_nan_as_hyphen(fh, the_pedigree_stats->max_scaleddz);
-  print_double_nan_as_hyphen(fh, the_pedigree_stats->xhgmr1);
-  print_double_nan_as_hyphen(fh, the_pedigree_stats->xhgmr2);
-  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->max_scaleddz);
-  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr1);
-  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr1);
-  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr2);
-  // fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr2);	
+void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats){ 
+  /* double mean_hgmr = gtset->mean_hgmr; */
+  /* double mean_R = gtset->mean_R; */
+  /* double mean_d = gtset->mean_d; */
+  /* double mean_z = gtset->mean_z; */
+
+  print_n_over_d(fh, the_pedigree_stats->agmr12);
+
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->hgmr1_n);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->R1_n);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->hgmr2_n);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->R2_n);
+  print_double_nan_as_hyphen(fh, the_pedigree_stats->d_n);
+  //print_double_nan_as_hyphen(fh, the_pedigree_stats->z_n);
+   
+  //print_double_nan_as_hyphen(fh, the_pedigree_stats->scaled_d);
+  //print_double_nan_as_hyphen(fh, the_pedigree_stats->max_scaleddz);
+  //print_double_nan_as_hyphen(fh, the_pedigree_stats->xhgmr1);
+  //print_double_nan_as_hyphen(fh, the_pedigree_stats->xhgmr2);
 }
 
 void print_double_nan_as_hyphen(FILE* fh, double x){
@@ -1349,6 +1147,31 @@ void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped){
   //fprintf(stderr, "return from push_to_vped\n");
 }
 
+void sort_vpedigree_by_d(Vpedigree* the_vped){ // sort by max(scaled_d, z) (increasing) 
+  qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigree_d);
+}
+
+int compare_pedigree_d(const void* a, const void* b){
+  //int retval;
+  ND dnd1 = (*((Pedigree**)a))->pedigree_stats->d;
+  ND dnd2 = (*((Pedigree**)b))->pedigree_stats->d;
+  
+   double d1 = (dnd1.d > 0)? (double)dnd1.n/dnd1.d : 100.0;
+  double d2 = (dnd2.d > 0)? (double)dnd2.n/dnd2.d : 100.0;
+
+  if(d1 > d2){
+    // retval = 1;
+     return 1;
+  }else if(d1 < d2){
+    //  retval = -1;
+     return -1;
+  }else{
+    //   retval = 0;
+     return 0;
+  }
+  // fprintf(stderr, "in compare... %7.4f %7.4f %7.4f\n", d1, z1, x1);
+  //  return retval;
+}
 
 
 void sort_vpedigree_by_maxdz(Vpedigree* the_vped){ // sort by max(scaled_d, z) (increasing) 
@@ -1495,7 +1318,8 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
     }
   }
   the_pedigree->A->search_done = true;
-  sort_vpedigree_by_maxdz(alt_pedigrees);
+  sort_vpedigree_by_d(alt_pedigrees);
+  //sort_vpedigree_by_maxdz(alt_pedigrees);
 
   free_vlong(best_parent_candidate_idxs);
   return alt_pedigrees;
@@ -1564,6 +1388,185 @@ long long_max(long a, long b){
 // ******************************************************************************
 // *****  unused ****************************************************************
 // ******************************************************************************
+
+ND xz(GenotypesSet* gtset, Accession* O, Accession* P1, Accession* P2){
+  //fprintf(stderr, "top of Zn\n");
+  long numerator = 0;
+  double denominator = 0;
+  for(long i = 0; i<P1->genotypes->length; i++){
+    char gt1 = P1->genotypes->a[i];
+    if(gt1 == '0'){
+      char gt2 = P2->genotypes->a[i];
+      char gtO = O->genotypes->a[i];
+      if(gt2 == '0'){
+	if(gtO == '1') numerator++;
+	double Ohet_fraction = (double)gtset->marker_dosage_counts[1]->a[i]/(double)gtset->accessions->size;
+	denominator += Ohet_fraction;
+      }
+    }else if(gt1 == '2'){
+      char gt2 = P2->genotypes->a[i];
+      char gtO = O->genotypes->a[i];
+      if(gt2 == '2'){
+	if(gtO == '1') numerator++;
+	double Ohet_fraction = (double)gtset->marker_dosage_counts[1]->a[i]/(double)gtset->accessions->size;
+	denominator += Ohet_fraction;
+      }
+    }
+  }
+  //fprintf(stderr, "bottom of xz\n");
+  // fprintf(stderr, "xz, numerator: %ld  denominator: %7.5f\n", numerator, denominator);
+  return (ND) {numerator, (long)(denominator+0.5)};
+}
+
+Xover_info count_crossovers_two_parents_old(GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
+  // Assuming that parent is indeed a parent of offspring,
+  // count the min number of crossovers needed to reconcile them
+
+  Xover_info result = (Xover_info){-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  if( offspring == NULL
+      || Fparent == NULL
+      || Mparent == NULL) return result;
+  
+  long prev_chrom_number = -1, chrom_number;
+  
+  long prev_phase_Fa = -1, prev_phase_Fb = -1;
+  long phase_Fa, phase_Fb;
+  long XFa = 0, XFb = 0;
+
+   long prev_phase_Ma = -1, prev_phase_Mb = -1;
+  long phase_Ma, phase_Mb;
+  long XMa = 0, XMb = 0;
+
+  long XFmin = 0, XFmax = 0, NFhet = 0;
+  long XMmin = 0, XMmax = 0, NMhet = 0;
+
+  long XFmin_triple = 0, XFmax_triple = 0;
+  long XMmin_triple = 0, XMmax_triple = 0;
+  //long Xmin = 0, Xmax = 0; // number of heterozyg gts in parent
+  
+  for(long i=0; i < offspring->genotypes->length; i++){
+    
+    char o_gt = offspring->genotypes->a[i];
+    char o_phase = offspring->phases->a[i];  
+    if(o_gt == MISSING_DATA_CHAR) continue;
+
+    chrom_number = the_gtsset->chromosomes->a[i];
+    if(chrom_number != prev_chrom_number){ // now on next chromosome
+      if(XFa < XFb){ // add chromosome Xmin, Xmax to totals	
+	XFmin += XFa; XFmax += XFb;
+      }else{
+	XFmin += XFb; XFmax += XFa;
+      }
+      if(XMa < XMb){ // add the crossovers from the last chromosome.
+	XMmin += XMa; XMmax += XMb;
+      }else{
+	XMmin += XMb; XMmax += XMa;
+      }
+      long X_Fa_Mb = XFa + XMb; // crossovers for F parent of a, M parent of b.
+      long X_Fb_Ma = XFb + XMa; // crossovers for F parent of b, M parent of a.
+      if(X_Fa_Mb < X_Fb_Ma){
+	XFmin_triple += XFa;
+	XFmax_triple += XFb;
+	XMmin_triple += XMb;
+	XMmax_triple += XMa;
+      }else{
+	XFmin_triple += XFb;
+	XFmax_triple += XFa;
+	XMmin_triple += XMa;
+	XMmax_triple += XMb;
+      }
+      
+      // reset for new chromosome:
+         
+      prev_chrom_number = chrom_number;
+     
+      phase_Fa = -1; phase_Fb = -1;
+      prev_phase_Fa = -1; // needed
+      prev_phase_Fb = -1;
+      XFa = 0; XFb = 0;
+
+      phase_Ma = -1; phase_Mb = -1;
+      prev_phase_Ma = -1; // needed
+      prev_phase_Mb = -1;
+      XMa = 0; XMb = 0;
+    }
+    
+    // ##############  Female parent  ######################
+    if(1  ||  Fparent != NULL){
+    char Fp_gt = Fparent->genotypes->a[i];
+    if(Fp_gt == '1'){ // skip if parent gt not heterozyg, i.e. if homozyg or missing.
+      char Fp_phase = Fparent->phases->a[i]; 
+  
+      NFhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
+
+      two_longs phases_ab = get_1marker_phases_wrt_1parent(Fp_phase, o_gt, o_phase);
+      phase_Fa = phases_ab.l1;
+      phase_Fb = phases_ab.l2;
+    }
+    // compare current phases with previous values,
+    // update crossover counts, and
+    // and  update prev_phase_a, prev_phase_b
+    if(prev_phase_Fa >= 0  &&  phase_Fa != prev_phase_Fa) XFa++; // phase has changed - crossover
+    prev_phase_Fa = phase_Fa;
+    if(prev_phase_Fb >= 0  &&  phase_Fb != prev_phase_Fb) XFb++; // phase has changed - crossover
+    prev_phase_Fb = phase_Fb;
+    }
+    // ####################################################
+
+    
+    // ##############  Male parent  #######################
+    if(1  ||  Mparent != NULL){
+      char Mp_gt = Mparent->genotypes->a[i];
+      if(Mp_gt == '1'){ // skip if parent gt not heterozyg, i.e. if homozyg or missing.
+	char Mp_phase = Mparent->phases->a[i]; 
+  
+	NMhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
+
+	two_longs phases_ab = get_1marker_phases_wrt_1parent(Mp_phase, o_gt, o_phase);
+	phase_Ma = phases_ab.l1;
+	phase_Mb = phases_ab.l2;
+
+      }
+      // compare current phases with previous values,
+      // update crossover counts, and
+      // and  update prev_phase_a, prev_phase_b
+      if(prev_phase_Ma >= 0  &&  phase_Ma != prev_phase_Ma) XMa++; // phase has changed - crossover
+      prev_phase_Ma = phase_Ma;
+      if(prev_phase_Mb >= 0  &&  phase_Mb != prev_phase_Mb) XMb++; // phase has changed - crossover
+      prev_phase_Mb = phase_Mb;
+    }
+    // ####################################################
+
+    
+  } // ##########  end loop over markers  ##################
+  if(XFa < XFb){ // add the crossovers from the last chromosome.
+    XFmin += XFa; XFmax += XFb;
+  }else{
+    XFmin += XFb; XFmax += XFa;
+  }
+   if(XMa < XMb){ // add the crossovers from the last chromosome.
+    XMmin += XMa; XMmax += XMb;
+  }else{
+    XMmin += XMb; XMmax += XMa;
+  }
+      long X_Fa_Mb = XFa + XMb; // crossovers for F parent of a, M parent of b.
+      long X_Fb_Ma = XFb + XMa; // crossovers for F parent of b, M parent of a.
+      if(X_Fa_Mb < X_Fb_Ma){
+	XFmin_triple += XFa;
+	XFmax_triple += XFb;
+	XMmin_triple += XMb;
+	XMmax_triple += XMa;
+      }else{
+	XFmin_triple += XFb;
+	XFmax_triple += XFa;
+	XMmin_triple += XMa;
+	XMmax_triple += XMb;
+      }
+      
+      result = (Xover_info){XFmin, XFmax, NFhet, XMmin, XMmax, NMhet,
+			    XFmin_triple, XFmax_triple, XMmin_triple, XMmax_triple};
+  return result;
+} // end of count_crossovers_two_parents_old
 
 /* long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions){ */
 /*   for(long i=0; i<accessions->size; i++){ */

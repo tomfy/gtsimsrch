@@ -38,11 +38,11 @@ void print_d_r(FILE* fh, ND nd){
   }
 }
 
-void print_n_over_d(FILE* fh, ND nd, double norm){
+void print_n_over_d(FILE* fh, ND nd){
   if(nd.d == 0){
     fprintf(fh, " -  ");
   }else{
-    fprintf(fh, "%6.5lf  ", (double)nd.n/(double)nd.d/norm);
+    fprintf(fh, "%6.5lf  ", (double)nd.n/(double)nd.d);
   }
 }
 

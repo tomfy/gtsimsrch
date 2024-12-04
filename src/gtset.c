@@ -1119,6 +1119,30 @@ Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset){
   return marker_mafs;
 }
 
+ND bitwise_R(Accession* parent, Accession* offspring){
+  unsigned long long i0, i1, i2, j0, j1, j2;
+  long N = 0;
+  long D = 0;
+  for(long k=0; k<parent->Abits->size; k++){ // loop over 64 bit chunks
+    unsigned long long iA = parent->Abits->a[k];
+    unsigned long long iB = parent->Bbits->a[k];
+    unsigned long long jA = offspring->Abits->a[k];
+    unsigned long long jB = offspring->Bbits->a[k];
+    i0 = ~(iA | iB);
+    // i1 = ~iA & iB;
+    i2 = iA & iB;
+    j0 = ~(jA | jB);
+    j1 = ~jA & jB;
+    j2 = jA & jB;
+    unsigned long long is01_21 = ~(iA ^ iB) & j1;
+    unsigned long long is00_22 = (i0 & j0) | (i2 & j2); // ~( (iA ^ iB) | (jA ^ jB) ); // = ~(iA ^ iB) & ~(jA ^ jB) 
+    N += __builtin_popcountll(is01_21);
+    D += __builtin_popcountll(is00_22);
+  }
+  D += N;
+  return (ND){N, D};
+}
+  
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2){
   /* fprintf(stderr, "Abits->size: %ld %ld\n", acc1->Abits->size, acc1->Bbits->size); */
   /*  */
@@ -1138,7 +1162,7 @@ four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2){
     unsigned long long isSo = ~(iA ^ jB) & isOi & isOj;
     unsigned long long isDx = (isOi & isXj) | (isOj & isXi);
     unsigned long long isSx = isXi & isXj;
-    // D: difference, S: same, o: homozyg, x: (at least 1) heterozyg.
+    // D: difference, S: same ; o: homozyg, x: (at least 1) heterozyg.
     //   Ndo  i.e. number of markers with both homozyg, but different
     //     (i.e. 02 and 20)
       rval.l1 += __builtin_popcountll(isDo); 
@@ -1180,39 +1204,27 @@ ND bitwise_hgmr(Accession* acc1, Accession* acc2){
 }
 
 void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** pairwise_info, double max_hgmr){
- long n_hgmrs_calculated = 0;
-    long n_hgmrs_le_max = 0;
-    long n_acc = the_genotypes_set->accessions->size;
-    for(long ii=0; ii<n_acc; ii++){
-	  if(ii % 100  == 0) fprintf(stderr, "# ii: %ld\n", ii);
-	  Accession* A1 = the_genotypes_set->accessions->a[ii];
-	  for(long jj=ii+1; jj<n_acc; jj++){
-	    Accession* A2 = the_genotypes_set->accessions->a[jj];
-	    /* four_longs bfcs = bitwise_agmr_hgmr(A1, A2); */
-	  	   
-	    /* // long b_agmr_num = bfcs.l1 + bfcs.l3; */
-	    /* //  long b_agmr_denom = b_agmr_num + bfcs.l2 + bfcs.l4; */
-	    /* long b_hgmr_num = bfcs.l1; */
-	    /* long b_hgmr_denom = bfcs.l1 + bfcs.l2; */
-	    /* //   double true_dist = (b_agmr_denom > 0)? (double)(b_agmr_num + bfcs.l1)/(double)b_agmr_denom : -1; // L1 distance */
-	    /* //   double agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1; // Hamming distance */
-	 
-	    /* double hgmr = (b_hgmr_denom > 0)? (double)b_hgmr_num / (double)b_hgmr_denom : -1; */
-	    // fprintf(stderr, "%s %s  %8.5f\n", A1->id->a, A2->id->a, hgmr);
+  long n_hgmrs_calculated = 0;
+  long n_hgmrs_le_max = 0;
+  long n_acc = the_genotypes_set->accessions->size;
+  for(long ii=0; ii<n_acc; ii++){
+    if(ii % 100  == 0) fprintf(stderr, "# ii: %ld\n", ii);
+    Accession* A1 = the_genotypes_set->accessions->a[ii];
+    for(long jj=ii+1; jj<n_acc; jj++){
+      Accession* A2 = the_genotypes_set->accessions->a[jj];
+	   
+      ND hgmr_nd = bitwise_hgmr(A1, A2);
+      // fprintf(stderr, "hgmr: %7.5f  %7.5f\n", n_over_d(hgmr_nd), the_genotypes_set->mean_hgmr);
+      double hgmr = n_over_d(hgmr_nd)/the_genotypes_set->mean_hgmr;	      
+      n_hgmrs_calculated++;
 	    
-	    ND hgmr_nd = bitwise_hgmr(A1, A2);
-	    double hgmr = n_over_d(hgmr_nd);
-	      
-	    n_hgmrs_calculated++;
-	    if(hgmr <= max_hgmr){
-	      
-	      n_hgmrs_le_max++;
-	      push_to_viaxh(pairwise_info[ii], jj, 10, 10, hgmr);
-	      push_to_viaxh(pairwise_info[jj], ii, 10, 10, hgmr);
-	    }
-	  }
-	}
-
+      if(hgmr <= max_hgmr){	      
+	n_hgmrs_le_max++;
+	push_to_viaxh(pairwise_info[ii], jj, hgmr);
+	push_to_viaxh(pairwise_info[jj], ii, hgmr);
+      }
+    }
+  }
 }
 
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset){ // get q and d 'hgmr' for all accession pairs
@@ -1375,8 +1387,8 @@ void calculate_xhgmrs(GenotypesSet* the_genotypes_set, Viaxh** pairwise_info, bo
       double dbl_xhgmr = (the_xhgmr.d > 0)? (double)the_xhgmr.n/the_xhgmr.d : NAN;
       if(dbl_xhgmr <= max_xhgmr){
 	n_xhgmrs_le_max++;
-	push_to_viaxh(pairwise_info[ii], jj, 10, dbl_xhgmr, 10);
-	push_to_viaxh(pairwise_info[jj], ii, 10, dbl_xhgmr, 10);
+	push_to_viaxh(pairwise_info[ii], jj, dbl_xhgmr);
+	push_to_viaxh(pairwise_info[jj], ii, dbl_xhgmr);
       }
     }
   }
