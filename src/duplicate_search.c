@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <errno.h>
 
+
 #include "gtset.h"
 
 #define DISTANCE_NORM_FACTOR (1.0) //
@@ -24,7 +25,7 @@
 #define DEFAULT_MIN_MAF  0.1
 #define BITWISE true
 // #define MATRIX_DISTINCT_VALUES 100
-#define DO_EXACT_AGMR  1 // make this 0 to only do the estimated agmrs.
+#define DO_EXACT_AGMR  true // make this 0 to only do the estimated agmrs.
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -176,11 +177,12 @@ main(int argc, char *argv[])
   double min_minor_allele_frequency = DEFAULT_MIN_MAF; //
   double max_est_dist = DEFAULT_MAX_DISTANCE; 
   long output_format = 1; // 1 ->  acc_id1 acc_id2 agmr hgmr; otherwise add 3 more columns: usable_chunks matching_chunks est_distance agmr0
-  char default_output_filename[] = "duplicatesearch.out";
+  char default_output_filename[] = "duplicate_search.out";
   char* filtered_output_filename = NULL;
   //  bool print_filtered_gtset = true;
   bool shuffle_accessions = false;
   bool get_all_distances = false;
+  bool do_filtering = true;
   get_all_est_agmrs = false;
   
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
@@ -424,10 +426,10 @@ main(int argc, char *argv[])
   // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common than 2 for all markers.
  
   //check_genotypesset(the_genotypes_set);
-  filter_genotypesset(the_genotypes_set, out_stream);
+  if(do_filtering) filter_genotypesset(the_genotypes_set, out_stream);
  
   // double t_after_filter = clock_time(clock1);
-  //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicatesearch
+  //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicate_search
   //  double t_after_store_homozygs = clock_time(clock1);
   // fprintf(stderr, "# times. \n# to read: %8.5lf\n# to filter: %8.5lf\n", t_after_read-t_start, t_after_filter-t_after_read);
   
@@ -622,7 +624,7 @@ main(int argc, char *argv[])
     }
   }
   fprintf(stderr, "# time for setup:  %7.3f,  time for distances:  %7.3f,  time for output:  %7.3f\n", t_setup, t_distances, clock_time(clock1) - t_after_find_matches);
-   fprintf(stderr, "# total duplicatesearch run time (before cleanup): %9.3f\n", clock_time(clock1) - t_start);
+   fprintf(stderr, "# total duplicate_search run time (before cleanup): %9.3f\n", clock_time(clock1) - t_start);
    // getchar();
 
   // *****  clean up  *****
@@ -637,7 +639,7 @@ main(int argc, char *argv[])
   /* free_genotypesset(the_genotypes_set);  */
   /* free_vlong(marker_indices); */
   /* free_chunk_pattern_idxs(the_cpi); */
-  //  fprintf(stderr, "# total duplicatesearch run time (including cleanup): %9.3f\n", clock_time(clock1) - t_start);
+  //  fprintf(stderr, "# total duplicate_search run time (including cleanup): %9.3f\n", clock_time(clock1) - t_start);
 
   exit(EXIT_SUCCESS);
 }
@@ -1106,7 +1108,8 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Mci* the_mci = the_vmci->a[i_m];      
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
-      fprintf(ostream, "%s  %s  %8.6f %8.6f", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
+      double phased_mismatch_rate = pmr(q_acc, m_acc);
+      fprintf(ostream, "%s  %s  %8.6f %8.6f %8.6f", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr, phased_mismatch_rate);
       if(output_format != 1){
 	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
 	fprintf(ostream, "  %6.2f %ld %7.5f ", // %7.5f ",
@@ -1122,7 +1125,7 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
 void print_usage_info(FILE* ostream){
   // i: input file name (required).
   // r: reference set file name.
-  // o: output file name. Default: duplicatesearch.out
+  // o: output file name. Default: duplicate_search.out
   // e: max estimated distance. default: DEFAULT_MAX_DISTANCE (Calculate distance only if quick est. is < this value.) 
   // x: marker max missing data fraction
   // a: min minor allele frequency
@@ -1134,7 +1137,7 @@ void print_usage_info(FILE* ostream){
   fprintf(ostream, "Options: \n");
   fprintf(ostream, "  -i  -input  <input file name>     (required).\n");
   fprintf(ostream, "  -r  -reference  <file name of reference data set>     (optional).\n");
-  fprintf(ostream, "  -o  -output  <output file name>     Default: duplicatesearch.out\n");
+  fprintf(ostream, "  -o  -output  <output file name>     Default: duplicate_search.out\n");
   fprintf(ostream, "  -f  -format  <output format number>     Default: 1; 2 for more info.\n");
   fprintf(ostream, "  -F  -filtered_out  <output filename for filtered data>.\n");  
   fprintf(ostream, "  -d  -distance_max  <number>     calculate distance only if est. distance <= this value. Default: %5.3f\n", DEFAULT_MAX_DISTANCE);

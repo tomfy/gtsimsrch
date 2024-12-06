@@ -1,4 +1,19 @@
 // *****  typedefs for Pedigree, Vpedigree *****
+typedef struct{
+  long Xa; 
+  long Xb;
+  long Nhet;
+}Xcounts_2;
+
+typedef struct{
+  Xcounts_2 XFA;
+  Xcounts_2 XMA;
+  long XFmin_3;
+  long XFmax_3;
+  long XMmin_3;
+  long XMmax_3;
+}Xcounts_3;
+
 typedef struct{ // 0: progeny, 1, 2: parents
   ND agmr01;
   ND agmr02;
@@ -25,13 +40,15 @@ typedef struct{ // 0: progeny, 1, 2: parents
   double d_n;
   double z_n;
   
-  double scaled_d; // to make threshold agree with z threshold
-  double max_scaleddz;
+  //double scaled_d; // to make threshold agree with z threshold
+  //double max_scaleddz;
 
   double hgmr1;
   double hgmr2;
   double xhgmr1;
   double xhgmr2;
+
+  Xcounts_3 X3;
 
   long all_good_count; // number of markers with genotypes for all 3 (or both in case of only one parent) genotypes known (i.e. no missing gts)
   long n_01or10_1; // alternative denom for z
@@ -68,20 +85,7 @@ typedef struct{
   long XMmax_triple;
 }Xover_info;
 
-typedef struct{
-  long Xa; 
-  long Xb;
-  long Nhet;
-}Xcounts_2;
 
-typedef struct{
-  Xcounts_2 XFA;
-  Xcounts_2 XMA;
-  long XFmin_3;
-  long XFmax_3;
-  long XMmin_3;
-  long XMmax_3;
-}Xcounts_3;
 
 // *****  function declarations  *****
 

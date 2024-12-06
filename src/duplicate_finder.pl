@@ -13,9 +13,9 @@ BEGIN {     # this has to go in Begin block so happens at compile time
     dirname( abs_path(__FILE__) ) ; # the directory containing this script
 }
 
-# read in a vcf file, and process using either duplicatesearch (default) or plink ( -plink );
-# first run vcf_to_gts to convert vcf to format required by duplicatesearch or plink;
-# then run either duplicatesearch or plink;
+# read in a vcf file, and process using either duplicate_search (default) or plink ( -plink );
+# first run vcf_to_gts to convert vcf to format required by duplicate_search or plink;
+# then run either duplicate_search or plink;
 # then run clusterer to find clusters of accessions with near-identical genotype sets.
 
 # vcf file should have :
@@ -27,7 +27,7 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 
 # duplicate_finder.pl  calls:
 # vcf_to_gts
-# duplicatesearch (default) or ( -plink ) plink, plnkout2dsout
+# duplicate_search (default) or ( -plink ) plink, plnkout2dsout
 # clusterer.pl
 
 {
@@ -50,21 +50,21 @@ my $plink = 0;
 my $plnk2ds_perl = 0;	# default	# 0 -> C, 1 -> perl
 my $plink_default_max_distance = 0.175;
 
-my $chunk_size = 6;		# relevant only to duplicatesearch
-my $rng_seed = -1; # default: duplicatesearch will get seed from clock
-my $max_distance = 'default'; # duplicatesearch only calculates distance if quick estimated distance is <= $max_distance; 'default' use duplicatesearch's default.
+my $chunk_size = 6;		# relevant only to duplicate_search
+my $rng_seed = -1; # default: duplicate_search will get seed from clock
+my $max_distance = 'default'; # duplicate_search only calculates distance if quick estimated distance is <= $max_distance; 'default' use duplicate_search's default.
 # plink calculates all distances, and then we output only those <= $max_distance.
 my $max_marker_missing_data_fraction = 0.25; # remove markers with excessive missing data.
 my $max_accession_missing_data_fraction = 0.2; # Accessions with > missing data than this are excluded from analysis.
 my $min_marker_maf = 0.08; # this is a good value for the yam 941 accession set.
-my $full_duplicatesearch_output = 1;
+my $full_duplicate_search_output = 1;
 my $full_cluster_out = 1;
 my $input_format = 'vcf';
 my $ref_format = 'vcf';
 my $histogram_path = 'histogram'; # might be e.g. 'perl /home/tomfy/Histogram_project/bin/histogram.pl'
 my $histogram_agmr0 = 0;
 my $histogram_color = undef;
-my $nthreads = undef; # use default number of threads of duplicatesearch or plink
+my $nthreads = undef; # use default number of threads of duplicate_search or plink
 
 my $graphics = 'gnuplot';
 my $binwidth = 0.002;
@@ -93,17 +93,17 @@ GetOptions(
 	   #	   'GQmin=f' => \$minGQ,      # min genotype quality. Not implemented.
 	   #       'delta=f' => \$delta,      # if
 
-	   # to choose duplicatesearch or plink:
+	   # to choose duplicate_search or plink:
 	   'plink!' => \$plink,
 
-	   # used by duplicatesearch/plink:
-	   'chunk_size|k=i' => \$chunk_size, # (duplicatesearch only)
-	   'seed|rand=i' => \$rng_seed,	     # (duplicatesearch only)
+	   # used by duplicate_search/plink:
+	   'chunk_size|k=i' => \$chunk_size, # (duplicate_search only)
+	   'seed|rand=i' => \$rng_seed,	     # (duplicate_search only)
 	   'dmax|max_distance|distance_max=f' => \$max_distance,
 	   'max_marker_md_fraction|max_marker_missing_data_fraction=f' => \$max_marker_missing_data_fraction,
 	   'max_accession_md_fraction|accession_max_md_fraction=f' => \$max_accession_missing_data_fraction,
 	   'min_maf|maf_min=f' => \$min_marker_maf,
-	   'full_duplicatesearch_output!' => $full_duplicatesearch_output,
+	   'full_duplicate_search_output!' => $full_duplicate_search_output,
 	   'threads|nthreads=i' => \$nthreads,
 
 	   # used by clusterer:
@@ -140,7 +140,7 @@ if (!defined $filename_stem) {
 }
 $genotypes_filename = $filename_stem . "_gts";
 # print  "# genotypes_filename: $genotypes_filename \n";
-print  "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicatesearch\n";
+print  "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicate_search\n";
 
 
 if ($plink) {			#####  PLINK  #####
@@ -170,7 +170,7 @@ if ($plink) {			#####  PLINK  #####
     system "$plnk_to_ds_abs_path  -i $id_filename  -d $distance_matrix_filename  -o $output_filename  -m $max_distance ";
   }
 
-} else {			#####  DUPLICATESEARCH  #####
+} else {			#####  DUPLICATE_SEARCH  #####
   $t1 = clock_gettime(CLOCK_MONOTONIC);
   print STDERR "# time to determine file format, etc.:  ", $t1 - $t0, "\n";
   if ($input_format eq 'vcf') {
@@ -183,7 +183,7 @@ if ($plink) {			#####  PLINK  #####
     print  "#########   vcf_to_gts done  ##########\n\n";
     $t2 = clock_gettime(CLOCK_MONOTONIC);
     print STDERR "# time for vcf_to_gts: ", $t2 - $t1, "\n";
-  } else { # format was not 'vcf', assume input file has dosage format directly readable by duplicatesearch
+  } else { # format was not 'vcf', assume input file has dosage format directly readable by duplicate_search
     $genotypes_filename = $input_filename;
   }
 
@@ -200,11 +200,11 @@ if ($plink) {			#####  PLINK  #####
   }
   
   $distances_filename = $filename_stem . ".dists";
-  my $ds_command = $bindir . "/duplicatesearch -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
+  my $ds_command = $bindir . "/duplicate_search -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
   if ($max_distance ne 'default') {
     $ds_command .= " -distance_max $max_distance ";
   }
-  if($full_duplicatesearch_output){
+  if($full_duplicate_search_output){
     $ds_command .= " -format 2 ";
   }
   $ds_command .= " -ref $ref_genotypes_filename " if(defined $ref_filename);
@@ -212,12 +212,12 @@ if ($plink) {			#####  PLINK  #####
   $ds_command .= " -chunk_size $chunk_size -accession_max_missing_data $max_accession_missing_data_fraction ";
   $ds_command .= " -seed $rng_seed " if($rng_seed > 0);
   $ds_command .= " -threads $nthreads " if(defined $nthreads);
-  print  "# duplicatesearch command: $ds_command\n";
-  print  "######### running duplicatesearch ##########\n";
+  print  "# duplicate_search command: $ds_command\n";
+  print  "######### running duplicate_search ##########\n";
   system "$ds_command";
-  print  "#########  duplicatesearch done  ##########\n\n";
+  print  "#########  duplicate_search done  ##########\n\n";
   $t3 = clock_gettime(CLOCK_MONOTONIC);
-  print STDERR "# time for duplicatesearch: ", $t3 - $t2, "\n";
+  print STDERR "# time for duplicate_search: ", $t3 - $t2, "\n";
 }
 
 print  "######### running clusterer ##########\n";
@@ -241,7 +241,7 @@ print  "#########  clusterer done  ##########\n\n";
 print "#########  histogramming distances  ##########\n\n";
 if(!defined $histogram_filename){ $histogram_filename = $filename_stem . '_distances_histogram.png'; }
 my $histogram_command =
-  #($histogram_agmr0  and  $full_duplicatesearch_output)?
+  #($histogram_agmr0  and  $full_duplicate_search_output)?
   #"$histogram_path -data $distances_filename:3/8 " :
   "$histogram_path -data '$distances_filename" . ':3""' . "' ";
  #if(lc $graphics eq 'gd');

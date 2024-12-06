@@ -5,7 +5,6 @@ use Getopt::Long;
 use File::Basename 'dirname';
 use List::Util qw 'min max sum';
 
-
 use Cwd 'abs_path';
 my ( $bindir, $libdir );
 BEGIN {     # this has to go in Begin block so happens at compile time
@@ -22,9 +21,9 @@ my $missing_data_char = 'X';
 # my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_consensus_factor*$line_max_distance
 
 
-# read duplicatesearch output and find clusters of accessions
+# read duplicate_search output and find clusters of accessions
 # with near-identical genotypes
-# specifically, create a graph, and for any pairs in duplicatesearch output with
+# specifically, create a graph, and for any pairs in duplicate_search output with
 # distance <= $link_max_distance, make an edge in the graph between the accessions of the pair.
 # the clusters are then the connected components of the graph.
 # i.e. two accession belong to the same cluster iff you can get from
@@ -32,16 +31,16 @@ my $missing_data_char = 'X';
 # one line of output for each cluster, with fields
 # cluster size, min distance, max distance, 'missing_distance_count (should be 0)', the ids of accessions in cluster.
 # e.g.:    3  0.0104 0.0142 0  TMEB778:250254008  TMEB778:250304613  TMEB778:250597946
-# the duplicatesearch output should have all the distances for all the pairs in each cluster,
+# the duplicate_search output should have all the distances for all the pairs in each cluster,
 # and in that case the 4th field ('missing_distance_count') will be 0. If missing_distance_count > 0,
 # consider rerunning this script with a smaller $max_distance,
-# or rerun duplicatesearch with a larger value of 'max_estimated_distance' (-e option)
+# or rerun duplicate_search with a larger value of 'max_estimated_distance' (-e option)
 
 # usage example:
-# clusterer.pl -in duplicatesearch.out  -out  distance_clusters  [-cluster_distance 0.08]
+# clusterer.pl -in duplicate_search.out  -out  distance_clusters  [-cluster_distance 0.08]
 
-# runs duplicatesearch, then distance_cluster, and outputs a file
-# with the same format as duplicatesearch input, but now with just one
+# runs duplicate_search, then distance_cluster, and outputs a file
+# with the same format as duplicate_search input, but now with just one
 # line representing each cluster.
 
 {				# beginning of 'main'
@@ -66,7 +65,7 @@ my $missing_data_char = 'X';
   # is at least this large.
 
   GetOptions(
-	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 distance  ... (duplicatesearch output)
+	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 distance  ... (duplicate_search output)
 	     'cluster_distance|link_distance|dlink=s' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
 	     'output_file=s' => \$output_cluster_filename,
 
@@ -82,7 +81,7 @@ my $missing_data_char = 'X';
 
   if (!defined $distances_filename) {
     print STDERR "Input file must be specified.\n";
-    print STDERR "Basic usage example: \n", "clusterer -in duplicatesearch.out  -out cluster.out \n";
+    print STDERR "Basic usage example: \n", "clusterer -in duplicate_search.out  -out cluster.out \n";
     print STDERR "by default distance_cluster will attempt to automatically decide the max distance between duplicates.\n",
       " but you can specify it with the cluster_distance option, e.g.  -cluster_distance 0.06 \n";
     exit;
@@ -248,7 +247,7 @@ sub store_distances{
   my $n_undef = 0;
   my %edge_weight = (); # keys are ordered pairs of accession ids representing graph edges, values are distances
   my %id_closeidds = (); # keys are ids, values array ref of array refs of ids and distances of other accessions.
-  # all pairs found in duplicatesearch output are included. id1:[[$id2, $distance12], [$id3, $distance13], ...]
+  # all pairs found in duplicate_search output are included. id1:[[$id2, $distance12], [$id3, $distance13], ...]
   open my $fhin, "<", "$distances_filename" or die "Couldn't open $distances_filename for reading.\n";
   while (my $line = <$fhin>) {
     next if($line =~ /^\s*#/);

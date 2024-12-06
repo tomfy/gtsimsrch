@@ -609,6 +609,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
     ndiff02 += __builtin_popcountll(j_ne_k);
 
   } // end of loop over 64 bit chunks
+  
   //fprintf(stderr, "ZZZAAA: %ld %ld %ld %ld \n", n_0x_1_2x_1, n_0x_0_2x_2, n_x0_1_x2_1, n_x0_0_x2_2);
 	
   Pedigree_stats* pedigree_stats = construct_pedigree_stats(); //(Pedigree_stats*)malloc(sizeof(Pedigree_stats));
@@ -620,7 +621,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
 
   // pedigree_stats->d_2 = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd, n_total_no_md - n_total_x_11};
 
-  long F = 3;
+  long F = 1;
   pedigree_stats->d = (ND) {n_0xorx0_2_nomd + n_2xorx2_0_nomd
 			    + F*n_00_1_22_1
 			    , n_total_no_md};
@@ -714,8 +715,8 @@ Pedigree_stats* construct_pedigree_stats(void){
   the_ps->R2_n = NAN;
   the_ps->d_n = NAN;
   the_ps->z_n = NAN;
-  the_ps->scaled_d = NAN;
-  the_ps->max_scaleddz = NAN;
+  //the_ps->scaled_d = NAN;
+  //the_ps->max_scaleddz = NAN;
   the_ps->xhgmr1 = NAN;
   the_ps->xhgmr2 = NAN;
   return the_ps;
@@ -782,11 +783,11 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* t
   the_ps->d_n = n_over_d(the_ps->d)/the_gtsset->mean_d;
   the_ps->z_n = n_over_d(the_ps->z)/the_gtsset->mean_z;
   //fprintf(stderr, "X X X: %7.5f %7.5f %7.5f\n", d_scale_factor, the_ps->d_n, the_gtsset->mean_d);
-  the_ps->scaled_d = d_scale_factor*the_ps->d_n;
-      
-  if(! isnan(the_ps->scaled_d) && !isnan(the_ps->z_n)){
-    the_ps->max_scaleddz = (the_ps->scaled_d > the_ps->z_n)? the_ps->scaled_d : the_ps->z_n;
-  }
+  
+  /* the_ps->scaled_d = d_scale_factor*the_ps->d_n;       */
+  /* if(! isnan(the_ps->scaled_d) && !isnan(the_ps->z_n)){ */
+  /*   the_ps->max_scaleddz = (the_ps->scaled_d > the_ps->z_n)? the_ps->scaled_d : the_ps->z_n; */
+  /* } */
   
   the_ps->xhgmr1 = n_over_d(the_ps->par1_xhgmr);
   the_ps->xhgmr2 = n_over_d(the_ps->par2_xhgmr);
@@ -863,8 +864,8 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
     print_n_over_d(fh, the_pedigree_stats->z);
     // print_n_over_d(fh, the_pedigree_stats->d_old);
   }
-  fprintf(fh, "%7.5f  ", the_pedigree_stats->scaled_d);
-  fprintf(fh, "%7.5lf  ", the_pedigree_stats->max_scaleddz);
+  //fprintf(fh, "%7.5f  ", the_pedigree_stats->scaled_d);
+  //fprintf(fh, "%7.5lf  ", the_pedigree_stats->max_scaleddz);
   //   fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr1);
   //fprintf(fh, "%7.5lf  ", the_pedigree_stats->xhgmr1);
   //  fprintf(fh, "%7.5lf  ", the_pedigree_stats->hgmr2);
@@ -1173,7 +1174,7 @@ int compare_pedigree_d(const void* a, const void* b){
   //  return retval;
 }
 
-
+/*
 void sort_vpedigree_by_maxdz(Vpedigree* the_vped){ // sort by max(scaled_d, z) (increasing) 
   qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigree_maxdz);
 }
@@ -1204,7 +1205,7 @@ int compare_pedigree_maxdz(const void* a, const void* b){
   }
   // fprintf(stderr, "in compare... %7.4f %7.4f %7.4f\n", d1, z1, x1);
   //  return retval;
-}
+} /* */
 
 void sort_vpedigree_by_maxh1h2z(Vpedigree* the_vped){
   qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigrees_h1h2z);

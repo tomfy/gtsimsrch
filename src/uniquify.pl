@@ -12,8 +12,8 @@ BEGIN {     # this has to go in Begin block so happens at compile time
     dirname( abs_path(__FILE__) ) ; # the directory containing this script
 }
 
-# runs duplicatesearch, then clusterer, and outputs a file
-# with the same format as duplicatesearch input, but now with just one
+# runs duplicate_search, then clusterer, and outputs a file
+# with the same format as duplicate_search input, but now with just one
 # line representing each cluster of duplicates.
 # optionally ( -vote ) have the members of each group of duplicates vote on each genotype.
 # optionally (  -filter_out <afilename>  ) output a dosage matrix file which is filtered as well as uniquified.
@@ -30,7 +30,7 @@ my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside f
 my $vote = 0;
 my $missing_str = "X";
 my $filter_out = 1; # output the filtered set of markers, as well as removing duplicates
-my $rng_seed = undef; # default is to let duplicatesearch get seed from clock
+my $rng_seed = undef; # default is to let duplicate_search get seed from clock
 my $phenotype_filename = undef;
 my %accid_phenotype = ();
 
@@ -119,31 +119,31 @@ my $cleaned_dosages_filename = $input_dosages_filename . "_cleaned";
 print STDERR "dosages file with high-missing data accessions removed: $cleaned_dosages_filename \n";
 #exit;
 
-my $duplicatesearch_command = "duplicate_search  -in $input_dosages_filename ";
-$duplicatesearch_command .= " -distance $max_distance " if(defined $max_distance);
-$duplicatesearch_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
-$duplicatesearch_command .= " -maf_min $min_maf ";
-$duplicatesearch_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
-$duplicatesearch_command .= " -seed $rng_seed " if(defined $rng_seed);
+my $duplicate_search_command = "duplicate_search  -in $input_dosages_filename ";
+$duplicate_search_command .= " -distance $max_distance " if(defined $max_distance);
+$duplicate_search_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
+$duplicate_search_command .= " -maf_min $min_maf ";
+$duplicate_search_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
+$duplicate_search_command .= " -seed $rng_seed " if(defined $rng_seed);
 my $filtered_dosages_filename;
 if ($filter_out) {
    $filtered_dosages_filename = $dosages_filename . "_filtered";
-  $duplicatesearch_command .= " -filtered_out $filtered_dosages_filename";
+  $duplicate_search_command .= " -filtered_out $filtered_dosages_filename";
 print STDERR "$filtered_dosages_filename \n";
 }
 #exit;
 
-print "$duplicatesearch_command \n";
+print "$duplicate_search_command \n";
 ###############################################################################
 
 
-####   Run duplicatesearch :   ################################################
-system "$duplicatesearch_command";
+####   Run duplicate_search :   ################################################
+system "$duplicate_search_command";
 ###############################################################################
 
 ####   Run clusterer.pl    #####################################################
 
-my $cluster_command = $bindir . "/clusterer.pl " . " -in duplicatesearch.out -out cluster.out ";
+my $cluster_command = $bindir . "/clusterer.pl " . " -in duplicate_search.out -out cluster.out ";
 $cluster_command .= " -cluster $cluster_max_distance  -nofull ";
 print $cluster_command, "\n";
 #exit();

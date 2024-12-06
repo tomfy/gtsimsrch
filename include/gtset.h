@@ -171,6 +171,7 @@ two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny
 ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
 ND ghgmr(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
 double ragmr(GenotypesSet* the_gtsset);
+double pmr(Accession* acc1, Accession* acc2); // phase mismatch rate
 void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset);
 void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset);
 void free_genotypesset(GenotypesSet* the_gtsset);

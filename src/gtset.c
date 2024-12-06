@@ -27,7 +27,9 @@ Accession* construct_accession(char* id, long idx, char* genotypes, char* phases
   the_accession->id = construct_vchar_from_str(id);
   the_accession->index = idx;  
   the_accession->genotypes = construct_vchar_from_str(genotypes);
+  //fprintf(stderr, "genotypes->length: %ld    ", the_accession->genotypes->length);
    the_accession->phases = construct_vchar_from_str(phases);
+   //fprintf(stderr, "phases->length: %ld\n", the_accession->phases->length);
   the_accession->chunk_patterns = NULL; // set to NULL to avoid containing garbage which causes crash when freeing accession
   the_accession->missing_data_count = accession_md_count;
   the_accession->ref_homozygs = NULL; // construct_vlong(10); // can construct in store_homozygs (so no mem used if not calling store_homozygs)
@@ -356,7 +358,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       char* genotypes = (char*)calloc((markerid_count+1), sizeof(char));
       genotypes[markerid_count] = '\0'; // terminate with null.
       char* phases =  (char*)calloc((markerid_count+1), sizeof(char));
-      phases[markerid_count] = '\0';
+      phases[markerid_count] = '\0'; // indices 0 through markerid_count-1 are phases ('x', 'p', or 'm'), index markerid_count has terminating null.
 
       while(1){ // read dosages from one line.
 	//fprintf(stderr, "before saveptr: [%s]\n", saveptr);
@@ -381,6 +383,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     if(1){
       // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
       if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
+	
 	Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, phases, accession_missing_data_count);
 	for(long jjj=0; jjj<markerid_count; jjj++){ //
 	  if(genotypes[jjj] == MISSING_DATA_CHAR){
@@ -704,6 +707,40 @@ double ragmr(GenotypesSet* the_gtsset){
   return ragmr;
 }
 
+double pmr(Accession* acc1, Accession* acc2){ // phase mismatch rate
+  // considering just markers with both accessions heterozygous, and both having phase info,
+  // count how many agree and how many disagree about the phase.
+
+  long n_agree = 0;
+  long n_disagree = 0;
+  Vchar* p1s = acc1->phases;
+  Vchar* p2s = acc2->phases;
+  if(p1s->length != p2s->length){
+    fprintf(stderr, "phases lengths disagree: %ld %ld\n", p1s->length, p2s->length);
+    exit(EXIT_FAILURE);
+  }
+  for(long i=0; i<p1s->length; i++){
+    char p1 = p1s->a[i];
+    char p2 = p2s->a[i];
+    if(p1 == 'p'){
+      if(p2 == 'p'){
+	n_agree++;
+      }else if(p2 == 'm'){
+	n_disagree++;
+      }
+    }else if(p1 == 'm'){
+   if(p2 == 'm'){
+	n_agree++;
+      }else if(p2 == 'p'){
+	n_disagree++;
+      }
+    }
+  }
+  double result = (double)n_disagree/(double)(n_agree + n_disagree);
+  // fprintf(stderr, "phased n_agree, n_disagree:  %ld %ld  %7.5f\n", n_agree, n_disagree, result);
+  return result;
+}
+
 void print_genotypesset_stats(GenotypesSet* gtss){
   fprintf(stderr, "max_marker_missing_data_fraction: %8.4f\n", gtss->max_marker_missing_data_fraction);
   fprintf(stderr, "min_minor_allele_frequency: %8.4f\n", gtss->min_minor_allele_frequency);
@@ -845,7 +882,8 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
   for(long i=0; i<the_gtsset->n_accessions; i++){ // loop over accessions
     char* raw_gts = the_gtsset->accessions->a[i]->genotypes->a; // the string with all the genotypes for accession i
     char* filtered_gts = (char*)malloc((n_markers_to_keep+1)*sizeof(char));
-    char* raw_phases = the_gtsset->accessions->a[i]->phases->a; 
+    char* raw_phases = the_gtsset->accessions->a[i]->phases->a;
+    //fprintf(stderr, "raw gts, phases lengths: %ld %ld    ", the_gtsset->accessions->a[i]->genotypes->length, the_gtsset->accessions->a[i]->phases->length);
     char* filtered_phases = (char*)malloc((n_markers_to_keep+1)*sizeof(char));
     long k=0; // k: index of kept markers
     long acc_md_count = 0;
@@ -859,9 +897,11 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
       }
     }
     filtered_gts[k] = '\0'; // terminate with null.
+    filtered_phases[k] = '\0';
     if(DBUG && do_checks) assert(k == n_markers_to_keep);
     Accession* the_accession = construct_accession( the_gtsset->accessions->a[i]->id->a, i, filtered_gts, filtered_phases, acc_md_count ); //(Accession*)malloc(sizeof(Accession));
     free(filtered_gts); // this str was copied into newly allocated memory in the_accession->
+    free(filtered_phases);
     push_to_vaccession(the_accessions, the_accession);
   }
   // *****  end of filtering of genotypes  ******
