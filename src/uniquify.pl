@@ -184,7 +184,7 @@ my %id_gts  = ();  # key: ids; value: array ref of dosages (0,1,2,NA)
 my $first_line = <$fh_dosages>;
 print $fhout $first_line;
 while (my $line = <$fh_dosages>) {
-  if ($line =~ /^\s*(#|MARKER)/) {
+  if ($line =~ /^\s*(#|MARKER|CHROMOSOME)/) {
     print $fhout $line;
     next;
   }

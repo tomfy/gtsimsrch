@@ -55,6 +55,7 @@ typedef struct{
   double agmr;
   double hgmr;
   double agmr0;
+  double psr;
 } Mci; // 'Mci = Matching chunk info'
 
 typedef struct{
@@ -99,7 +100,7 @@ four_longs agmr_hgmr_diploid(Accession* gtset1, Accession* gtset2);
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
-		   double est_dist, double agmr, double hgmr, double agmr0);
+		   double est_dist, double agmr, double hgmr, double psr); // agmr0);
 // *****  Vmci  *********************************************************************************
 Vmci* construct_vmci(long init_size);
 void push_to_vmci(Vmci* the_vmci, Mci* the_mci);
@@ -424,10 +425,10 @@ main(int argc, char *argv[])
   // double t_after_read = clock_time(clock1);
   // 'rectification' not needed.
   // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common than 2 for all markers.
- 
+  fprintf(stderr, "sss: %ld\n", the_genotypes_set->chromosomes->size); //  == NULL)? 0 : 1);
   //check_genotypesset(the_genotypes_set);
   if(do_filtering) filter_genotypesset(the_genotypes_set, out_stream);
- 
+  fprintf(stderr, "ssss: %ld\n", the_genotypes_set->chromosomes->size); //? 0 : 1);
   // double t_after_filter = clock_time(clock1);
   //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicate_search
   //  double t_after_store_homozygs = clock_time(clock1);
@@ -517,6 +518,7 @@ main(int argc, char *argv[])
 
   // agmr0(the_genotypes_set); // calculate the overall agmr0 for the genotypes set. 
   the_genotypes_set->agmr0 = 1;
+  
   /* if(max_est_dist < 0){ // get max_est_dist so as to do approx. n_ds_to_get distance calculations */
   /*   // get random sample of distances */
   /*   distance_random_sample_size = 2*n_accessions; */
@@ -802,7 +804,7 @@ long* find_chunk_match_counts(const Accession* the_accession, const Chunk_patter
 
 Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_chunks,
 		   // double est_matching_chunk_fraction, double matching_chunk_fraction){
-		   double est_dist, double agmr, double hgmr, double agmr0){
+		   double est_dist, double agmr, double hgmr, double psr){  // agmr0){
   Mci* the_mci = (Mci*)calloc(1,sizeof(Mci));
   the_mci->query_index = qidx;
   the_mci->match_index = midx;
@@ -812,7 +814,8 @@ Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_c
   //  the_mci->dist = dist;
   the_mci->agmr = agmr;
   the_mci->hgmr = hgmr;
-  the_mci->agmr0 = agmr0;
+  //the_mci->agmr0 = agmr0;
+  the_mci->psr = psr;
   return the_mci;
 }
 
@@ -1008,6 +1011,7 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
     }
       Accession* q_gts = the_accessions->a[i_query];
      double agmr_nought = the_genotypes_set->agmr0;
+     // fprintf(stderr, "agmr_nought: %7.5f\n", agmr_nought); exit(0);
     double min_matching_chunk_fraction = (max_est_dist*agmr_nought < 1.0)? pow(1.0 - max_est_dist*agmr_nought, chunk_size) : 0.0;
     double q_ok_chunk_fraction_x_mmcf = min_matching_chunk_fraction*(double)q_gts->ok_chunk_count/(double)n_chunks;
    
@@ -1078,8 +1082,16 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	  //	  double agmr_nought_b = agmr0_accvsall(the_genotypes_set, the_accessions->a[i_match]);
 	  est_dist += 0.0025*(((double)rand())/RAND_MAX -0.5);
 	  if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX);
-	  push_to_vmci(query_vmcis[i_query],
-		       construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr, agmr_nought));
+	  Mci* the_mci = construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr, agmr_nought);
+	  // fprintf(stderr, "chromz: %d\n", (the_genotypes_set->chromosomes == NULL)? 0 : 1);
+
+	  ND psr_nd = psr(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
+	  ND psr_nd_rev = psr(the_accessions->a[i_match], q_gts, the_genotypes_set->chromosomes);
+	  fprintf(stderr, "SSSS: %s %s  %ld %ld  %ld %ld \n", q_gts->id->a, the_accessions->a[i_match]->id->a, psr_nd.n, psr_nd.d, psr_nd_rev.n, psr_nd_rev.d);
+	  fprintf(stderr, "a,psrnd: %7.5f  %ld %ld  %7.5f\n", agmr, psr_nd.n, psr_nd.d, n_over_d(psr_nd));
+	  double the_psr = n_over_d(psr_nd);
+	  the_mci->psr = the_psr;
+	  push_to_vmci(query_vmcis[i_query], the_mci);
 	
 	} // end if(true_dist < max_est_dist)
       } // end if(enough matching chunks) - i.e. est dist is small enough
@@ -1108,8 +1120,9 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Mci* the_mci = the_vmci->a[i_m];      
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
-      double phased_mismatch_rate = pmr(q_acc, m_acc);
-      fprintf(ostream, "%s  %s  %8.6f %8.6f %8.6f", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr, phased_mismatch_rate);
+      //double phased_mismatch_rate = pmr(q_acc, m_acc);
+      //fprintf(ostream, "%s  %s  %8.6f %8.6f ", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
+      fprintf(ostream, "%s  %s  %8.6f %8.6f %8.6f", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr, the_mci->psr);
       if(output_format != 1){
 	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
 	fprintf(ostream, "  %6.2f %ld %7.5f ", // %7.5f ",

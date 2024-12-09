@@ -260,6 +260,34 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     }
   }
 
+   while((nread = getline(&line, &len, g_stream)) != -1){
+
+ // fprintf(stderr, "# reading accession %ld\n", accession_count);
+    saveptr = line; // these are char*
+    char* token = strtok_r(saveptr, "\t \n\r", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
+    if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
+    //fprintf(stderr, "token: %s\n", token); getc(stdin);
+    if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis)
+      Vlong* chromosome_numbers = construct_vlong(1000);
+      while(1){
+	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	if(token == NULL) break;
+	long i_chrom = str_to_long(token);
+	push_to_vlong(chromosome_numbers, i_chrom);
+	//	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
+	//	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
+	//markerid_count++;
+	// fprintf(stderr, "### %30s  %ld %ld \n", mrkr_id, markerid_count, marker_ids->size); 
+      }
+      the_genotypes_set->chromosomes = chromosome_numbers;
+      fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size);
+      break;
+    }else{ 
+      fprintf(stderr, "token: %s (should be CHROMOSOME)\n", token);
+      exit(EXIT_FAILURE);
+    }
+  }
+
   
   // *****  done reading first two lines (with marker ids, chromosome numbers)  *****
   if(the_genotypes_set->marker_missing_data_counts == NULL){    
@@ -335,23 +363,26 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     saveptr = line; // these are char*
     char* token = strtok_r(saveptr, "\t \n\r", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
     if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
-    if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis)
-      Vlong* chromosome_numbers = construct_vlong(1000);
-      while(1){
-	token = strtok_r(NULL, "\t \n\r", &saveptr);
-	if(token == NULL) break;
-	long i_chrom = str_to_long(token);
-	push_to_vlong(chromosome_numbers, i_chrom);
-	//	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
-	//	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
-	//markerid_count++;
-	// fprintf(stderr, "### %30s  %ld %ld \n", mrkr_id, markerid_count, marker_ids->size); 
-      }
-      the_genotypes_set->chromosomes = chromosome_numbers;
-      // the_genotypes_set->phased = true; // now allow for presence of chromosome numbers in unphased data.
-    }else{ // not CHROMOSOME line, should be acc id, followed by dosages
+    if(0){
+    /* fprintf(stderr, "token: %s\n", token); getc(stdin); */
+    /* if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis) */
+    /*   Vlong* chromosome_numbers = construct_vlong(1000); */
+    /*   while(1){ */
+    /* 	token = strtok_r(NULL, "\t \n\r", &saveptr); */
+    /* 	if(token == NULL) break; */
+    /* 	long i_chrom = str_to_long(token); */
+    /* 	push_to_vlong(chromosome_numbers, i_chrom); */
+    /* 	//	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char)); */
+    /* 	//	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store */
+    /* 	//markerid_count++; */
+    /* 	// fprintf(stderr, "### %30s  %ld %ld \n", mrkr_id, markerid_count, marker_ids->size);  */
+    /*   } */
+    /*   the_genotypes_set->chromosomes = chromosome_numbers; */
+    /*   fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size); */
+    /*   // the_genotypes_set->phased = true; // now allow for presence of chromosome numbers in unphased data. */
+     }else{ // not CHROMOSOME line, should be acc id, followed by dosages */
      
-      //char* token = strtok_r(saveptr, "\t \n\r", &saveptr);
+    //char* token = strtok_r(saveptr, "\t \n\r", &saveptr);
       char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
       long marker_count = 0;
       long accession_missing_data_count = 0;
@@ -707,37 +738,100 @@ double ragmr(GenotypesSet* the_gtsset){
   return ragmr;
 }
 
-double pmr(Accession* acc1, Accession* acc2){ // phase mismatch rate
+ND psr(Accession* acc1, Accession* acc2, Vlong* chroms){ // phase mismatch rate
   // considering just markers with both accessions heterozygous, and both having phase info,
   // count how many agree and how many disagree about the phase.
 
   long n_agree = 0;
   long n_disagree = 0;
+  long n_agree_chrom = 0;
+  long n_disagree_chrom = 0;
+  long n_agree_b = 0;
+  long n_disagree_b = 0;
+  long n_switches = 0;
   Vchar* p1s = acc1->phases;
   Vchar* p2s = acc2->phases;
-  if(p1s->length != p2s->length){
-    fprintf(stderr, "phases lengths disagree: %ld %ld\n", p1s->length, p2s->length);
+  long chrom = chroms->a[0];
+  long prev_chrom = -1;
+  long prev_switch_position = 0;
+  long spacing = -1;
+  if(p1s->length != p2s->length  || p1s->length != chroms->size){
+    fprintf(stderr, "phases lengths disagree: %ld %ld  chroms->size  %ld\n", p1s->length, p2s->length, chroms->size);
     exit(EXIT_FAILURE);
   }
+
+  bool agree;
+  bool prev_agree;
   for(long i=0; i<p1s->length; i++){
+    chrom = chroms->a[i];
+
+    if(chrom != prev_chrom){
+      fprintf(stderr, "Z na, nda chrom: %ld %ld   %ld %ld \n", prev_chrom, chrom, n_agree_chrom, n_disagree_chrom);
+      fprintf(stderr, "BBB: %s  %s   %ld %ld   %ld %ld   %lf\n", acc1->id->a, acc2->id->a, prev_chrom, chrom, n_agree_chrom, n_disagree_chrom, n_disagree_chrom/(double)(n_agree_chrom + n_disagree_chrom));
+      if(n_disagree_chrom > n_agree_chrom){
+	long tmp = n_disagree_chrom;
+	n_disagree_chrom = n_agree_chrom;
+	n_agree_chrom = tmp;
+      }
+      n_agree += n_agree_chrom;
+      n_disagree += n_disagree_chrom;
+      n_agree_chrom = 0;
+      n_disagree_chrom = 0;
+      if(prev_chrom > 0){
+      spacing = i - prev_switch_position;
+      fprintf(stderr, "Aspacing: %ld \n", spacing);
+      }
+      prev_switch_position = i;
+    }
+    
     char p1 = p1s->a[i];
     char p2 = p2s->a[i];
+    //long chrom = 
     if(p1 == 'p'){
       if(p2 == 'p'){
-	n_agree++;
+	agree = true;
+	n_agree_chrom++;
+	n_agree_b++;
       }else if(p2 == 'm'){
-	n_disagree++;
+	agree = false;
+	n_disagree_chrom++;
+	n_disagree_b++;
       }
     }else if(p1 == 'm'){
-   if(p2 == 'm'){
-	n_agree++;
+      if(p2 == 'm'){
+	agree = true;
+	n_agree_chrom++;
+	n_agree_b++;
       }else if(p2 == 'p'){
-	n_disagree++;
+	agree = false;
+	n_disagree_chrom++;
+	n_disagree_b++;
       }
     }
+    
+    if((chrom == prev_chrom)  &&  (agree != prev_agree)){
+      n_switches++;
+      spacing = i - prev_switch_position;
+      fprintf(stderr, "Bspacing: %ld \n", spacing);
+      prev_switch_position = i;
+    }
+    prev_agree = agree;
+    prev_chrom = chrom;
+  } // end loop over markers
+  spacing = p1s->length - prev_switch_position;
+  fprintf(stderr, "Cspacing: %ld \n", spacing);
+  if(n_disagree_chrom > n_agree_chrom){
+    long tmp = n_disagree_chrom;
+    n_disagree_chrom = n_agree_chrom;
+    n_agree_chrom = tmp;
   }
-  double result = (double)n_disagree/(double)(n_agree + n_disagree);
-  // fprintf(stderr, "phased n_agree, n_disagree:  %ld %ld  %7.5f\n", n_agree, n_disagree, result);
+  n_agree += n_agree_chrom;
+  n_disagree += n_disagree_chrom;
+
+  fprintf(stderr, "Z na, nda chrom: %ld %ld \n", n_agree_chrom, n_disagree_chrom);
+  fprintf(stderr, "ZZZ: %ld %ld  %ld %ld  %ld  %7.5f\n", n_agree, n_disagree, n_agree_b, n_disagree_b, n_switches, n_over_d((ND){n_switches, n_agree+n_disagree-1}));
+																				   
+  ND result = {n_switches, n_agree + n_disagree - 1};
   return result;
 }
 
@@ -909,23 +1003,24 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
   // *******************************************************
   // *****  if phased, filter the chromosomes array.  ******
   // *******************************************************
-  if(the_gtsset->phased){ 
-    Vlong* raw_chromosomes = the_gtsset->chromosomes;
-    Vlong* filtered_chromosomes = construct_vlong(n_markers_to_keep+1);
-    long k=0;
-    for(long j=0; j<the_gtsset->n_markers; j++){ // j: index of original markers
-      if(md_ok->a[j] == 1){
-	//	filtered_gts[k] = raw_gts[j];
-	//	filtered_phases[k] = raw_phases[j];
-	filtered_chromosomes->a[k] = raw_chromosomes->a[j];
-	k++;
-      }
+  //if(the_gtsset->phased){ 
+  Vlong* raw_chromosomes = the_gtsset->chromosomes;
+  Vlong* filtered_chromosomes = construct_vlong(n_markers_to_keep+1);
+  long k=0;
+  for(long j=0; j<the_gtsset->n_markers; j++){ // j: index of original markers
+    if(md_ok->a[j] == 1){
+      //	filtered_gts[k] = raw_gts[j];
+      //	filtered_phases[k] = raw_phases[j];
+      filtered_chromosomes->a[k] = raw_chromosomes->a[j];
+      k++;
     }
-    filtered_chromosomes->size = n_markers_to_keep;
-    free_vlong(the_gtsset->chromosomes);
-    the_gtsset->chromosomes = filtered_chromosomes;
-    fprintf(stderr, "in filter_genotypesset. n chroms: %ld \n", the_gtsset->chromosomes->size);
   }
+    
+  filtered_chromosomes->size = n_markers_to_keep;
+  free_vlong(the_gtsset->chromosomes);
+  the_gtsset->chromosomes = filtered_chromosomes;
+  fprintf(stderr, "in filter_genotypesset. filtered chroms size: %ld \n", the_gtsset->chromosomes->size);
+  
   // *****  end of filtering of chromosomes array (phased data only)
 
   free_vlong(md_ok);
