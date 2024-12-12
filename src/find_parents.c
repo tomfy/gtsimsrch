@@ -27,7 +27,7 @@ int do_checks = 0; // option -c sets this to 1 to do some checks.
 
 void print_usage_info(FILE* stream);
 Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_xhgmr, bool quick_xhgmr);
-void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream, bool long_output_format, double d_scale_factor);
+void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream); //, bool long_output_format, double d_scale_factor);
 void set_scaled_d_in_one_pedigree(Pedigree_stats* the_ps, double d_scale_factor);
 void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor);
 void print_Xover2_rates(FILE* fh, Xcounts_2 X2);
@@ -458,15 +458,15 @@ main(int argc, char *argv[])
 	     }
 	     
 	     Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pwi_wrt_A, max_candidate_parents);
-	     sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format, d_scale_factor);
-	     if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
+	     sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream); //, long_output_format, d_scale_factor);
+	     //if(alt_pedigrees->size == 0) 
 	     free_vpedigree(alt_pedigrees);
 	     free_viaxh(pwi_wrt_A);
 	   }
 	 }else if(alternative_pedigrees_level == 3){  // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]	
 	   Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[A_gtset_idx], max_candidate_parents);
-	   sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format, d_scale_factor);
-	   if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
+	   sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream); //, long_output_format, d_scale_factor);
+	   //if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
 	   free_vpedigree(alt_pedigrees);
 	 }
 	 
@@ -498,8 +498,8 @@ main(int argc, char *argv[])
       // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]	
       Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(prog, the_genotypes_set, pairwise_info[i], max_candidate_parents);
       fprintf(o_stream, "%s  %ld   ", prog->id->a, pairwise_info[i]->size); // output the progeny id
-      sort_and_output_pedigrees(alt_pedigrees, max_solns_out, o_stream, long_output_format, d_scale_factor);
-      if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
+      sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream); //, long_output_format, d_scale_factor);
+      //if(alt_pedigrees->size == 0) fprintf(o_stream, " this accession has no candidate parents.");
       fprintf(o_stream, "\n");
       free_vpedigree(alt_pedigrees);
     } // end loop over offspring accessions
@@ -564,26 +564,24 @@ Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candid
   return pairwise_info;
 }
 
-void sort_and_output_pedigrees(Vpedigree* the_pedigrees, long max_solns_out, FILE* o_stream, bool long_output_format, double d_scale_factor){
+void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigrees,
+			       long max_solns_out, FILE* o_stream){ //, bool long_output_format, double d_scale_factor){
   // *******************************************************************************
   // ***  sort alt_pedigrees_array, output best parent pairs for this accession  ***
   // *******************************************************************************
   if(the_pedigrees->size > 0){
     if(the_pedigrees->size > 1) sort_vpedigree_by_d(the_pedigrees); // sort_vpedigree_by_maxdz(the_pedigrees);
       long n_out = (max_solns_out < the_pedigrees->size)? max_solns_out : the_pedigrees->size;
-      for(long iii=0; iii < n_out; iii++){
-	/* Accession* par1 = the_pedigrees->a[iii]->F; */
-	/* Accession* par2 = the_pedigrees->a[iii]->M; */
-	/* Pedigree_stats* the_ps = the_pedigrees->a[iii]->pedigree_stats; */
-	/* // if((!multiple_solns_on_one_line) || (iii == 0)) fprintf(o_stream, "%s  %ld   ", prog->id->a, n_ok_parents); // output progeny id */
-	/* fprintf(o_stream, "%s %s %ld  ", par1->id->a, par2->id->a, the_ps->all_good_count); // output candidate pair of parents */
-	/* print_pedigree_stats(o_stream, the_ps, long_output_format); */
+      for(long iii=0; iii < n_out; iii++){ // output the best n_out solutions
+	Pedigree* a_pedigree = the_pedigrees->a[iii];
+	
+	a_pedigree->pedigree_stats->X3 = count_crossovers(the_gtsset, a_pedigree->F, a_pedigree->M, a_pedigree->A);
 	fprintf(o_stream, "A  "); // to indicate alternative parents (not those from pedigree file)
-	// print_pedigree(o_stream, the_pedigrees->a[iii], long_output_format);
 	 print_pedigree_normalized(o_stream, the_pedigrees->a[iii]);
-	// if((!multiple_solns_on_one_line) || (iii == n_out-1)) fprintf(o_stream, "\n");
+	 print_Xover_rates(o_stream, a_pedigree->pedigree_stats->X3);
       } // loop over solutions for one progeny accession
-      //fprintf(o_stream, "\n");
+  }else{
+    fprintf(o_stream, " this accession has no candidate parents.");
   }
 } // end of sort_and_output_pedigrees
 

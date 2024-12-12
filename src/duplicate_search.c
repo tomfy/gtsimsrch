@@ -1072,6 +1072,7 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 
 		//	double postdistance_time = clock_time(clock2);
 		//	true_distance_time += postdistance_time - predistance_time;
+		//	fprintf(stderr, "agmr, etc.: %7.5f  %7.5f  %7.5f\n", agmr, max_est_dist, agmr_nought);
 	if(agmr <= max_est_dist*agmr_nought){
 	   double matching_chunk_count = chunk_match_counts[i_match];
 	   matching_chunk_count += (double)rand()/(RAND_MAX);
@@ -1085,10 +1086,14 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	  Mci* the_mci = construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr, agmr_nought);
 	  // fprintf(stderr, "chromz: %d\n", (the_genotypes_set->chromosomes == NULL)? 0 : 1);
 
-	  ND psr_nd = psr(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
-	  ND psr_nd_rev = psr(the_accessions->a[i_match], q_gts, the_genotypes_set->chromosomes);
-	  fprintf(stderr, "SSSS: %s %s  %ld %ld  %ld %ld \n", q_gts->id->a, the_accessions->a[i_match]->id->a, psr_nd.n, psr_nd.d, psr_nd_rev.n, psr_nd_rev.d);
-	  fprintf(stderr, "a,psrnd: %7.5f  %ld %ld  %7.5f\n", agmr, psr_nd.n, psr_nd.d, n_over_d(psr_nd));
+	  //	  ND psr_nd = psr(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
+	  //	  ND psr_nd_rev = psr(the_accessions->a[i_match], q_gts, the_genotypes_set->chromosomes);
+
+	  //fprintf(stderr, "a,psrnd: %7.5f  %ld %ld  %7.5f\n", agmr, psr_nd.n, psr_nd.d, n_over_d(psr_nd));
+	  ND psr_nd = phase_switches(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
+	  //	  ND nswht_rev = phase_switches(the_accessions->a[i_match], q_gts, the_genotypes_set->chromosomes);
+	  //fprintf(stderr, "AZ: %ld %ld  %ld %ld \n", nswht.n, nswht.d, nswht_rev.n, nswht_rev.d);
+	  //fprintf(stderr, "SSSS: %s %s  %7.5f   %ld %ld \n", q_gts->id->a, the_accessions->a[i_match]->id->a, agmr, psr_nd.n, psr_nd.d);
 	  double the_psr = n_over_d(psr_nd);
 	  the_mci->psr = the_psr;
 	  push_to_vmci(query_vmcis[i_query], the_mci);
