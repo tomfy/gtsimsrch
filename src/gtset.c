@@ -738,102 +738,198 @@ double ragmr(GenotypesSet* the_gtsset){
   return ragmr;
 }
 
-ND psr(Accession* acc1, Accession* acc2, Vlong* chroms){ // phase mismatch rate
-  // considering just markers with both accessions heterozygous, and both having phase info,
-  // count how many agree and how many disagree about the phase.
+/* ND psr(Accession* acc1, Accession* acc2, Vlong* chroms){ // phase mismatch rate */
+/*   // considering just markers with both accessions heterozygous, and both having phase info, */
+/*   // count how many agree and how many disagree about the phase. */
 
+/*   long n_agree = 0; */
+/*   long n_disagree = 0; */
+/*   long n_agree_chrom = 0; */
+/*   long n_disagree_chrom = 0; */
+/*   long n_agree_b = 0; */
+/*   long n_disagree_b = 0; */
+/*   long n_switches = 0; */
+/*   Vchar* p1s = acc1->phases; */
+/*   Vchar* p2s = acc2->phases; */
+/*   long chrom = chroms->a[0]; */
+/*   long prev_chrom = -1; */
+/*   long prev_switch_position = 0; */
+/*   long spacing = -1; */
+/*   long chrom_switches = 0; */
+/*   long prev_n_het = 0; */
+/*   long n_het = 0; // number of markers heterozyg in both accessions on chrom */
+/*   long n_maxsw = 0; */
+/*   long chrom_sws[18]; */
+/*   if(p1s->length != p2s->length  || p1s->length != chroms->size){ */
+/*     fprintf(stderr, "phases lengths disagree: %ld %ld  chroms->size  %ld\n", p1s->length, p2s->length, chroms->size); */
+/*     exit(EXIT_FAILURE); */
+/*   } */
+
+/*   bool agree; */
+/*   bool prev_agree; */
+/*   for(long i=0; i<p1s->length; i++){ */
+/*     chrom = chroms->a[i]; */
+
+/*     if(chrom != prev_chrom){ */
+/*        if(prev_chrom > 0){ */
+/* 	 spacing = n_het - prev_n_het; // from last switch on prev chrom to end of prev chrom */
+
+/* 	 //fprintf(stderr, "NEW_CHROM. spacing: %ld   %ld %ld\n", spacing, n_het, prev_n_het); */
+/*       	 n_het = 0; */
+/*        prev_n_het = 0; */
+/*        chrom_sws[prev_chrom-1] = chrom_switches; */
+/*        //fprintf(stderr, "BBB: %s  %s   %ld %ld   %ld %ld   %lf   %ld %ld\n", acc1->id->a, acc2->id->a, prev_chrom, chrom, n_agree_chrom, n_disagree_chrom, n_disagree_chrom/(double)(n_agree_chrom + n_disagree_chrom), n_switches, chrom_switches); */
+/*       } */
+    
+/*       if(n_disagree_chrom > n_agree_chrom){ */
+/* 	long tmp = n_disagree_chrom; */
+/* 	n_disagree_chrom = n_agree_chrom; */
+/* 	n_agree_chrom = tmp; */
+/*       } */
+/*       n_agree += n_agree_chrom; */
+/*       n_disagree += n_disagree_chrom; */
+/*       long Nhet_chrom = n_agree_chrom + n_disagree_chrom; */
+/*       n_maxsw += (Nhet_chrom > 1)? Nhet_chrom - 1 : 0; */
+/*       n_agree_chrom = 0; */
+/*       n_disagree_chrom = 0; */
+/*       chrom_switches = 0; */
+     
+/*       prev_switch_position = i; */
+/*     } */
+    
+/*     char p1 = p1s->a[i]; */
+/*     char p2 = p2s->a[i]; */
+/*     //long chrom =  */
+/*     if(p1 == 'p'){ */
+/*       if(p2 == 'p'){ */
+/* 	agree = true; */
+/* 	n_agree_chrom++; */
+/* 	n_agree_b++; */
+/* 	n_het++; */
+/*       }else if(p2 == 'm'){ */
+/* 	agree = false; */
+/* 	n_disagree_chrom++; */
+/* 	n_disagree_b++; */
+/* 	n_het++; */
+/*       } */
+/*     }else if(p1 == 'm'){ */
+/*       if(p2 == 'm'){ */
+/* 	agree = true; */
+/* 	n_agree_chrom++; */
+/* 	n_agree_b++; */
+/* 	n_het++; */
+/*       }else if(p2 == 'p'){ */
+/* 	agree = false; */
+/* 	n_disagree_chrom++; */
+/* 	n_disagree_b++; */
+/* 	n_het++; */
+/*       } */
+/*     } */
+    
+/*     if((chrom == prev_chrom)  &&  (agree != prev_agree)){ */
+/*       n_switches++; */
+/*       chrom_switches++; */
+/*       spacing = n_het - prev_n_het; // i - prev_switch_position; */
+    
+/*       //fprintf(stderr, "SWITCH. spacing: %ld  %ld %ld\n", spacing, n_het, prev_n_het); */
+/*       prev_n_het = n_het; */
+/*       prev_switch_position = i; */
+/*     } */
+/*     prev_agree = agree; */
+/*     prev_chrom = chrom; */
+/*   } // end loop over markers */
+/*   spacing = n_het - prev_n_het; */
+/*   //fprintf(stderr, "END. spacing: %ld  %ld %ld \n", spacing, n_het, prev_n_het); */
+/*   //fprintf(stderr, "END BBB: %s  %s   %ld %ld   %ld %ld   %lf   %ld %ld\n", acc1->id->a, acc2->id->a, prev_chrom, chrom, n_agree_chrom, n_disagree_chrom, n_disagree_chrom/(double)(n_agree_chrom + n_disagree_chrom), n_switches, chrom_switches); */
+/*   if(n_disagree_chrom > n_agree_chrom){ */
+/*     long tmp = n_disagree_chrom; */
+/*     n_disagree_chrom = n_agree_chrom; */
+/*     n_agree_chrom = tmp; */
+/*   } */
+  
+/*   chrom_sws[chroms->a[chroms->size-1]-1] = chrom_switches; */
+/*   n_agree += n_agree_chrom; */
+/*   n_disagree += n_disagree_chrom; */
+/*   long Nhet_chrom = n_agree_chrom + n_disagree_chrom; */
+/*   n_maxsw +=  (Nhet_chrom > 1)? Nhet_chrom - 1 : 0; // max number of possible switches */
+/*   fprintf(stderr, "YYY:  "); */
+/*   for(long k=0; k<18; k++){ */
+/*     fprintf(stderr, "%ld ", chrom_sws[k]); */
+/*   } fprintf(stderr, "\n"); */
+/*     //fprintf(stderr, "Z na, nda chrom: %ld %ld \n", n_agree_chrom, n_disagree_chrom); */
+/*   //fprintf(stderr, "ZZZ: %ld %ld  %ld %ld  %ld  %7.5f\n", n_agree, n_disagree, n_agree_b, n_disagree_b, n_switches, n_over_d((ND){n_switches, n_agree+n_disagree-1})); */
+
+/*   //fprintf(stderr, "NHET: %ld   %ld \n", n_het, n_agree+n_disagree); */
+/*   ND result = {n_switches, n_maxsw}; */
+/*   return result; */
+/* } */
+
+ND phase_switches_one_chrom(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start){
+  long the_chrom = chroms->a[*start];
   long n_agree = 0;
   long n_disagree = 0;
-  long n_agree_chrom = 0;
-  long n_disagree_chrom = 0;
-  long n_agree_b = 0;
-  long n_disagree_b = 0;
   long n_switches = 0;
-  Vchar* p1s = acc1->phases;
-  Vchar* p2s = acc2->phases;
-  long chrom = chroms->a[0];
-  long prev_chrom = -1;
-  long prev_switch_position = 0;
-  long spacing = -1;
-  if(p1s->length != p2s->length  || p1s->length != chroms->size){
-    fprintf(stderr, "phases lengths disagree: %ld %ld  chroms->size  %ld\n", p1s->length, p2s->length, chroms->size);
-    exit(EXIT_FAILURE);
-  }
-
-  bool agree;
-  bool prev_agree;
-  for(long i=0; i<p1s->length; i++){
-    chrom = chroms->a[i];
-
-    if(chrom != prev_chrom){
-      fprintf(stderr, "Z na, nda chrom: %ld %ld   %ld %ld \n", prev_chrom, chrom, n_agree_chrom, n_disagree_chrom);
-      fprintf(stderr, "BBB: %s  %s   %ld %ld   %ld %ld   %lf\n", acc1->id->a, acc2->id->a, prev_chrom, chrom, n_agree_chrom, n_disagree_chrom, n_disagree_chrom/(double)(n_agree_chrom + n_disagree_chrom));
-      if(n_disagree_chrom > n_agree_chrom){
-	long tmp = n_disagree_chrom;
-	n_disagree_chrom = n_agree_chrom;
-	n_agree_chrom = tmp;
-      }
-      n_agree += n_agree_chrom;
-      n_disagree += n_disagree_chrom;
-      n_agree_chrom = 0;
-      n_disagree_chrom = 0;
-      if(prev_chrom > 0){
-      spacing = i - prev_switch_position;
-      fprintf(stderr, "Aspacing: %ld \n", spacing);
-      }
-      prev_switch_position = i;
-    }
-    
+  long n_het = 0;
+  bool prev_agree, agree;
+  // Vchar* p1s = acc1->phases;
+  //  Vchar* p2s = acc2->phases;
+  long i;
+  for(i = *start; ((i < chroms->size) && (chroms->a[i] == the_chrom)); i++){
+  
     char p1 = p1s->a[i];
     char p2 = p2s->a[i];
-    //long chrom = 
+  
     if(p1 == 'p'){
       if(p2 == 'p'){
 	agree = true;
-	n_agree_chrom++;
-	n_agree_b++;
+	n_agree++;
+	n_het++;
       }else if(p2 == 'm'){
 	agree = false;
-	n_disagree_chrom++;
-	n_disagree_b++;
+	n_disagree++;
+	n_het++;
       }
     }else if(p1 == 'm'){
       if(p2 == 'm'){
 	agree = true;
-	n_agree_chrom++;
-	n_agree_b++;
+	n_agree++;
+	n_het++;
       }else if(p2 == 'p'){
 	agree = false;
-	n_disagree_chrom++;
-	n_disagree_b++;
+	n_disagree++;
+	n_het++;
       }
     }
-    
-    if((chrom == prev_chrom)  &&  (agree != prev_agree)){
-      n_switches++;
-      spacing = i - prev_switch_position;
-      fprintf(stderr, "Bspacing: %ld \n", spacing);
-      prev_switch_position = i;
+    if((n_het > 1) && (agree != prev_agree)){
+	n_switches++;
     }
     prev_agree = agree;
-    prev_chrom = chrom;
-  } // end loop over markers
-  spacing = p1s->length - prev_switch_position;
-  fprintf(stderr, "Cspacing: %ld \n", spacing);
-  if(n_disagree_chrom > n_agree_chrom){
-    long tmp = n_disagree_chrom;
-    n_disagree_chrom = n_agree_chrom;
-    n_agree_chrom = tmp;
-  }
-  n_agree += n_agree_chrom;
-  n_disagree += n_disagree_chrom;
-
-  fprintf(stderr, "Z na, nda chrom: %ld %ld \n", n_agree_chrom, n_disagree_chrom);
-  fprintf(stderr, "ZZZ: %ld %ld  %ld %ld  %ld  %7.5f\n", n_agree, n_disagree, n_agree_b, n_disagree_b, n_switches, n_over_d((ND){n_switches, n_agree+n_disagree-1}));
-																				   
-  ND result = {n_switches, n_agree + n_disagree - 1};
-  return result;
+  } // end loop over markers on chrom
+  *start = i;
+  return (ND){n_switches, n_het};
 }
+
+ND phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms){
+  Vchar* p1s = acc1->phases;
+  Vchar* p2s = acc2->phases;
+  //Vlong* chrom_switch_counts = construct_vlong_zeroes(18);
+  long start = 0;
+  ND nsw_maxsw = {0, 0};
+  while(true){
+    //long the_chrom = chroms->a[start];
+    ND nsw_nht_chrom = phase_switches_one_chrom(p1s, p2s, chroms, &start);
+    //chrom_switch_counts->a[the_chrom-1] = nsw_nht_chrom.n;
+    nsw_maxsw.n += nsw_nht_chrom.n;
+    nsw_maxsw.d += (nsw_nht_chrom.d > 1)? nsw_nht_chrom.d-1 : 0;
+    if(start == chroms->size) break;
+  }
+  //fprintf(stderr, "WWW: ");
+  /* for(long j=0; j<18; j++){ */
+  /*   fprintf(stderr, " %ld", chrom_switch_counts->a[j]); */
+  /* }fprintf(stderr, "\n"); */
+  return nsw_maxsw;
+}
+
 
 void print_genotypesset_stats(GenotypesSet* gtss){
   fprintf(stderr, "max_marker_missing_data_fraction: %8.4f\n", gtss->max_marker_missing_data_fraction);
@@ -1312,8 +1408,18 @@ four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2){
 }
 
 ND bitwise_hgmr(Accession* acc1, Accession* acc2){
-  ND rval = {0, 0};
+  //ND rval = {0, 0};
+  // dosage   AB 
+  //   0      00
+  //   1      01
+  //   2      11
+  //   3      10
   unsigned long long isOi, isXi, isOj, isXj;
+  long n_02_20 = 0;
+  long n_00_22 = 0;
+  long n_11 = 0;
+  long n_1ok = 0;
+  long n_ok1 = 0;
   for(long i_long = 0; i_long < acc1->Abits->size; i_long++){
     unsigned long long iA = acc1->Abits->a[i_long];
     unsigned long long iB = acc1->Bbits->a[i_long];
@@ -1321,21 +1427,34 @@ ND bitwise_hgmr(Accession* acc1, Accession* acc2){
     unsigned long long jB = acc2->Bbits->a[i_long];
     isOi = ~(iA ^ iB);
     isOj = ~(jA ^ jB);
-    //isXi = ~iA & iB;
-    //isXj = ~jA & jB;
-    unsigned long long isDo = (iA ^ jB) & isOi & isOj;
-    unsigned long long isSo = ~(iA ^ jB) & isOi & isOj;
+    isXi = ~iA & iB; // acc1 heterozyg
+    isXj = ~jA & jB; // acc2 heterozyg
+    unsigned long long isDo = (iA ^ jB) & isOi & isOj; // both homozyg, but different (02, 20)
+    unsigned long long isSo = ~(iA ^ jB) & isOi & isOj; // both homozyg, same (00, 22)
+    
     //unsigned long long isDx = (isOi & isXj) | (isOj & isXi);
-    //unsigned long long isSx = isXi & isXj;
-    // D: difference, S: same, o: homozyg, x: (at least 1) heterozyg.
+  
+    // D: different, S: same, o: homozyg, x: (at least 1) heterozyg.
     //   Ndo  i.e. number of markers with both homozyg, but different
     //     (i.e. 02 and 20)
-      rval.n += __builtin_popcountll(isDo); 
-      //   Nso   00, 22
-      rval.d += __builtin_popcountll(isSo);
+    n_02_20 += __builtin_popcountll(isDo); 
+    //   Nso   00, 22
+    n_00_22 += __builtin_popcountll(isSo);
+
+    if(0){ // this block needed for calculating phi
+      unsigned long long is11 = isXi & isXj; // both heterozyg
+      unsigned long long is_1ok = isXi & (~jA | jB); // acc1 is het, acc2 not missing
+      unsigned long long is_ok1 = isXj & (~iA | iB); // acc2 is het, acc1 not missing
+      n_11 += __builtin_popcountll(is11);
+      n_1ok += __builtin_popcountll(is_1ok);
+      n_ok1 += __builtin_popcountll(is_ok1);
+    }
+      
   }
-  rval.d += rval.n; 
-  return rval;
+  /* double phi = (double)(n_11 - 2*n_02_20)/(double)(n_1ok + n_ok1); */
+  /* double hgmr = (double)(n_02_20)/(double)(n_02_20 + n_00_22); */
+  /* fprintf(stderr, "XYZ: %ld %ld   %ld  %ld %ld  %7.5f  %7.5f\n", n_02_20, n_00_22, n_11, n_1ok, n_ok1, hgmr, phi); */
+  return (ND){n_02_20, n_02_20 + n_00_22};
 }
 
 void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** pairwise_info, double max_hgmr){
@@ -1568,12 +1687,23 @@ void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
   for(long i=0; i<the_gtsset->n_markers; i++){
     fprintf(fh, "%s ", the_gtsset->marker_ids->a[i]);
   }fprintf(fh, "\n");
+  fprintf(fh, "CHROMOSOME  ");
+  for(long i=0; i<the_gtsset->n_markers; i++){
+    fprintf(fh, "%ld ", the_gtsset->chromosomes->a[i]);
+  }fprintf(fh, "\n");
+  
   for(long i=0; i<the_gtsset->n_accessions; i++){
     Accession* acc = the_gtsset->accessions->a[i];
-    fprintf(fh, "%24s  ", acc->id->a);
+    fprintf(fh, "%s  ", acc->id->a);
     for(long j=0; j < acc->genotypes->length; j++){
       char gt = acc->genotypes->a[j];
+      char phase = acc->phases->a[j];
       if(gt == '~') gt = 'X';
+      if(phase == 'p'){
+	fprintf(fh, "+");
+      }else if(phase == 'm'){
+	fprintf(fh, "-");
+      }
       fprintf(fh, "%c ", gt); // acc->genotypes->a[j]);
     }
     fprintf(fh, "\n");

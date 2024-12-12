@@ -180,6 +180,9 @@ Vidxid* construct_vidxid(const Vaccession* accessions);
 Vidxid* construct_sorted_vidxid(const Vaccession* accessions);
 long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);
 
+ND phase_switches_one_chrom(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start);
+ND phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms);
+
 // ##### unused #####
 
 double agmr0(GenotypesSet* the_gtsset);
