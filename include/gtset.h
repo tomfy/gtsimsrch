@@ -110,15 +110,12 @@ two_chars token_to_dosage(char* token, long* ploidy);
 Accession* construct_accession(char* id, long idx, char* genotypes, char* phases, long accession_md_count);
 void set_accession_missing_data_count(Accession* the_accession, long missing_data_count);
 long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_chunks, long k, long ploidy);
-char* print_accession(Accession* the_gts, FILE* ostream);
-
+char* print_accession(Accession* the_acc, FILE* ostream);
 void free_accession(Accession* the_accession);
-void free_accession_innards(Accession* the_accession);
 
 // *****  Vaccession  *****
 Vaccession* construct_vaccession(long cap);
 void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc);
-void shuffle_order_of_accessions(GenotypesSet* the_genotypes_set);
 void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy);
 void print_vaccession(Vaccession* the_accessions, FILE* ostream);
 void check_accession_indices(Vaccession* the_accessions);
@@ -126,24 +123,14 @@ void free_vaccession(Vaccession* the_vacc);
 
 // *****  GenotypesSet  *****
 GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double min_min_allele_freq, long ploidy);
-//GenotypesSet* read_dosages_file_and_store(char* input_filename, double delta);
-//GenotypesSet* read_genotypes_file_and_store(char* input_filename);
-
 void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction, long Nthreads);
 void threaded_input(FILE* in_stream, long n_lines_in_chunk, double max_acc_md_fraction, long Nthreads, Vstr* marker_ids, GenotypesSet* the_genotypes_set);
 void* input_lines_1thread(void* x); // for threaded processing of input lines.
-// void read_dosages_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
-// char token_to_dosage(char* token, long* ploidy);
-// void read_genotypes_file_and_add_to_genotypesset(char* input_filename, GenotypesSet* the_genotypes_set);
 
-void check_gtsset(GenotypesSet* gtsset);
-//GenotypesSet* construct_genotypesset(Vaccession* accessions, Vstr* marker_ids, Vlong* md_counts, double delta, double max_marker_md_fraction);
 void print_genotypesset_stats(GenotypesSet* gtss);
 void check_genotypesset(GenotypesSet* gtss);
-// GenotypesSet* construct_filtered_genotypesset(const GenotypesSet* the_gtsset, double max_md_fraction);
 void filter_genotypesset(GenotypesSet* the_genotypes_set, FILE* ostream);
-void print_info_re_filtering(GenotypesSet* the_gtsset, FILE* fh);
 void rectify_markers(GenotypesSet* the_gtsset);
 void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid only
 void* set_Abits_Bbits_1thread(void* x);

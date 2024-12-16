@@ -49,3 +49,10 @@ void print_n_over_d(FILE* fh, ND nd){
 bool NDs_equal(ND nd1, ND nd2){
   return ((nd1.n == nd2.n) && (nd1.d == nd2.d));
 }
+
+long long_min(long a, long b){
+  return (a <= b)? a : b;
+}
+long long_max(long a, long b){
+  return (a >= b)? a : b;
+}

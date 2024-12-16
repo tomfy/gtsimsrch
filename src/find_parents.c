@@ -108,7 +108,7 @@ main(int argc, char *argv[])
       //  {"sort_by_z", no_argument, 0, 's'},
       {"check", no_argument, 0, 'k'}, // not implemented
       {"alternative_pedigrees_level", required_argument, 0, 'd'},
-      {"rand_seed", required_argument, 0, 'r'},
+      {"seed", required_argument, 0, 'r'},
       {"hgmr_max", required_argument, 0, 'H'},
       {"agmr_self_max", required_argument, 0, 'S'},
       {"R_self_max", required_argument, 0, 'R'},

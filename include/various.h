@@ -47,3 +47,6 @@ double n_over_d(ND the_nd);
 void print_d_r(FILE* fh, ND nd);
 void print_n_over_d(FILE* fh, ND nd);
 bool NDs_equal(ND nd1, ND nd2);
+
+long long_min(long a, long b);
+long long_max(long a, long b);

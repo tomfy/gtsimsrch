@@ -13,8 +13,8 @@
 #include <stdbool.h>
 #include <errno.h>
 
-
 #include "gtset.h"
+#include "pedigree.h"
 
 #define DISTANCE_NORM_FACTOR (1.0) //
 // defaults
@@ -24,7 +24,6 @@
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
 #define DEFAULT_MIN_MAF  0.1
 #define BITWISE true
-// #define MATRIX_DISTINCT_VALUES 100
 #define DO_EXACT_AGMR  true // make this 0 to only do the estimated agmrs.
 
 //***********************************************************************************************
@@ -51,7 +50,6 @@ typedef struct{
   double usable_chunks; // estimate or actual count
   long n_matching_chunks;
   double est_dist;
-  //double dist;
   double agmr;
   double hgmr;
   double agmr0;
@@ -91,23 +89,20 @@ int  do_checks = 0;
 
 // *********************** function declarations ************************************************
 void print_usage_info(FILE* ostream);
-char* ipat_to_strpat(long len, long ipat); // unused
-long strpat_to_ipat(long len, char* strpat); // unused
-//ND distance(Accession* acc1, Accession* acc2);
-four_longs agmr_hgmr_diploid(Accession* gtset1, Accession* gtset2);
-//Vdouble* distances_random_sample(GenotypesSet* the_gtset, long n);
-
+//char* ipat_to_strpat(long len, long ipat); // unused
+//long strpat_to_ipat(long len, char* strpat); // unused
+four_longs agmr_hgmr_diploid(Accession* gtset1, Accession* gtset2); // used iff not bitwise (i.e. if BITWISE is false)
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
 		   double est_dist, double agmr, double hgmr, double psr); // agmr0);
 // *****  Vmci  *********************************************************************************
-Vmci* construct_vmci(long init_size);
-void push_to_vmci(Vmci* the_vmci, Mci* the_mci);
+Vmci* construct_vmci(long init_size); // used in find_matches
+void push_to_vmci(Vmci* the_vmci, Mci* the_mci); // used in check_est_distances_1thread
 void sort_vmci_by_agmr(Vmci* the_vmci); // sort Vmci by distance
-void sort_vmci_by_index(Vmci* the_vmci); // sort Vmci by index
-int cmpmci_a(const void* v1, const void* v2);
-int cmpmci_i(const void* v1, const void* v2);
+int cmpmci_a(const void* v1, const void* v2); // comparison function for sort_vmci_by_agmr
+// void sort_vmci_by_index(Vmci* the_vmci); // sort Vmci by index  // unused
+//int cmpmci_i(const void* v1, const void* v2);
 void free_vmci(Vmci* the_vmci);
 
 
@@ -120,7 +115,7 @@ Chunk_pattern_idxs* construct_chunk_pattern_idxs(long n_chunks, long chunk_size,
 // Vlong** get_all_match_counts(long n_accessions, Chunk_pattern_idxs* the_cpi);
 double populate_chunk_pattern_idxs_from_vaccession(const Vaccession* the_accessions, Chunk_pattern_idxs* the_cpi, long first_chunk, long last_chunk);
 double count_chunk_matches(Chunk_pattern_idxs* the_cpi); // count the number of matching chunks among all accessions.
-void print_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi, FILE* ostream);
+void print_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi, FILE* ostream); // unused
 void free_chunk_pattern_idxs(Chunk_pattern_idxs* the_cpi);
 
 // *****  Gts and Chunk_pattern_idxs  ***********
@@ -141,14 +136,12 @@ double clock_time(clockid_t a_clock){
   return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
 }
 
-long check_phases(Accession* acc);
+two_longs check_phases(Accession* acc);
 
 
 // *************************  end of declarations  **********************************************
 
 bool get_all_est_agmrs;
-// Vdouble** estimated_agmrs;
-//unsigned char**
 double** est_agmrs; 
 
 
@@ -418,21 +411,15 @@ main(int argc, char *argv[])
    fprintf(out_stream, "# Done reading dosage data from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_bad_accessions, the_genotypes_set->n_markers);
   
-  if(shuffle_accessions) shuffle_order_of_accessions(the_genotypes_set); // I thought this might help to spread load evenly over threads, but no.
+   //  if(shuffle_accessions) shuffle_order_of_accessions(the_genotypes_set); // I thought this might help to spread load evenly over threads, but no.
     
   ploidy = the_genotypes_set->ploidy;
   if(ploidy != 2) { fprintf(stderr, "# Ploidy of %ld detected. Non-diploid ploidy not implemented. Exiting.\n", ploidy); exit(EXIT_FAILURE); }
-  // double t_after_read = clock_time(clock1);
-  // 'rectification' not needed.
+  // 'rectification' not needed for duplicate_search
   // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common than 2 for all markers.
-  fprintf(stderr, "sss: %ld\n", the_genotypes_set->chromosomes->size); //  == NULL)? 0 : 1);
   //check_genotypesset(the_genotypes_set);
   if(do_filtering) filter_genotypesset(the_genotypes_set, out_stream);
-  fprintf(stderr, "ssss: %ld\n", the_genotypes_set->chromosomes->size); //? 0 : 1);
-  // double t_after_filter = clock_time(clock1);
   //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicate_search
-  //  double t_after_store_homozygs = clock_time(clock1);
-  // fprintf(stderr, "# times. \n# to read: %8.5lf\n# to filter: %8.5lf\n", t_after_read-t_start, t_after_filter-t_after_read);
   
   long n_accessions = the_genotypes_set->accessions->size;   
   long n_markers = the_genotypes_set->n_markers;
@@ -447,7 +434,6 @@ main(int argc, char *argv[])
     if( strlen(filtered_output_filename) == 0){ // in case empty string specified as filename, use default
       filtered_output_filename = "filtered_dosages.out";
     }
-    // if(print_filtered_gtset){ 
     FILE* fh_gtsout = fopen(filtered_output_filename, "w");
     fprintf(stderr, "before print_genotypesset.\n");
     print_genotypesset(fh_gtsout, the_genotypes_set);
@@ -458,19 +444,26 @@ main(int argc, char *argv[])
   double t_after_input = clock_time(clock1);
   fprintf(stdout, "# Time to load & filter dosage data: %6.3lf sec.\n", t_after_input - t_start);
   // *****  done reading, filtering, and storing input  **********
-  //t_setup += (t_after_input - t_start);
   
   check_genotypesset(the_genotypes_set);
-  /* for(long i=0; i < the_genotypes_set->accessions->size; i++){ */
-  /*   Accession* an_acc = the_genotypes_set->accessions->a[i]; */
-  /*    check_phases(an_acc); */
-  /* } */
+  for(long i=0; i < the_genotypes_set->accessions->size; i++){
+    Accession* an_acc = the_genotypes_set->accessions->a[i];
+    two_longs n_bad_no_phase = check_phases(an_acc);
+    if(n_bad_no_phase.l2 > 0) fprintf(stderr, "unphased data present at %ld markers. \n", n_bad_no_phase.l2);
+    if(n_bad_no_phase.l1 > 0){
+      fprintf(stderr, "N bad phases: %ld.\n", n_bad_no_phase.l1);
+      exit(EXIT_FAILURE);
+    }
+  }
   double t_after_chk = clock_time(clock1);
   fprintf(stdout, "# Time for check_genotypesset: %lf\n", t_after_chk - t_after_input);
   if(BITWISE || get_all_est_agmrs) set_Abits_Bbits(the_genotypes_set, Nthreads);
   double t_after_set_ABbits = clock_time(clock1);
   fprintf(stdout, "# Time for set_Abits_Bbits: %lf\n", t_after_set_ABbits - t_after_chk);
 
+
+  /*
+  
   if(get_all_distances  ||  get_all_est_agmrs){
     FILE* fh_accidsout = fopen("accIds", "w");
     for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
@@ -499,6 +492,7 @@ main(int argc, char *argv[])
     fprintf(stderr, "# time for full distance matrix:  %6.3f\n", clock_time(clock1) - t_before_x);
   
   }
+  
   if(get_all_est_agmrs){ // allocate memory for estimated_agmrs matrix 
     //estimated_agmrs = (Vdouble**)malloc(the_genotypes_set->n_accessions*sizeof(Vdouble*));
     //est_agmrs = (unsigned char**)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char*));
@@ -509,6 +503,9 @@ main(int argc, char *argv[])
         est_agmrs[i] = (double*)malloc(the_genotypes_set->n_accessions*sizeof(double*));
     }
   }
+
+  /* */
+  
   double t_before_pop_marker_dosage_counts = clock_time(clock1);
   populate_marker_dosage_counts(the_genotypes_set);
   // set_agmr0s(the_genotypes_set);
@@ -518,23 +515,6 @@ main(int argc, char *argv[])
 
   // agmr0(the_genotypes_set); // calculate the overall agmr0 for the genotypes set. 
   the_genotypes_set->agmr0 = 1;
-  
-  /* if(max_est_dist < 0){ // get max_est_dist so as to do approx. n_ds_to_get distance calculations */
-  /*   // get random sample of distances */
-  /*   distance_random_sample_size = 2*n_accessions; */
-  /*   Vdouble* rand_distances = distances_random_sample(the_genotypes_set, distance_random_sample_size); */
-  /*   Vdouble* sorted_rand_distances = sort_vdouble(rand_distances); */
-  /*   double n_ds_all = 0.5*(n_accessions - the_genotypes_set->n_ref_accessions)*(n_accessions + the_genotypes_set->n_ref_accessions - 1); */
-  /*   long max_dist_idx = (long)((n_ds_to_get/n_ds_all)*distance_random_sample_size); */
-  /*   fprintf(stderr, "# %ld  %ld  %ld\n", n_ds_to_get, distance_random_sample_size, (long)n_ds_all); */
-  /*   if (max_dist_idx >= sorted_rand_distances->size) max_dist_idx = sorted_rand_distances->size-1; */
-  /*   fprintf(stderr, "# %ld %ld \n", max_dist_idx, sorted_rand_distances->size); */
-  /*   max_est_dist = sorted_rand_distances->a[max_dist_idx]; */
-  /*   fprintf(stdout, "# Max. estimated distance: %8.5f\n", max_est_dist); */
-  /*   fprintf(out_stream, "# Max. estimated distance: %8.5f\n", max_est_dist); */
-  /*   free_vdouble(sorted_rand_distances); */
-  /* } */
-
 
   Vlong* marker_indices = construct_vlong_whole_numbers(n_markers);
   shuffle_vlong(marker_indices);
@@ -902,9 +882,7 @@ void sort_vmci_by_agmr(Vmci* the_vmci){ // sort by distance (low to high), query
   qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_a);
 }
 
-void sort_vmci_by_index(Vmci* the_vmci){ // sort by query index
-  qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_i);
-}
+
 
 // *********************************************
 // *********************************************
@@ -1084,16 +1062,10 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	  est_dist += 0.0025*(((double)rand())/RAND_MAX -0.5);
 	  if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX);
 	  Mci* the_mci = construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr, agmr_nought);
-	  // fprintf(stderr, "chromz: %d\n", (the_genotypes_set->chromosomes == NULL)? 0 : 1);
 
-	  //	  ND psr_nd = psr(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
-	  //	  ND psr_nd_rev = psr(the_accessions->a[i_match], q_gts, the_genotypes_set->chromosomes);
-
-	  //fprintf(stderr, "a,psrnd: %7.5f  %ld %ld  %7.5f\n", agmr, psr_nd.n, psr_nd.d, n_over_d(psr_nd));
 	  ND psr_nd = phase_switches(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
-	  //	  ND nswht_rev = phase_switches(the_accessions->a[i_match], q_gts, the_genotypes_set->chromosomes);
-	  //fprintf(stderr, "AZ: %ld %ld  %ld %ld \n", nswht.n, nswht.d, nswht_rev.n, nswht_rev.d);
-	  //fprintf(stderr, "SSSS: %s %s  %7.5f   %ld %ld \n", q_gts->id->a, the_accessions->a[i_match]->id->a, agmr, psr_nd.n, psr_nd.d);
+	  Xcounts_2 Xovers2 = count_crossovers_one_parent(the_genotypes_set, q_gts, the_accessions->a[i_match]);
+	  fprintf(stderr, "SSSS: %s %s  %7.5f   %ld %ld   %ld %ld  %ld\n", q_gts->id->a, the_accessions->a[i_match]->id->a, agmr, psr_nd.n, psr_nd.d, Xovers2.Xa, Xovers2.Xb, Xovers2.Nhet);
 	  double the_psr = n_over_d(psr_nd);
 	  the_mci->psr = the_psr;
 	  push_to_vmci(query_vmcis[i_query], the_mci);
@@ -1178,19 +1150,24 @@ void print_command_line(FILE* ostream, int argc, char** argv){
   }fprintf(ostream, "\n");
 }
 
-long check_phases(Accession* acc){
+two_longs check_phases(Accession* acc){
+  long n_bad = 0;
+  long n_no_phase = 0;
   for(long i=0; i < acc->genotypes->length; i++){
-    // fprintf(stderr, "i: %ld\n", i);
     char gt = acc->genotypes->a[i];
     char phase = acc->phases->a[i];
     if((gt == '0' || gt == '2') && (phase != 'x')){
-      fprintf(stderr, "%c %c \n", gt, phase);
+      n_bad++;
     }
     if( (gt == '1') && (phase != 'p'  &&  phase != 'm') ){
-      fprintf(stderr, "%c %c \n", gt, phase);
+      if(phase == 'x'){
+	n_no_phase++;
+      }else{
+	n_bad++;
+      }
     }
   }
-  return 0;
+  return (two_longs){n_bad, n_no_phase};
 }
 
 
@@ -1831,6 +1808,11 @@ void print_matrix_line_txt(FILE* fh, long size, unsigned char* values, long n_di
 /*     } */
 /*   } */
 /*   return distances; */
+/* } */
+
+
+/* void sort_vmci_by_index(Vmci* the_vmci){ // sort by query index */
+/*   qsort(the_vmci->a, the_vmci->size, sizeof(Mci*), cmpmci_i); */
 /* } */
 
 // *****  end of function definitions  *****

@@ -48,6 +48,8 @@ void set_accession_missing_data_count(Accession* the_accession, long missing_dat
 }
 
 // for one accession's set of genotypes, loop over chunks and find the gt patterns. Store in the_gts->chunk_patterns
+
+
 long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_chunks, long k, long ploidy){
   long gts_mdchunk_count = 0;
   long n_patterns = int_power(ploidy+1, k); // 3^k, the number of valid patterns, also there is a 'pattern' for missing data, making 3^k + 1 in all
@@ -89,11 +91,17 @@ long set_accession_chunk_patterns(Accession* the_gts, Vlong* m_indices, long n_c
   return gts_mdchunk_count;
 }
 
-char* print_accession(Accession* the_gts, FILE* ostream){
-  // fprintf(ostream, "Gts index: %ld  gtset: %s\n", the_gts->index, the_gts->genotypes);
-  // fprintf(ostream, "%s  %s\n", the_gts->id, the_gts->genotypes);
+void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy){
+  long total_mdchunk_count = 0;
+  for(long i=0; i < the_accessions->size; i++){
+    long mdchcount = set_accession_chunk_patterns(the_accessions->a[i], m_indices, n_chunks, k, ploidy);
+    total_mdchunk_count += mdchcount;
+  }
+}
+
+char* print_accession(Accession* the_acc, FILE* ostream){
   fprintf(ostream, "Accession id: %s index: %ld length: %ld missing data count:  %ld\n",
-	  the_gts->id->a, the_gts->index, the_gts->genotypes->length, the_gts->missing_data_count);
+	  the_acc->id->a, the_acc->index, the_acc->genotypes->length, the_acc->missing_data_count);
 }
 
 void free_accession(Accession* the_accession){
@@ -107,13 +115,6 @@ void free_accession(Accession* the_accession){
   free_vull(the_accession->Bbits);
   free(the_accession);
 }
-
-/* void free_accession_innards(Accession* the_accession){ // doesn't free the_accession itself */
-/*   // use to free each element of an array of Accession (not an array of Accession*) */
-/*   if(the_accession == NULL) return; */
-/*   free_vchar(the_accession->id); */
-/*   free_vchar(the_accession->genotypes); */
-/* } */
 
 // *****  Vaccession implementation  *****
 Vaccession* construct_vaccession(long cap){ // construct Vaccession with capacity of cap, but empty.
@@ -137,48 +138,11 @@ void push_to_vaccession(Vaccession* the_vacc, Accession* the_acc){
 }
 
 
-void shuffle_order_of_accessions(GenotypesSet* the_genotypes_set){
-  long n_ref = the_genotypes_set->n_ref_accessions;
-  long n_new = the_genotypes_set->accessions->size - n_ref;
-  Vaccession* accessions = the_genotypes_set->accessions; // construct_vaccession(n_ref + n_new);
-
-  Accession* temp_acc;
-   for(long i=0; i<n_ref-1; i++){
-    long j = i+1 + (long)((n_ref-1-i)*(double)rand()/RAND_MAX); // get an integer in the range [i+1,n_ref-1]
-    temp_acc = accessions->a[j];
-    accessions->a[j] = accessions->a[i];
-    //   accessions->a[j]->index = j;
-    accessions->a[i] = temp_acc;
-    //   accessions->a[i]->index = i;
-  }
-
-  for(long i=0; i<n_new-1; i++){
-    long j = i+1 + (long)((n_new-1-i)*(double)rand()/RAND_MAX); // get an integer in the range [i+1,n_new-1]
-    temp_acc = accessions->a[j + n_ref];
-    accessions->a[j + n_ref] = accessions->a[i + n_ref];
-    //  accessions->a[j + n_ref]->index = j + n_ref;
-    accessions->a[i + n_ref] = temp_acc;
-    //  accessions->a[i + n_ref]->index = i + n_ref;
-  }
-  for(long i=0; i<the_genotypes_set->accessions->size; i++){
-    accessions->a[i]->index = i;
-  }
- 
-}
-
-void set_vaccession_chunk_patterns(Vaccession* the_accessions, Vlong* m_indices, long n_chunks, long k, long ploidy){
-  long total_mdchunk_count = 0;
-  for(long i=0; i < the_accessions->size; i++){
-    long mdchcount = set_accession_chunk_patterns(the_accessions->a[i], m_indices, n_chunks, k, ploidy);
-    total_mdchunk_count += mdchcount;
-  }
-}
 
 void print_vaccession(Vaccession* the_accessions, FILE* ostream){
   for(int i=0; i<the_accessions->size; i++){
     print_accession(the_accessions->a[i], ostream);
   }
-
 }
 
 void check_accession_indices(Vaccession* the_accessions){
@@ -1879,19 +1843,7 @@ double agmr0_qvsall(const GenotypesSet* the_gtsset, Accession* A){
   return agmr0;
 } /* */
 
-void print_info_re_filtering(GenotypesSet* the_gtsset, FILE* fh){
-  /* fprintf(fh, "# Number of accessions with genotypes, before filtering: %ld\n", the_gtsset->n_accessions + the_gtsset->n_bad_accessions); */
-  /* fprintf(fh, "# Removing accessions with missing data fraction > %6.4lf\n"); */
-  /* fprintf(fh, "# There are %ld markers before filtering, missing data fraction = %5.3lf, minor allele frequency = %5.3f\n", */
-  /* 	  the_gtsset->marker_md_counts->size, the_gtsset->raw_md_fraction, the_gtsset->raw_minor_allele_freq);    */
-  /* fprintf(fh, "# Removing markers with missing data fraction > %6.4lf\n", the_gtsset->max_marker_md_fraction); */
-  /* fprintf(fh, "#   removed %ld markers for missing data fraction > %f5.2\n", the_gtsset->too_much_missing_data_count, the_gtsset->max_marker_missing_data_fraction); */
-  /* fprintf(fh, "# Removing markers with minor allele frequency < %5.3f\n", the_gtsset->min_minor_allele_frequency); */
-  /* fprintf(fh, "#   removed an additional %ld markers for maf < %5.2f\n", the_gtsset->maf_too_low_count, the_gtsset->min_minor_allele_frequency);  */
-  /* fprintf(fh, "# Filtered data has %ld markers, missing data fraction = %5.3lf, minor allele frequency = %5.3lf\n", */
-  /* 	  the_gtsset->n_markers_to_keep, the_gtsset->filtered_md_fraction, the_gtsset->filtered_minor_allele_freq); */
 
-}
 
 /*
 two_doubles logPABPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B){ // generalized hgmr (ploidy can be > 2; reduces to hgmr for diploid)
