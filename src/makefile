@@ -46,7 +46,8 @@ plnkout_to_dsout: $(OBJ5)
 
 .PHONY: all
 
-all: duplicate_search pedigree_test find_parents vcf_to_gts plnkout_to_dsout
+all: duplicate_search  find_parents vcf_to_gts plnkout_to_dsout
+#all: duplicate_search pedigree_test find_parents vcf_to_gts plnkout_to_dsout
 
 .PHONY: clean
 
