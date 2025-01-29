@@ -16,11 +16,6 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 use lib $libdir;
 use Cluster1d;
 
-my $missing_data_char = 'X';
-# my $bad_distance = -1;
-# my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_consensus_factor*$line_max_distance
-
-
 # read duplicate_search output and find clusters of accessions
 # with near-identical genotypes
 # specifically, create a graph, and for any pairs in duplicate_search output with
@@ -51,10 +46,12 @@ my $missing_data_char = 'X';
   my $maxD = 1; # just ignore pairs separated by greater distance than this.
   my $output_cluster_filename = "distance_cluster.out";
   my $pow = 1; # cluster transformed values tx_i = pow(x_i, $pow), or if $pow is 'log' tx_i = log(x_i)
-
-  my $id1_column = 1; # unit-based
-  my $id2_column = 2; # unit-based
-  my $d_column = 3; # the distances to use for clustering are found in this column (unit-based)
+# column numbers are unit-based:
+  my $id1_column = 1;
+  my $id2_column = 3;
+  my $mdc1_column = 2; # missing data count, accession 1
+  my $mdc2_column = 4; # missing data count, accession 2
+  my $d_column = 5; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
   my $full_output = 1; # if '-nofull' will not output the degrees, etc for each cluster member, etc.
@@ -97,7 +94,9 @@ my $missing_data_char = 'X';
   # $id_closeidds : keys are ids, values array ref of array refs of ids and distances of other accessions.
 
   #print STDERR "$distances_filename $id1_column $id2_column $d_column $maxD\n";
-  my ($edge_weight, $id_closeidds) = store_distances($distances_filename, $id1_column, $id2_column, $d_column, $maxD);
+  my ($edge_weight, $id_closeidds, $id_mdcount) = store_distances($distances_filename,
+								  $id1_column, $mdc1_column, $id2_column, $mdc2_column,
+								  $d_column, $maxD);
   #######################################################################################################
   # get array of edges order by weight (distance), small to large.
   # while(my ($e, $w) = each %$edge_weight){
@@ -164,14 +163,17 @@ my $missing_data_char = 'X';
     $cluster_q_category++ if($cluster_noncluster_gap < 1.2*$link_max_distance);
     
     my $output_line_string = '';
-    if ($full_output) {
-      my @iddegds = map( sprintf("%s %1d %7.5f  ", $_->[0], $_->[1],
-				 # $_->[2],
-				 $_->[3]), @$out_iddegds);
-      $output_line_string = join("  ", @iddegds);
+    if ($full_output) { # for each duplicate group member output  id, degree, rms dist from duplicates
+      # sort by missing data, low to high.
+      my @sorted_iddegds = sort {$id_mdcount->{$a->[0]} <=> $id_mdcount->{$b->[0]}} @$out_iddegds;
+      
+      $output_line_string = join("  ", map(  sprintf("%s %1d %7.5f  ", $_->[0], $_->[1], $_->[3]) ,@sorted_iddegds) );
     } else {
-      my @ids = map( sprintf("%s  ", $_->[0]), @$out_iddegds);
-      $output_line_string = join("  ", @ids);
+      #my @ids = map( sprintf("%s  ", $_->[0]), @$out_iddegds);
+      my @ids = map($_->[0], @$out_iddegds);
+      my @sorted_ids = sort {$id_mdcount->{$a} <=> $id_mdcount->{$b}} @ids;
+      print join(" ", map(sprintf(" %s %ld ", $_, $id_mdcount->{$_}), @sorted_ids)), "\n";
+      $output_line_string = join("  ", @sorted_ids);
     }
     $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d %4d %4d   %s\n ",
 				  $cluster_size, $cluster_min_d, $cluster_avg_d, $cluster_max_d, $cluster_noncluster_gap,
@@ -211,7 +213,10 @@ my $missing_data_char = 'X';
   print $fhout "# col 9: number of intra-cluster pairs with distance not present in input file.\n";
   #  print $fhout "# col 10: max distance between cluster pt. and cluster consensus.\n";
   #  print $fhout "# col 11: number of cluster pts. further than $d_to_consensus_factor * link_max_distance from cluster consensus.\n";
-  print $fhout "# then clusters and for each the number of other cluster members within link_max_distance.\n";
+  print $fhout "# then ids of cluster members, sorted with least missing data first.\n";
+  print $fhout "# if -full option invoked, then each id is followed by:\n";
+  print $fhout "#   degree of the accession and its rms distance from others in cluster.\n";
+  print $fhout "#   and for each the number of other cluster members within link_max_distance.\n";
   my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
   print $fhout join('', @sorted_output_lines);
   close $fhout;
@@ -239,21 +244,26 @@ sub compare_str{    # sort by cluster size;
 sub store_distances{
   my $distances_filename = shift;
   my $id1_col = shift;
+  my $mdc1_col = shift;
   my $id2_col = shift;
-  my $d_column = shift; # (unit based) column number in which to find the distances.
+  my $mdc2_col = shift;
+  my $d_column = shift; # (unit based) column number in which to find the distances (agmrs).
   my $maxD = shift;
-  $id1_col--; $id2_col--; $d_column--;
+  $id1_col--; $mdc1_col--; $id2_col--; $mdc2_col--; $d_column--; # make them zero-based
   my $n_def = 0;
   my $n_undef = 0;
   my %edge_weight = (); # keys are ordered pairs of accession ids representing graph edges, values are distances
   my %id_closeidds = (); # keys are ids, values array ref of array refs of ids and distances of other accessions.
+  my %id_mdc = (); # keys: ids; values: missing data counts.
   # all pairs found in duplicate_search output are included. id1:[[$id2, $distance12], [$id3, $distance13], ...]
   open my $fhin, "<", "$distances_filename" or die "Couldn't open $distances_filename for reading.\n";
   while (my $line = <$fhin>) {
     next if($line =~ /^\s*#/);
     my @cols = split(" ", $line);
-    my ($id1, $id2) = @cols[$id1_col, $id2_col];
+    my ($id1, $mdc1, $id2, $mdc2) = @cols[$id1_col, $mdc1_col, $id2_col, $mdc2_col];
     my $distance = $cols[$d_column];
+    $id_mdc{$id1} = $mdc1;
+    $id_mdc{$id2} = $mdc2;
     #   print STDERR "$id1 $id2  $distance  $maxD\n";
     next if($distance > $maxD);
     my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
@@ -273,7 +283,7 @@ sub store_distances{
   }
   close $fhin;
   print "n def, undef: $n_def $n_undef\n"; #sleep(2);
-  return (\%edge_weight, \%id_closeidds);
+  return (\%edge_weight, \%id_closeidds, \%id_mdc);
 }
 
 sub auto_max_link_distance{
