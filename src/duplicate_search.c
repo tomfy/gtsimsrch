@@ -461,53 +461,8 @@ main(int argc, char *argv[])
   double t_after_set_ABbits = clock_time(clock1);
   fprintf(stdout, "# Time for set_Abits_Bbits: %lf\n", t_after_set_ABbits - t_after_chk);
 
-
-  /*
-  
-  if(get_all_distances  ||  get_all_est_agmrs){
-    FILE* fh_accidsout = fopen("accIds", "w");
-    for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
-      Accession* q_acc = the_genotypes_set->accessions->a[iq];
-      fprintf(fh_accidsout, "%s\n", q_acc->id->a);
-    }
-  }
-  if(get_all_distances){ //
-    double t_before_x = clock_time(clock1);   
-    FILE* fh_dmatrixout = fopen("agmrMatrix", "w");
-    for(long iq = 0; iq < the_genotypes_set->accessions->size; iq++){
-      Accession* q_acc = the_genotypes_set->accessions->a[iq];
-      // fprintf(fh_accidsout, "%s\n", q_acc->id->a);
-      for(long imatch = 0; imatch < the_genotypes_set->accessions->size; imatch++){
-	four_longs bfcs = bitwise_agmr_hgmr(q_acc, the_genotypes_set->accessions->a[imatch]);  // bfcs: {count_02, count_00_22, count_01_12, count_11}
-	long b_agmr_num = bfcs.l1 + bfcs.l3;
-	long b_agmr_denom = b_agmr_num + bfcs.l2 + bfcs.l4;
-	//	long b_hgmr_num = bfcs.l1;
-	//	long b_hgmr_denom = bfcs.l1 + bfcs.l2;
-	double agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1;
-	//	hgmr = (b_hgmr_denom > 0)? (double)b_hgmr_num / (double)b_hgmr_denom : -1;	
-	fprintf(fh_dmatrixout, "%7.5f ", agmr);
-      }
-      fprintf(fh_dmatrixout, "\n");
-    }
-    fprintf(stderr, "# time for full distance matrix:  %6.3f\n", clock_time(clock1) - t_before_x);
-  
-  }
-  
-  if(get_all_est_agmrs){ // allocate memory for estimated_agmrs matrix 
-    //estimated_agmrs = (Vdouble**)malloc(the_genotypes_set->n_accessions*sizeof(Vdouble*));
-    //est_agmrs = (unsigned char**)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char*));
-    est_agmrs = (double**)malloc(the_genotypes_set->n_accessions*sizeof(double**));
-    for(long i=0; i < the_genotypes_set->n_accessions; i++){
-      //estimated_agmrs[i] = construct_vdouble_zeroes(the_genotypes_set->n_accessions); // estimated_agmrs[i]->a[j] will be est agmr between accessions i and j
-      //est_agmrs[i] = (unsigned char*)malloc(the_genotypes_set->n_accessions*sizeof(unsigned char));
-        est_agmrs[i] = (double*)malloc(the_genotypes_set->n_accessions*sizeof(double*));
-    }
-  }
-
-  /* */
-  
   double t_before_pop_marker_dosage_counts = clock_time(clock1);
-  populate_marker_dosage_counts(the_genotypes_set);
+  // populate_marker_dosage_counts(the_genotypes_set);
   // set_agmr0s(the_genotypes_set);
   double t_after_pop_marker_dosage_counts = clock_time(clock1);
   fprintf(stdout, "# Time for populate_marker_dosage_counts: %lf\n", t_after_pop_marker_dosage_counts - t_before_pop_marker_dosage_counts);
@@ -1097,9 +1052,13 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Mci* the_mci = the_vmci->a[i_m];      
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
+      two_doubles hetrats = heterozyg_ratios(q_acc, m_acc);
       //double phased_mismatch_rate = pmr(q_acc, m_acc);
       //fprintf(ostream, "%s  %s  %8.6f %8.6f ", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
-      fprintf(ostream, "%s  %s  %8.6f %8.6f %8.6f", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr, the_mci->psr);
+      fprintf(ostream, "%s %ld  %s %ld  %8.6f %8.6f %8.6f",
+	      q_acc->id->a, q_acc->missing_data_count, m_acc->id->a, m_acc->missing_data_count,
+	      the_mci->agmr, the_mci->hgmr, the_mci->psr);
+      fprintf(ostream, " %7.5f %7.5f ", hetrats.x1, hetrats.x2);
       if(output_format != 1){
 	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
 	fprintf(ostream, "  %6.2f %ld %7.5f ", // %7.5f ",
