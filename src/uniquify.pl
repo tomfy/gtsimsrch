@@ -20,9 +20,9 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 
 my $input_dosages_filename = undef;
 #my $do_remove_bad_accessions = shift // m
-my $max_acc_missing_data_fraction = 0.5;
-my $max_marker_missing_data_fraction = 0.25;
-my $min_maf = 0.08;
+my $max_acc_missing_data_fraction = undef; # default: use duplicate_search default; 
+my $max_marker_missing_data_fraction = undef;
+my $min_maf = undef;
 my $output_dosages_filename = undef;
 my $max_distance = undef;
 my $cluster_max_distance = 'auto';
@@ -121,8 +121,8 @@ print STDERR "dosages file with high-missing data accessions removed: $cleaned_d
 
 my $duplicate_search_command = "duplicate_search  -in $input_dosages_filename ";
 $duplicate_search_command .= " -distance $max_distance " if(defined $max_distance);
-$duplicate_search_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction ";
-$duplicate_search_command .= " -maf_min $min_maf ";
+$duplicate_search_command .= " -accession_max_missing_data  $max_acc_missing_data_fraction " if(defined $max_acc_missing_data_fraction);
+$duplicate_search_command .= " -maf_min $min_maf " if(defined $min_maf);
 $duplicate_search_command .= "-marker_max_missing_data $max_marker_missing_data_fraction " if(defined $max_marker_missing_data_fraction);
 $duplicate_search_command .= " -seed $rng_seed " if(defined $rng_seed);
 my $filtered_dosages_filename;
@@ -191,7 +191,7 @@ while (my $line = <$fh_dosages>) {
   my @cols = split(" ", $line);
   my $id = shift @cols;
   if (exists $clusterids{$id}) {
-    $id_gts{$id} = \@cols;
+    $id_gts{$id} = \@cols; # value is array ref with gts as in dosage file 
   } else {
     # print STDERR "ABCD: $id \n";
     print $fhout $line;
@@ -212,9 +212,9 @@ my @duplicate_lines = ();
 ####   Cluster members vote on correct genotypes   ############################
 open  $fh_clusters, "<", "cluster.out";
 if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then output just representative id with 'elected' dosages.
-  print STDERR "VOTE.\n";
+  print STDERR "duplicate group genotypes determined by voting.\n";
 } else {
-  print STDERR "DON'T VOTE.\n";
+  print STDERR "duplicate group genotypes are those of accession with least missing data.\n";
 }
 while (my $line = <$fh_clusters>) { # each line is one cluster
   next if($line =~ /^\s*#/);
@@ -233,24 +233,19 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   my $n_big_intra_d = shift @cols;
   my $n_missing_dist = shift @cols;
 
-  my $rep_id = $cols[0];
+  # @cols now contains the ids of accessions in the cluster.
+  my $representative_id = $cols[0]; # col[0] has id of least missing data acc.
   die if(scalar @cols != $cluster_size);
-  if(exists $accid_phenotype{$rep_id}){
+  if(exists $accid_phenotype{$representative_id}){
     my $cluster_phenotype = sum(map($accid_phenotype{$_}, @cols))/$cluster_size;
-    print $fhpheno_out "$rep_id $rep_id  $cluster_phenotype\n";
+    print $fhpheno_out "$representative_id $representative_id  $cluster_phenotype\n";
   }
 
   if ($vote  and  $cluster_fraction == 0) {
-    my $rep_id = $cols[0];   # id of the representative of the cluster
-    my $cluster_id = $rep_id; # . "_size" . $cluster_size; 
     my $elected_gts = vote(\@cols, \%id_gts);
-    print $fhout "$cluster_id  ", join(" ", @$elected_gts), "\n";
-    
-  } else { # don't vote - just use the first one
-    my $rep_id = shift @cols; # id of the representative of the cluster
-    my $cluster_id = $rep_id; # . "_size" . $cluster_size;
-    print $fhout "$cluster_id  ", join(" ", @{$id_gts{$rep_id}}), "\n"; # output representative and its dosages.
-    
+    print $fhout "$representative_id  ", join(" ", @$elected_gts), "\n";
+  } else { # don't vote - use the one with least missing data
+    print $fhout "$representative_id  ", join(" ", @{$id_gts{$representative_id}}), "\n"; # output representative and its dosages.
     for my $an_id (@cols) {
       my $dupe_acc_line = 'DDDD_' . "$an_id  " . join(" ", @{$id_gts{$an_id}}) . "\n"; # other cluster members and dosages.
       push @duplicate_lines, $dupe_acc_line;
@@ -299,6 +294,30 @@ close $fhout;
 # }
 
 # ************************************************
+sub least_missing_data_id{
+  my $cluster_ids = shift;	# array ref
+  my $id_genotypes = shift;	# hash ref, values: array ref of gts;
+  my $least_md_count = 1000000000000;
+  my $least_md_id = undef;
+  my $first_md_count = undef;
+  my $marker_count = undef;
+  while(my($i, $id) = each @$cluster_ids) {
+    if (exists $id_genotypes->{$id}) {
+      my @gts = @{$id_genotypes->{$id}};
+      my $md_count = sum(map( (($_ eq 'X')? 1 : 0), @gts));
+      $first_md_count = $md_count if($i == 0);
+      $marker_count = scalar @gts;
+      if($md_count < $least_md_count){
+	$least_md_count = $md_count;
+	$least_md_id = $id;
+      }
+    }else{
+      print STDERR "# Genotypes not available for $id \n";
+    }
+  }
+  print STDERR "AAAAA  $marker_count   $least_md_id  $least_md_count ", $cluster_ids->[0], " $first_md_count \n";
+  return $least_md_id;
+}
 
 sub vote{
   my $cluster_ids = shift; # array ref holding the ids of the accessions in the cluster.
