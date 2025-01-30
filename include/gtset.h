@@ -157,8 +157,7 @@ ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // 
 two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon);
 ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
 ND ghgmr(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
-double ragmr(GenotypesSet* the_gtsset);
-ND psr(Accession* acc1, Accession* acc2, Vlong* chroms); // phase mismatch rate
+//ND psr(Accession* acc1, Accession* acc2, Vlong* chroms); // phase mismatch rate
 void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset);
 void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset);
 void free_genotypesset(GenotypesSet* the_gtsset);
@@ -169,6 +168,8 @@ long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);
 
 ND phase_switches_one_chrom(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start);
 ND phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms);
+
+two_doubles heterozyg_ratios(Accession* acc1, Accession* acc2);
 
 // ##### unused #####
 
