@@ -249,6 +249,7 @@ main(int argc, char *argv[])
 	fprintf(stderr, "option alternative_pedigrees requires one of 0, 1, 2, 3, or 4 as argument.\n");
 	exit(EXIT_FAILURE);
       }
+      break;
     /* case 'b': */
     /*   bitwise = true; */
     /*   break; */
@@ -317,15 +318,17 @@ main(int argc, char *argv[])
 
   double t_c = hi_res_time();
   fprintf(stdout, "# Time to filter genotype data: %6.3f sec.\n", t_c - t_b);
-  rectify_markers(the_genotypes_set); // needed for xhgmr to be fast.
+  // rectify_markers(the_genotypes_set); // needed for xhgmr to be fast.
   store_homozygs(the_genotypes_set); // needed?
   fprintf(stderr, "before set_chromosome_start_indices.\n");
   if(the_genotypes_set->phased) set_chromosome_start_indices(the_genotypes_set);
-  populate_marker_dosage_counts(the_genotypes_set); // needed?
+  /*
+  // populate_marker_dosage_counts(the_genotypes_set); // needed?
   for(long i=0; i<the_genotypes_set->accessions->size; i++){
     set_n2exp0s(the_genotypes_set, i);
   }
   // set_n_00_1_22_1s(the_genotypes_set);
+  /* */
   check_genotypesset(the_genotypes_set);
   set_Abits_Bbits(the_genotypes_set, Nthreads);
   Vidxid* the_gt_vidxid = construct_sorted_vidxid(the_genotypes_set->accessions); // ids and indexes of the_genotypes_set, sorted by id
@@ -334,16 +337,10 @@ main(int argc, char *argv[])
 
   // double mean_hgmr, mean_R, mean_D, mean_Z;
   long sample_size = 1000;
-  random_set_means(the_genotypes_set, sample_size);
+  random_set_means(the_genotypes_set, sample_size); // get and store mean hgmr, R, etc.
   the_genotypes_set->d_scale_factor = d_scale_factor;
   fprintf(stderr, "mean hgmr, R, d, z: %8.5f  %8.5f  %8.5f  %8.5f\n",
 	  the_genotypes_set->mean_hgmr, the_genotypes_set->mean_R, the_genotypes_set->mean_d, the_genotypes_set->mean_z); 
-  /* the_genotypes_set->mean_hgmr = mean_hgmr; */
-  /* the_genotypes_set->mean_R = mean_R; */
-  /* the_genotypes_set->mean_d = mean_D; */
-  /* the_genotypes_set->mean_z = mean_z; */
-   // exit(0);
-   
   fflush(stdout);
   long n_gt_accessions = the_genotypes_set->accessions->size;
   // print_genotypesset(stderr, the_genotypes_set);
@@ -396,38 +393,12 @@ main(int argc, char *argv[])
     
 	 fprintf(o_stream, "%s  x  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
 	 print_pedigree_normalized(o_stream, the_pedigree); //, the_genotypes_set);
-	 //mean_hgmr, mean_R, mean_D, mean_Z);
-	 //				   1, 1, 1, 1);
-	 // double ZeeN = Zn(the_genotypes_set, A, F, M);
-	 // fprintf(o_stream, "  %8.5f  ", the_pedigree->pedigree_stats->Zn); // exit(0);
-	 /*  print_n_over_d(o_stream, the_pedigree->pedigree_stats->xz, 1.0); */
-	 /* /\* double ddd = n_over_d(the_pedigree->pedigree_stats->d)/mean_D; *\/ */
-	 /* /\* if(ddd < 0){ fprintf(o_stream, " - ");}else{ fprintf(o_stream, " %8.5f ", ddd); } *\/ */
-	 /* /\* double zzz = n_over_d(the_pedigree->pedigree_stats->z)/mean_Z; *\/ */
-	 /* /\* if(zzz < 0){ fprintf(o_stream, " - ");}else{ fprintf(o_stream, " %8.5f ", zzz); } *\/ */
-	 /* print_n_over_d(o_stream, the_pedigree->pedigree_stats->d, 1.0); */
-	 /* print_n_over_d(o_stream, the_pedigree->pedigree_stats->z, 1.0); */
-
-	  //fprintf(o_stream, "  %8.5f  %8.5f ", , n_over_d(the_pedigree->pedigree_stats->z)/mean_Z);
-	 //fprintf(stderr, "Before count_crossovers (F). %s %s \n", A->id->a,  (F != NULL)? F->id->a : "NULL");
+	 two_doubles hratios = heterozyg_ratios(A, F);
+	 
 	 if(the_genotypes_set->phased){
-	   /* // count_crossovers(the_genotypes_set, F, A); */
-	   /* if(F == NULL){ // only have male parent in pedigree */
-	   /*   Xcounts_2 M_phased_info = count_crossovers_one_parent(the_genotypes_set, M, A); */
-	   /*   // fprintf(o_stream, "  - - -  %ld %ld %ld  - - - - ", M_phased_info.Xa, M_phased_info.Xb, M_phased_info.Nhet); */
-	   /*   fprintf(o_stream, "  - %7.5f - - - ", M_phased_info.Xa/(double)M_phased_info.Nhet); */
-	   /*   //fprintf(stderr, "after count_crossovers (M)\n"); */
-	   /* }else if(M == NULL){ // only have female parent in pedigree */
-	   /*   Xcounts_2 F_phased_info = count_crossovers_one_parent(the_genotypes_set, F, A); */
-	   /*   // fprintf(o_stream, "  %ld %ld %ld  - - -  - - - - ", F_phased_info.Xa, F_phased_info.Xb, F_phased_info.Nhet); */
-	   /*   fprintf(o_stream, "  %7.5f - - - - ", F_phased_info.Xa/(double)F_phased_info.Nhet); */
-	   /* }else{ // both F and M are non-NULL */
-	   /*     Xcounts_3 X3 = count_crossovers_two_parents(the_genotypes_set, F, M, A); */
-	   /*     // print_X3_info(o_stream, X3); */
-	   /*     print_Xover_rates(o_stream, X3); */
-	   /* } */
 	   Xcounts_3 X3 = count_crossovers(the_genotypes_set, F, M, A);
 	   print_Xover_rates(o_stream, X3);
+	   fprintf(o_stream, "  %7.5f  %7.5f ", hratios.x1, hratios.x2);
 	 } // end of if phased branch
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents
@@ -528,10 +499,6 @@ main(int argc, char *argv[])
 // **********************************************************
 // ******************  functions  ***************************
 // **********************************************************
-
-/* double hi_res_time(void){ */
-/*   return (double)clock()/(double)CLOCKS_PER_SEC; */
-/* } */
 
 void print_usage_info(FILE* stream){
   fprintf(stream, "-i   -input <filename>               input filename (dosages matrix, required)\n");

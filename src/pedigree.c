@@ -592,6 +592,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   pedigree_stats->par2_R = (ND) {n_x0_1_x2_1, n_x0_1_x2_1 + n_x0_0_x2_2};
   pedigree_stats->n_01or10_1 = n_01or10_1;
   pedigree_stats->all_good_count = n_total_no_md;
+  
   //assert(pedigree_stats->par1_R.n == Rnd.n);
   //assert(pedigree_stats->par1_R.d == Rnd.d);
   return pedigree_stats;
@@ -995,7 +996,16 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
     long idx = parent_idxs->a[i];
     char* pgts = the_gtsset->accessions->a[idx]->genotypes->a; // genotype_sets->a[idx];
     the_idxhgmrs[i].idx = idx;
-    the_idxhgmrs[i].hgmr = hgmr(acc_gts, pgts); //the_hgmr; //the_idxhgmr = {idx, the_hgmr);
+    four_longs bwah = bitwise_agmr_hgmr(the_pedigree->A, the_gtsset->accessions->a[idx]);
+    //  long b_agmr_num = bfcs.l1 + bfcs.l3;
+    //	  long b_agmr_denom = b_agmr_num + bfcs.l2 + bfcs.l4;
+	  long b_hgmr_num = bwah.l1;
+	  long b_hgmr_denom = bwah.l1 + bwah.l2;
+	  //	  agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1;
+	  double b_hgmr = (b_hgmr_denom > 0)? (double)b_hgmr_num / (double)b_hgmr_denom : -1;	
+	  the_idxhgmrs[i].hgmr = b_hgmr; // (acc_gts, pgts); //the_hgmr; //the_idxhgmr = {idx, the_hgmr);
+
+	  fprintf(stderr, "hgmrs: %7.5f %7.5f \n", b_hgmr, hgmr(acc_gts, pgts));
   }
   sort_idxhgmr_by_hgmr(n_parents, the_idxhgmrs);
   for(long i=0; i<n_parents; i++){ // store 'good' hgmr indices 
