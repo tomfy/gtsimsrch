@@ -48,13 +48,13 @@ use Cluster1d;
   my $pow = 1; # cluster transformed values tx_i = pow(x_i, $pow), or if $pow is 'log' tx_i = log(x_i)
 # column numbers are unit-based:
   my $id1_column = 1;
-  my $id2_column = 3;
   my $mdc1_column = 2; # missing data count, accession 1
+  my $id2_column = 3;
   my $mdc2_column = 4; # missing data count, accession 2
   my $d_column = 5; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
-  my $full_output = 1; # if '-nofull' will not output the degrees, etc for each cluster member, etc.
+  my $full_output = 0; # if '-nofull' will not output the degrees, etc for each cluster member, etc.
   my $prune_factor = 0.2; # if cluster member has edges to < this fraction of other cluster members, delete it.
 
   my $min_minextra_maxintra_ratio = -1; # can use this to only output clusters whose
@@ -126,7 +126,7 @@ use Cluster1d;
   # construct graph with edges between vertices (accessions) for pairs with distance < $link_max_distance
   # construct graph by adding edges & their endpoints; graph does not contain single unconnected vertices.
 
-  my ($the_graph, $id_degree) = construct_graph($edge_weight, $link_max_distance, \@sorted_edges);
+  my $the_graph = construct_graph($edge_weight, $link_max_distance, \@sorted_edges);
   # the connected components of graph are the clusters
   my @clusters = $the_graph->connected_components; # array of array refs of ids
   my @vertices = $the_graph->vertices();
@@ -134,7 +134,7 @@ use Cluster1d;
   print "# Graph created with ", scalar @clusters, " clusters and $n_nodes cluster members.\n";
   ########################################################################################################
 
-  prune_graph($the_graph, $id_degree, $prune_factor);
+  prune_graph($the_graph, $prune_factor); # , $id_degree);
   @clusters = $the_graph->connected_components; # array of array refs of ids
   @vertices = $the_graph->vertices();
   $n_nodes = scalar @vertices;
@@ -150,8 +150,8 @@ use Cluster1d;
     $count_cluster_accessions += $cluster_size;
     my %thisclusterids = map(($_ => 1), @$accs);
 
-    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds) =
-      cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance, $id_degree);
+    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds, $min_degree) =
+      cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance); # , $id_degree);
 
     my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt) =
       cluster_quality2($the_graph, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
@@ -178,7 +178,7 @@ use Cluster1d;
     $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d %4d %4d   %s\n ",
 				  $cluster_size, $cluster_min_d, $cluster_avg_d, $cluster_max_d, $cluster_noncluster_gap,
 				  $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt,
-				  $intracluster_far_pair_count, $missing_distance_count,
+				  $intracluster_far_pair_count+$missing_distance_count, $min_degree,
 				  #  $d, $e,
 				  #	  $cluster_q_category,
 				  $output_line_string);
@@ -299,7 +299,8 @@ sub auto_max_link_distance{
   my ($Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Ledge, $Redge) = $cluster1d_obj->find_cluster_at_left($f);
 #  my $Hmid_half_max = 0.5*($Ledge+$Redge);
 #  my $H33 = (0.67*$Ledge + 0.33*$Redge);
-#  printf(STDERR  "# Hopt: %6.4f  maxQ: %6.4f. Hoptavg maxQavg: %6.4f %6.4f   Hmhmx: %6.4f H33: %6.4f \n", $Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Hmid_half_max, $H33);
+  #  printf(STDERR  "# Hopt: %6.4f  maxQ: %6.4f. Hoptavg maxQavg: %6.4f %6.4f   Hmhmx: %6.4f H33: %6.4f \n", $Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Hmid_half_max, $H33);
+  print STDERR "$Hopt $maxQ  $Ledge $Redge  $Hopt_avg  $maxQ_avg \n";
   return ($Hopt, $maxQ, $Ledge, $Redge, $Hopt_avg, $maxQ_avg);
 }
 
@@ -318,7 +319,7 @@ sub construct_graph{
   # exit;
   my $the_graph = Graph::Undirected->new;
   # while (my ($e, $w) = each %$edge_weight) {
-  my $id_degree = {};
+ #my $id_degree = {};
   #while (1) {
     for my $e (@$sorted_edges){
    # my $e = shift @$sorted_edges; # get the edge with least weight (i.e. closest id pair)
@@ -328,13 +329,13 @@ sub construct_graph{
     if ($w <= $max_link_distance) {
       my ($id1, $id2) = split(" ", $e);
       $the_graph->add_weighted_edge($id1, $id2, $w);
-      $id_degree->{$id1}++;
-      $id_degree->{$id2}++;
+    #  $id_degree->{$id1}++;
+    #  $id_degree->{$id2}++;
     } else {
       last;
     }
   }
-  return ($the_graph, $id_degree);
+  return $the_graph;
 }
 
 sub prune_graph{
@@ -342,31 +343,68 @@ sub prune_graph{
   # remove nodes (and assoc. edges) if
   # degree is small compared to cluster size
   my $the_graph = shift;
-  my $id_degree = shift;
   my $prune_factor = shift;
+  my $vert_deg = {};
+  for my $v ($the_graph->vertices()){
+    $vert_deg->{$v} = $the_graph->degree($v);
+  }
+
+  #  my $id_degree = {}; # = shift;
+  # for my $v ($the_graph->vertices()){
+  #   $id_degree->{$v} = $the_graph->degree($v);
+  # }
   my @clusters = $the_graph->connected_components;
   for my $clstr (@clusters) {
-    prune_cluster($the_graph, $clstr, $id_degree, $prune_factor);
+    prune_cluster($the_graph, $clstr,
+		  #$id_degree,
+		  $vert_deg,
+		  $prune_factor);
   }
 }
 
 sub prune_cluster{
   my $graph = shift;
-  my $cluster = shift; # array ref of
+  my $cluster = shift;		# array ref of
   my $id_degree = shift;
   my $prune_factor = shift;
   my $cluster_size = scalar @$cluster;
   my $min_degree = $prune_factor*($cluster_size - 1);
-  for(my $i=0; $i < scalar @$cluster; $i++){
+  # print STDERR "in prune_cluster. ", scalar $graph->edges, "\n";
+  my $prune_count = 0;
+  for (my $i=0; $i < scalar @$cluster; $i++) {
     my $u = $cluster->[$i];
-    my $u_dubious = ($id_degree->{$u} < $min_degree);
-      $graph->delete_vertex($u) if($u_dubious);;
-      for(my $j=$i+1; $j < scalar @$cluster; $j++){
-	my $v = $cluster->[$j];
-	my $v_dubious = ($id_degree->{$v} < $min_degree);
-	$graph->delete_edge($u, $v) if($u_dubious and $v_dubious);
-      }
+    # if($id_degree->{$u} != $graph->degree($u)){
+    #   print STDERR "ZZZ:    $u  ", $id_degree->{$u}, "  ", $graph->degree($u), "\n";
+    #   sleep(1);
+    # }
+    my $u_dubious = (
+		     $id_degree->{$u}
+		     #$graph->degree($u)
+		     < $min_degree);
+    if ($u_dubious) {
+      $graph->delete_vertex($u); # also deletes associated edges
+      $prune_count++;
+      # print STDERR "$cluster_size $min_degree   deleting vertex $i $u with degree: ", $id_degree->{$u},
+      # 	" verts remaining: ", scalar $graph->vertices, "  edges remaining: ", scalar $graph->edges, "\n";
+    }
+    # looks the following is not needed to delete the edges associated with deleted vertices;
+    # looks like deleting a vert also deletes its edges.
+#     for (my $j=$i+1; $j < scalar @$cluster; $j++) {
+#       my $v = $cluster->[$j];
+#       my $v_dubious = ($id_degree->{$v} < $min_degree);
+#       if($u_dubious and $v_dubious){
+# #	print STDERR "ref:  ", ref $graph->edges, "\n";
+# #	my @edge_vpairs = map( $_->[0] . " " . $_->[1], @{$graph->edges});
+# 	print STDERR "  deleting edge between $v and previously deleted vertex. edges remaining: ", scalar $graph->edges, "\n";
+# 	$graph->delete_edge($u, $v);
+	
+#       }
+#     }
   }
+  # if($prune_count > 0){
+  #   print STDERR "AAAAAAAAAAAAAAaa: ", scalar @$cluster, "  $prune_count\n";
+  #   # sleep (3)
+  # }
 }
 
 sub cluster_quality1{
@@ -374,11 +412,12 @@ sub cluster_quality1{
   my $edge_weight = shift; # hashref; keys: order id pairs, values: weights (distances)
   my $graph = shift;
   my $link_max_distance = shift;
-  my $id_degree = shift;
+  # my $id_degree = shift;
   my $output_line_string = '';
   my @output_id_degree_maxds = ();
   my @sorted_clusterids = sort {$a cmp $b} @$accs; # sort the accession ids in the cluster
   my $cluster_size = scalar @sorted_clusterids;
+  print STDERR "XXXX in cluster_qual1: cluster size: $cluster_size \n";
   my ($cluster_min_d, $cluster_max_d, $cluster_sum_d, $missing_distance_count, $intracluster_far_pair_count) = (10000, -1, 0, 0, 0);
   my $sum_of_degrees = 0;
   my $cluster_edge_count = 0;
@@ -386,7 +425,7 @@ sub cluster_quality1{
   my %id_sumdsq = map  {$_ => 0} @sorted_clusterids;
 
   while (my($i, $v) = each @sorted_clusterids) { # loop over every pair of ids in the cluster.
-    my $v_degree = $id_degree->{$v}; # degree of $v (=number of other nodes at dist <= $link_max_distance
+    my $v_degree = $graph->degree($v); # $id_degree->{$v}; # degree of $v (=number of other nodes at dist <= $link_max_distance
     $sum_of_degrees += $v_degree;    # graph->degree($v);
     $output_line_string .= "$v  $v_degree  ";
     #  $id_degree{$v} = $degree;
@@ -421,14 +460,17 @@ sub cluster_quality1{
     $cluster_max_d = $maxw if($maxw > $cluster_max_d);
 
   } # loop over $v
+  my $min_degree = scalar @sorted_clusterids;
   for my $id (@sorted_clusterids) {
-    my $degree = $id_degree->{$id};
+    my $degree = $graph->degree($id); # $id_degree->{$id};
+    $min_degree = $degree if($degree < $min_degree);
     my $rms_dist = sqrt($id_sumdsq{$id}/($cluster_size-1));
     push @output_id_degree_maxds, [$id, $degree, $id_maxd{$id}, $rms_dist];
   }
+ # print STDERR "mindegree $min_degree  ", min(values %$id_degree), "\n";
   
   @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
-  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds)
+  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds, $min_degree)
 }
 
 sub cluster_quality2{
@@ -495,7 +537,7 @@ sub cluster_quality2{
 #   # my $clusterids = shift; # hash ref; keys are ids; values array refs of genotypes (0, 1, 2, ...)
 #   # store individual lines of dosage file in hash
 #   open my $fh_dosages, "<", "$dosages_filename";
-#   #open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
+#   #open my $fhout, ">", "$dosages_output_filename" or die "Couldn't open $dosages_output_filename for writing.\n";
 
 #   # store ids and genotypes of clusters (size >= 2).
 #   my %id_gts  = (); # key: ids; value: array ref of dosages (0,1,2, $missing_data_char) 
