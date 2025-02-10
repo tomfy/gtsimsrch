@@ -8,6 +8,7 @@ use Getopt::Long;
 
 my $cluster_file = undef;
 my $pedigree_file = undef;
+my $output_file = undef;
 my $progeny_col = -3;
 my $Fparent_col = -2;
 my $Mparent_col = -1;
@@ -19,6 +20,7 @@ $repid_column--;       # now zero-based
 GetOptions(
 	   'cluster_file=s' => \$cluster_file,
 	   'pedigree_file=s' => \$pedigree_file,
+	   'output_file=s' => \$output_file,
 	   'progeny_column=i' => \$progeny_col,
 	   'Fparent_column=i' => \$Fparent_col,
 	   'Mparent_column=i' => \$Mparent_col,
@@ -33,6 +35,9 @@ if(!defined $pedigree_file){
 print STDERR "Pedigree file is undefined; it must be specified\n";
 }
 exit;
+}
+if(!defined $output_file){
+  $output_file = 'u_' . $pedigree_file;
 }
 
 # want col 1 to be leftmost, -1 rightmost
@@ -54,7 +59,7 @@ while (my $line = <$fhin>) {
   $repids{$the_repid} = 1;
   for my $id (@cols[$repid_column..$#cols]) {
     # print STDERR "$id $the_repid\n";
-    $clusterid_repid{$id} = $the_repid; # key is the acc id, and value is the id of the representative member of group of duplicates.
+    $clusterid_repid{$id} = $the_repid; # key is id of a cluster member, and value is the id of the representative member of group of duplicates.
   }
 }
 close $fhin;
@@ -62,6 +67,7 @@ print STDERR "# n duplicate groups: ", scalar keys %repids, "  n ids in duplicat
 
 ###  now read pedigree file and replace each accession id with the representative of the duplicate group to which it belongs  ###
 open $fhin, "<", "$pedigree_file";
+open my $fhout, ">", "$output_file";
 for(1..$nskip){ <$fhin>; } # skip first nskip lines.
 
 my $pedigrees_in_count = 0;
@@ -86,7 +92,7 @@ while (my $line = <$fhin>) {
       $progeny_id = $clusterid_repid{$progeny_id} // $progeny_id;
       my $Fpar_id = $clusterid_repid{$cols[$Fparent_col]} // $cols[$Fparent_col]; # replace id with rep id if F parent is a duplicate group member
       my $Mpar_id = $clusterid_repid{$cols[$Mparent_col]} // $cols[$Mparent_col]; # replace id with rep id if M parent is a duplicate group member
-      print "$progeny_id  $Fpar_id  $Mpar_id\n";
+      print $fhout "$progeny_id  $Fpar_id  $Mpar_id\n";
     }
   } else {
     $progeny_NA_count++;
