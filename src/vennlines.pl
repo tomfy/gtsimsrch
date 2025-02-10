@@ -9,8 +9,8 @@ use List::Util qw(min max sum);
 
 # usage example:
 # vennlines.pl file1 file2      # will ignore comment lines
-# vennlines.pl file1 file2      # also compare comment lines
-
+# vennlines.pl file1 file2  0    # also compare comment lines
+# vennlines.pl file1 file2  1 1    # skip comments, but output lines found in only one of the files
 {
   my %file1lines = ();
   my %file2lines = ();
@@ -18,6 +18,7 @@ use List::Util qw(min max sum);
   my $file1 = shift;
   my $file2 = shift;
   my $skip_comments = shift // 1;
+  my $verbose = shift // 0;
 
   store($file1, \%file1lines, $skip_comments);
   store($file2, \%file2lines, $skip_comments);
@@ -47,6 +48,12 @@ use List::Util qw(min max sum);
   print "count of lines in both files:  ", $both_count, "\n";
   print "count of lines in both files:  ", scalar @boths, " (as a check, should be same as previous line)\n";
   print "count of lines in file 2 only: ", scalar @two_onlies, "\n";
+  if($verbose){
+    print "lines in $file1 only: \n";
+    print join("", @one_onlies);
+    print "lines in $file2 only: \n";
+    print join("", @two_onlies);
+  }
 }
 
 sub store{
