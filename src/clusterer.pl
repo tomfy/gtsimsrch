@@ -98,15 +98,9 @@ use Cluster1d;
 								  $id1_column, $mdc1_column, $id2_column, $mdc2_column,
 								  $d_column, $maxD);
   #######################################################################################################
-  # get array of edges order by weight (distance), small to large.
-  # while(my ($e, $w) = each %$edge_weight){
-  #   print "$e $w\n";
-  # }
+  # get array of edges ordered by weight (distance), small to large.
   my @sorted_edges = sort {$edge_weight->{$a} <=> $edge_weight->{$b} } keys %$edge_weight;
   print "# Number of edges stored ", scalar @sorted_edges, "\n";
-  # for my $ed (@sorted_edges){
-  #   print "edge:  $ed\n";
-  # }
 
   #######################################################################################################
   # if $link_max_distance not specified, attempt to find a reasonable value by looking at the distances
@@ -134,7 +128,7 @@ use Cluster1d;
   print "# Graph created with ", scalar @clusters, " clusters and $n_nodes cluster members.\n";
   ########################################################################################################
 
-  prune_graph($the_graph, $prune_factor); # , $id_degree);
+  prune_graph($the_graph, $prune_factor);
   @clusters = $the_graph->connected_components; # array of array refs of ids
   @vertices = $the_graph->vertices();
   $n_nodes = scalar @vertices;
@@ -151,7 +145,7 @@ use Cluster1d;
     my %thisclusterids = map(($_ => 1), @$accs);
 
     my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds, $min_degree) =
-      cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance); # , $id_degree);
+      cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance);
 
     my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt) =
       cluster_quality2($the_graph, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
@@ -282,7 +276,7 @@ sub store_distances{
     $edge_weight{$edge_verts} = $distance;
   }
   close $fhin;
-  print "n def, undef: $n_def $n_undef\n"; #sleep(2);
+  print "n def, undef: $n_def $n_undef\n";
   return (\%edge_weight, \%id_closeidds, \%id_mdc);
 }
 
@@ -310,27 +304,12 @@ sub construct_graph{
   my $sorted_edges = shift; # sorted by weight (distance) small to large
   print "number of keys of edge_weight: ", scalar keys %$edge_weight, "\n";
   print "number of sorted edges: ", scalar @$sorted_edges, "\n";
-  # for(keys %$edge_weight){
-  #   print "ewkey: $_\n";
-  # }
-  # for(@$sorted_edges){
-  #   print "sewkey: $_\n";
-  # }
-  # exit;
   my $the_graph = Graph::Undirected->new;
-  # while (my ($e, $w) = each %$edge_weight) {
- #my $id_degree = {};
-  #while (1) {
     for my $e (@$sorted_edges){
-   # my $e = shift @$sorted_edges; # get the edge with least weight (i.e. closest id pair)
- #   my $xxx = ((defined $e)? "[$e]" : 'undef');
- #   print "xxx: $xxx \n"; #sleep(1);
     my $w = $edge_weight->{$e};
     if ($w <= $max_link_distance) {
       my ($id1, $id2) = split(" ", $e);
       $the_graph->add_weighted_edge($id1, $id2, $w);
-    #  $id_degree->{$id1}++;
-    #  $id_degree->{$id2}++;
     } else {
       last;
     }
@@ -339,72 +318,36 @@ sub construct_graph{
 }
 
 sub prune_graph{
-  # for each cluster,
-  # remove nodes (and assoc. edges) if
-  # degree is small compared to cluster size
+  # for each cluster, remove nodes (and assoc. edges)
+  # if degree too small compared to cluster size
   my $the_graph = shift;
   my $prune_factor = shift;
   my $vert_deg = {};
   for my $v ($the_graph->vertices()){
     $vert_deg->{$v} = $the_graph->degree($v);
   }
-
-  #  my $id_degree = {}; # = shift;
-  # for my $v ($the_graph->vertices()){
-  #   $id_degree->{$v} = $the_graph->degree($v);
-  # }
   my @clusters = $the_graph->connected_components;
   for my $clstr (@clusters) {
-    prune_cluster($the_graph, $clstr,
-		  #$id_degree,
-		  $vert_deg,
-		  $prune_factor);
+    prune_cluster($the_graph, $clstr, $vert_deg, $prune_factor);
   }
 }
 
 sub prune_cluster{
   my $graph = shift;
   my $cluster = shift;		# array ref of
-  my $id_degree = shift;
+  my $vertex_degree = shift;
   my $prune_factor = shift;
   my $cluster_size = scalar @$cluster;
   my $min_degree = $prune_factor*($cluster_size - 1);
-  # print STDERR "in prune_cluster. ", scalar $graph->edges, "\n";
   my $prune_count = 0;
   for (my $i=0; $i < scalar @$cluster; $i++) {
     my $u = $cluster->[$i];
-    # if($id_degree->{$u} != $graph->degree($u)){
-    #   print STDERR "ZZZ:    $u  ", $id_degree->{$u}, "  ", $graph->degree($u), "\n";
-    #   sleep(1);
-    # }
-    my $u_dubious = (
-		     $id_degree->{$u}
-		     #$graph->degree($u)
-		     < $min_degree);
+    my $u_dubious = ($vertex_degree->{$u} < $min_degree);
     if ($u_dubious) {
       $graph->delete_vertex($u); # also deletes associated edges
       $prune_count++;
-      # print STDERR "$cluster_size $min_degree   deleting vertex $i $u with degree: ", $id_degree->{$u},
-      # 	" verts remaining: ", scalar $graph->vertices, "  edges remaining: ", scalar $graph->edges, "\n";
     }
-    # looks the following is not needed to delete the edges associated with deleted vertices;
-    # looks like deleting a vert also deletes its edges.
-#     for (my $j=$i+1; $j < scalar @$cluster; $j++) {
-#       my $v = $cluster->[$j];
-#       my $v_dubious = ($id_degree->{$v} < $min_degree);
-#       if($u_dubious and $v_dubious){
-# #	print STDERR "ref:  ", ref $graph->edges, "\n";
-# #	my @edge_vpairs = map( $_->[0] . " " . $_->[1], @{$graph->edges});
-# 	print STDERR "  deleting edge between $v and previously deleted vertex. edges remaining: ", scalar $graph->edges, "\n";
-# 	$graph->delete_edge($u, $v);
-	
-#       }
-#     }
   }
-  # if($prune_count > 0){
-  #   print STDERR "AAAAAAAAAAAAAAaa: ", scalar @$cluster, "  $prune_count\n";
-  #   # sleep (3)
-  # }
 }
 
 sub cluster_quality1{
@@ -417,7 +360,6 @@ sub cluster_quality1{
   my @output_id_degree_maxds = ();
   my @sorted_clusterids = sort {$a cmp $b} @$accs; # sort the accession ids in the cluster
   my $cluster_size = scalar @sorted_clusterids;
-  print STDERR "XXXX in cluster_qual1: cluster size: $cluster_size \n";
   my ($cluster_min_d, $cluster_max_d, $cluster_sum_d, $missing_distance_count, $intracluster_far_pair_count) = (10000, -1, 0, 0, 0);
   my $sum_of_degrees = 0;
   my $cluster_edge_count = 0;
@@ -466,9 +408,7 @@ sub cluster_quality1{
     $min_degree = $degree if($degree < $min_degree);
     my $rms_dist = sqrt($id_sumdsq{$id}/($cluster_size-1));
     push @output_id_degree_maxds, [$id, $degree, $id_maxd{$id}, $rms_dist];
-  }
- # print STDERR "mindegree $min_degree  ", min(values %$id_degree), "\n";
-  
+  }  
   @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
   return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds, $min_degree)
 }
@@ -493,7 +433,6 @@ sub cluster_quality2{
     $sum_of_degrees += $degree;
     for my $s (@{$id1_id2ds->{$id1}}) { # loop over accessions with smallish distance to id1
       my ($id2, $d) = @$s;
-      #  print STDERR "#    id2: d(id1, id2):  $id2  $d \n";
       if ( exists $thisclustids->{$id2} ) { # $id2 is in the cluster
 	$min_intracluster_d = min($d, $min_intracluster_d);
 	$max_intracluster_d = max($d, $max_intracluster_d);
@@ -503,7 +442,6 @@ sub cluster_quality2{
 	if ($d < $min_distance_to_noncluster) {
 	  $min_distance_to_noncluster = $d;
 	}
-	#	else{ # @$ is sorted by $d, small to large, so if this $d isn't small enough, we're done with @$s
 	if ($d < $near_noncluster_distance) {
 	  $short_cluster_noncluster_edge_count++;
 	  $near_noncluster_points{$id2}++;
@@ -515,17 +453,10 @@ sub cluster_quality2{
     }			     # end loop over nearish accessions to id1
   }
   $avg_intracluster_d /= ($cluster_size*($cluster_size-1));
-  #  print STDERR "#AAA $cluster_size  $min_intracluster_d $avg_intracluster_d $max_intracluster_d   $cluster_edge_count\n";
-  #print STDERR "# $max_d_to_consensus  $far_from_consensus_count \n";
   my $xxx = ($cluster_size*($cluster_size-1) - $sum_of_degrees)/2;
-  #  print STDERR "cluster size: $cluster_size  $xxx \n";
   my $nearby_noncluster_points_count = scalar keys %near_noncluster_points;
   my $cluster_pts_near_noncluster_pt_count = scalar keys %cluster_pts_near_noncluster_pt;
-  #  printf (STDERR "# %8.6f %5d %5d   %8.6f %5d\n", $min_distance_to_noncluster, $nearby_noncluster_points_count,
-  #	  $cluster_pts_near_noncluster_pt_count, $max_d_to_consensus, $far_from_consensus_count);
   return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count)
-    #	  $max_d_to_consensus, $far_from_consensus_count, \%clusterpt_dist2consensus);
-
 }
 
 ################################################################################################################

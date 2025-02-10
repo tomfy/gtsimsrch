@@ -20,9 +20,9 @@
 // defaults
 #define DEFAULT_DIPLOID_CHUNK_SIZE  7
 #define DEFAULT_MAX_DISTANCE  0.2
-#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.2
-#define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
-#define DEFAULT_MIN_MAF  0.1
+#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
+#define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  1.0
+#define DEFAULT_MIN_MAF  0.05
 #define BITWISE true
 #define DO_EXACT_AGMR  true // make this 0 to only do the estimated agmrs.
 
@@ -1020,7 +1020,7 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 
 	  ND psr_nd = phase_switches(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
 	  Xcounts_2 Xovers2 = count_crossovers_one_parent(the_genotypes_set, q_gts, the_accessions->a[i_match]);
-	  fprintf(stderr, "SSSS: %s %s  %7.5f   %ld %ld   %ld %ld  %ld\n", q_gts->id->a, the_accessions->a[i_match]->id->a, agmr, psr_nd.n, psr_nd.d, Xovers2.Xa, Xovers2.Xb, Xovers2.Nhet);
+	  //  fprintf(stderr, "SSSS: %s %s  %7.5f   %ld %ld   %ld %ld  %ld\n", q_gts->id->a, the_accessions->a[i_match]->id->a, agmr, psr_nd.n, psr_nd.d, Xovers2.Xa, Xovers2.Xb, Xovers2.Nhet);
 	  double the_psr = n_over_d(psr_nd);
 	  the_mci->psr = the_psr;
 	  push_to_vmci(query_vmcis[i_query], the_mci);
