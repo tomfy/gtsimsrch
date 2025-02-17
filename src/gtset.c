@@ -1435,8 +1435,8 @@ two_doubles  heterozyg_ratios(Accession* acc1, Accession* acc2){
     }
     i++;
   }
-  fprintf(stderr, "%s %s  %ld %ld %ld  %7.5f %7.5f\n",
-	  acc1->id->a, acc2->id->a, nhet1, nhet2, n11, (double)n11/nhet1, (double)n11/nhet2);
+  /* fprintf(stderr, "in heterozyg_ratios: %s %s  %ld %ld %ld  %7.5f %7.5f\n",
+     acc1->id->a, acc2->id->a, nhet1, nhet2, n11, (double)n11/nhet1, (double)n11/nhet2); /* */
   two_doubles result = {(double)n11/nhet1, (double)n11/nhet2};
   return result;
 }
