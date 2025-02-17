@@ -22,9 +22,9 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 # optionally ( -vote ) have the members of each group of duplicates vote on each genotype.
 
 my $dosages_input_filename = undef; # must be specified 
-my $pedigree_input_filename = undef; # if specified, pedigree file to be uniquified
+my $pedigrees_input_filename = undef; # if specified, pedigree file to be uniquified
 my $dosages_output_filename = undef; # if not specified prepend 'u_' to $dosages_input_filename
-my $pedigree_output_filename = undef; # if not specified prepend 'u_' to $pedigree_input_filename
+my $pedigrees_output_filename = undef; # if not specified prepend 'u_' to $pedigree_input_filename
 my $cluster_filename = undef; # output of clusterer, with info on clusters
 
 my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
@@ -38,8 +38,8 @@ my $nskip = 0; # number of lines to skip at top of pedigree file.
 GetOptions(
 	   'dosages_input_file=s' => \$dosages_input_filename,
 	   'dosages_output_file=s' => \$dosages_output_filename, # uniquified
-	   'pedigree_input_file=s' => \$pedigree_input_filename,
-	   'pedigree_output_file=s' => \$pedigree_output_filename, # uniquified
+	   'pedigrees_input_file=s' => \$pedigrees_input_filename,
+	   'pedigrees_output_file=s' => \$pedigrees_output_filename, # uniquified
 	   'cluster_filename=s' => \$cluster_filename,
 
 # less useful options:
@@ -59,8 +59,8 @@ if(!defined $cluster_filename){
 }
 my ($v, $dir, $dosages_filename_in) = File::Spec->splitpath( $dosages_input_filename );
 if (!defined $dosages_output_filename) {
-  $dosages_output_filename = $dosages_filename_in . "_duplicates_removed";
-  print STDERR "$dir    $dosages_output_filename \n";
+  $dosages_output_filename = "u_" . $dosages_filename_in;
+  print STDERR "uniquified dosages file:    $dosages_output_filename \n";
 }
 ###############################################################################
 ####    read in cluster information         ###################################
@@ -96,7 +96,7 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   die "cluster size inconsistent. $cluster_size ", scalar @cluster_accids if($cluster_size != scalar @cluster_accids);
 
   my $rep_id = $cluster_accids[0];     # id of the representative of the cluster
-  print STDERR "repid $rep_id \n"; # sleep(1);
+  # print STDERR "repid $rep_id \n"; # sleep(1);
   $repid_clusterids{$rep_id} = \@cluster_accids;
   for my $a_cluster_id (@cluster_accids) {
     $clusterid_repid{$a_cluster_id} = $rep_id; # all accessions in clusters get stored
@@ -107,17 +107,18 @@ close $fh_clusters;
 ###############################################################################
 ####   read in pedigree file, if specified.    ################################
 ###############################################################################
-if(defined $pedigree_input_filename){
-  open my $fhpedin, "<", "$pedigree_input_filename";
-  if(!defined $pedigree_output_filename){
-    my ($v, $dir, $pedigree_filename_in) = File::Spec->splitpath( $pedigree_input_filename );
-    $pedigree_output_filename = "u_" . $pedigree_filename_in;
+if(defined $pedigrees_input_filename){
+  open my $fhpedin, "<", "$pedigrees_input_filename";
+  if(!defined $pedigrees_output_filename){
+    my ($v, $dir, $pedigrees_filename_in) = File::Spec->splitpath( $pedigrees_input_filename );
+    $pedigrees_output_filename = "u_" . $pedigrees_filename_in;
+    print STDERR "uniquified pedigrees file:  $pedigrees_output_filename \n";
   }
   # want col 1 to be leftmost, -1 rightmost
 $progeny_col-- if($progeny_col > 0);
 $Fparent_col-- if($Fparent_col > 0);
 $Mparent_col-- if($Mparent_col > 0);
-open my $fhpedout, ">", "$pedigree_output_filename";
+open my $fhpedout, ">", "$pedigrees_output_filename";
 for(1..$nskip){ <$fhpedin>; } # skip first nskip lines.
 
 my $pedigrees_in_count = 0;
@@ -149,7 +150,7 @@ while (my $line = <$fhpedin>) {
   }
 }
 close $fhpedin;
-} # end if defined $pedigree_input_filename
+} # end if defined $pedigrees_input_filename
 
 ################################################################################
 ####   read in dosages  ########################################################
@@ -195,7 +196,7 @@ if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then outpu
     print $fhout "$representative_id  ", join(" ", @$elected_gts), "\n";
   }
 } else {
-  print STDERR "duplicate group genotypes are those of accession with least missing data.\n";
+  print STDERR "duplicate group representative accessions are those  with least missing data.\n";
   while (my($representative_id, $cluster_accids) = each %repid_clusterids) {
     print $fhout "$representative_id  ", join(" ", @{$id_gts{$representative_id}}), "\n"; # output representative and its dosages.
   }
@@ -270,7 +271,13 @@ sub vote{ # for clusters with several members, determine
 }
 
 sub usage_message{
-  print "Usage: uniquify -i <input filename> [-o <output filename>] [-m <max allowed fraction marker missing data>].\n";
+  print "Basic usage: uniquify -dosages_in <input filename> -cluster <cluster filename> [-pedigrees_in <pedigree file>].\n";
+  print "Options:\n";
+  print "  -dosages_input_file  <dosage file to uniquify. Required>\n";
+  print "  -dosages_output_file <name for  uniquified dosage file. default: prepend 'u_' to input filename.\n";
+  print "  -pedigrees_input_file <pedigree file to uniquify. optional>\n";
+  print "  -pedigrees_output_file <name for uniquified pedigree file.\n";
+  print "  -cluster_filename <input file specifying the clusters. Required.\n";
 }
 
 # ************************************************
