@@ -44,7 +44,7 @@ use Cluster1d;
   my $distances_filename = undef;
   my $link_max_distance = 'auto'; # construct graph with edges between pairs of accessions iff their distance is <= this.
   my $maxD = 1; # just ignore pairs separated by greater distance than this.
-  my $output_cluster_filename = "distance_cluster.out";
+  my $output_cluster_filename = "clusterer.out";
   my $pow = 1; # cluster transformed values tx_i = pow(x_i, $pow), or if $pow is 'log' tx_i = log(x_i)
 # column numbers are unit-based:
   my $id1_column = 1;
@@ -63,7 +63,7 @@ use Cluster1d;
 
   GetOptions(
 	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 distance  ... (duplicate_search output)
-	     'cluster_distance|link_distance|dlink=s' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
+	     'cluster_distance|dcluster=s' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
 	     'output_file=s' => \$output_cluster_filename,
 
 	     'maxd|dmax=f' => \$maxD,
@@ -78,9 +78,10 @@ use Cluster1d;
 
   if (!defined $distances_filename) {
     print STDERR "Input file must be specified.\n";
-    print STDERR "Basic usage example: \n", "clusterer -in duplicate_search.out  -out cluster.out \n";
-    print STDERR "by default distance_cluster will attempt to automatically decide the max distance between duplicates.\n",
-      " but you can specify it with the cluster_distance option, e.g.  -cluster_distance 0.06 \n";
+    print STDERR "Basic usage example: \n", "  clusterer -in duplicate_search.out  -out cluster.out  -dcluster 0.03\n";
+    print STDERR "This would do single-linkage clustering with max edge length (max agmr) of 0.03.\n";
+    print STDERR "If -dcluster is omitted, an attempt is made to choose it automatically, but this is not very reliable.\n";
+    print STDERR "It is recommended to choose the max edge length by inspecting a histogram of the agmrs (in duplicate_search output)\n";
     exit;
   }
   
@@ -204,7 +205,7 @@ use Cluster1d;
   print $fhout "# col 7: number of cluster pts with 'nearby' non-cluster pts.\n";
   print $fhout "# 'nearby' defined as within $in_out_factor * link_max_distance = ", $in_out_factor*$link_max_distance, ".\n";
   print $fhout "# col 8: number of intra-cluster distances > link_max_distance ($link_max_distance).\n";
-  print $fhout "# col 9: number of intra-cluster pairs with distance not present in input file.\n";
+  print $fhout "# col 9: minimum degree of cluster members.\n";
   #  print $fhout "# col 10: max distance between cluster pt. and cluster consensus.\n";
   #  print $fhout "# col 11: number of cluster pts. further than $d_to_consensus_factor * link_max_distance from cluster consensus.\n";
   print $fhout "# then ids of cluster members, sorted with least missing data first.\n";
