@@ -52,8 +52,9 @@ typedef struct{
   double est_dist;
   double agmr;
   double hgmr;
+		
   double agmr0;
-  double psr;
+  // double psr;
 } Mci; // 'Mci = Matching chunk info'
 
 typedef struct{
@@ -95,7 +96,7 @@ four_longs agmr_hgmr_diploid(Accession* gtset1, Accession* gtset2); // used iff 
 
 // *****  Mci  ********
 Mci* construct_mci(long qidx, long midx, double n_usable_chunks, long n_matching_chunks,
-		   double est_dist, double agmr, double hgmr, double psr); // agmr0);
+		   double est_dist, double agmr, double hgmr); //, double psr); // agmr0);
 // *****  Vmci  *********************************************************************************
 Vmci* construct_vmci(long init_size); // used in find_matches
 void push_to_vmci(Vmci* the_vmci, Mci* the_mci); // used in check_est_distances_1thread
@@ -739,7 +740,7 @@ long* find_chunk_match_counts(const Accession* the_accession, const Chunk_patter
 
 Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_chunks,
 		   // double est_matching_chunk_fraction, double matching_chunk_fraction){
-		   double est_dist, double agmr, double hgmr, double psr){  // agmr0){
+		   double est_dist, double agmr, double hgmr){ //, double psr){  // agmr0){
   Mci* the_mci = (Mci*)calloc(1,sizeof(Mci));
   the_mci->query_index = qidx;
   the_mci->match_index = midx;
@@ -749,8 +750,8 @@ Mci* construct_mci(long qidx, long midx, double usable_chunks, long n_matching_c
   //  the_mci->dist = dist;
   the_mci->agmr = agmr;
   the_mci->hgmr = hgmr;
-  //the_mci->agmr0 = agmr0;
-  the_mci->psr = psr;
+  // the_mci->agmr0 = agmr0;
+  // the_mci->psr = psr;
   return the_mci;
 }
 
@@ -1016,13 +1017,15 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	  //	  double agmr_nought_b = agmr0_accvsall(the_genotypes_set, the_accessions->a[i_match]);
 	  est_dist += 0.0025*(((double)rand())/RAND_MAX -0.5);
 	  if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX);
-	  Mci* the_mci = construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr, agmr_nought);
+	  Mci* the_mci = construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr); //, agmr_nought);
 
+	  /*	  
 	  ND psr_nd = phase_switches(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
 	  Xcounts_2 Xovers2 = count_crossovers_one_parent(the_genotypes_set, q_gts, the_accessions->a[i_match]);
 	  //  fprintf(stderr, "SSSS: %s %s  %7.5f   %ld %ld   %ld %ld  %ld\n", q_gts->id->a, the_accessions->a[i_match]->id->a, agmr, psr_nd.n, psr_nd.d, Xovers2.Xa, Xovers2.Xb, Xovers2.Nhet);
 	  double the_psr = n_over_d(psr_nd);
-	  the_mci->psr = the_psr;
+	  the_mci->psr = the_psr; /* */
+	  
 	  push_to_vmci(query_vmcis[i_query], the_mci);
 	
 	} // end if(true_dist < max_est_dist)
@@ -1039,7 +1042,7 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){
   long distance_count = 0;
 
-  fprintf(ostream, "# id1  id2  agmr  hgmr  ");
+  fprintf(ostream, "# id1  md1  id2  md2  agmr  hgmr  ");
   if(output_format != 1){
     fprintf(ostream, "usable_chunks matching_chunks est_agmr normalized_agmr");
   }
@@ -1055,10 +1058,10 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       two_doubles hetrats = heterozyg_ratios(q_acc, m_acc);
       //double phased_mismatch_rate = pmr(q_acc, m_acc);
       //fprintf(ostream, "%s  %s  %8.6f %8.6f ", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
-      fprintf(ostream, "%s %ld  %s %ld  %8.6f %8.6f %8.6f",
+      fprintf(ostream, "%s %ld  %s %ld  %8.6f %8.6f ", // %8.6f",
 	      q_acc->id->a, q_acc->missing_data_count, m_acc->id->a, m_acc->missing_data_count,
-	      the_mci->agmr, the_mci->hgmr, the_mci->psr);
-      fprintf(ostream, " %7.5f %7.5f ", hetrats.x1, hetrats.x2);
+	      the_mci->agmr, the_mci->hgmr); //, the_mci->psr);
+      //  fprintf(ostream, " %7.5f %7.5f ", hetrats.x1, hetrats.x2);
       if(output_format != 1){
 	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
 	fprintf(ostream, "  %6.2f %ld %7.5f ", // %7.5f ",
