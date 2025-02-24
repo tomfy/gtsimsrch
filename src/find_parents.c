@@ -15,9 +15,9 @@
 
 #define DO_ALL (0)
 
-#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.2
-#define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  0.5
-#define DEFAULT_MIN_MAF  0.1
+#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
+#define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  1.0
+#define DEFAULT_MIN_MAF  0.05
 #define DEFAULT_MAX_XHGMR 0.18
 #define DEFAULT_MAX_CANDIDATE_PARENTS 80
 
@@ -115,7 +115,7 @@ main(int argc, char *argv[])
       {"d_max", required_argument, 0, 'D'},
       {"z_max", required_argument, 0, 'Z'},
       {"scale_factor", required_argument, 0, 'F'}, 
-      //   {"threads", required_argument, 0, 't'},
+      {"threads", required_argument, 0, 't'},
       {0,         0,                 0,  0 }
     };
      
@@ -154,9 +154,9 @@ main(int argc, char *argv[])
     case 'c':
       max_candidate_parents = atoi(optarg);
       break;
-    /* case 't': */
-    /*   Nthreads = atoi(optarg); */
-    /*   break; */
+    case 't':
+      Nthreads = atoi(optarg);
+      break;
     case 'm':
       if(optarg == 0){
 	fprintf(stderr, "Option m requires a numerical argument > 0\n");
@@ -391,14 +391,14 @@ main(int argc, char *argv[])
        long A_gtset_idx = index_of_id_in_vidxid(the_gt_vidxid, A->id->a);
        if(0 || (F != NULL  ||  M != NULL)){ // at least one parent specified in pedigree
     
-	 fprintf(o_stream, "%s  x  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
+	 fprintf(o_stream, "%s  P  ", A->id->a); // progeny accession and 'P' to indicate these are the parents from the pedigree file.
 	 print_pedigree_normalized(o_stream, the_pedigree); //, the_genotypes_set);
 	 two_doubles hratios = heterozyg_ratios(A, F);
 	 
 	 if(the_genotypes_set->phased){
 	   Xcounts_3 X3 = count_crossovers(the_genotypes_set, F, M, A);
 	   print_Xover_rates(o_stream, X3);
-	   fprintf(o_stream, "  %7.5f  %7.5f ", hratios.x1, hratios.x2);
+	   // fprintf(o_stream, "  %7.5f  %7.5f ", hratios.x1, hratios.x2);
 	 } // end of if phased branch
 
 	 if(alternative_pedigrees_level == 1){ // iff pedigrees bad, do search for parents, considering only accessions in parent_idxs as possible parents
@@ -546,11 +546,12 @@ void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigree
 	fprintf(o_stream, "A  "); // to indicate alternative parents (not those from pedigree file)
 	 print_pedigree_normalized(o_stream, the_pedigrees->a[iii]);
 	 print_Xover_rates(o_stream, a_pedigree->pedigree_stats->X3);
+	 // fprintf(o_stream, " XXX "); 
       } // loop over solutions for one progeny accession
   }else{
     fprintf(o_stream, " this accession has no candidate parents.");
   }
-} // end of sort_and_output_pedigrees
+} // end of sort_and_outputq_pedigrees
 
 /* void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor){ */
 /*   for(long i = 0; i < the_pedigrees->size; i++){ */

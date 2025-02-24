@@ -1221,7 +1221,7 @@ ND bitwise_hgmr(Accession* acc1, Accession* acc2){
   double phi = (double)(n_11 - 2*n_02_20)/(double)(n_1ok + n_ok1);
   /* double hgmr = (double)(n_02_20)/(double)(n_02_20 + n_00_22); */
   /* fprintf(stderr, "XYZ: %ld %ld   %ld  %ld %ld  %7.5f  %7.5f\n", n_02_20, n_00_22, n_11, n_1ok, n_ok1, hgmr, phi); */
-  fprintf(stderr, "id1, id2 phi: %s  %s  %7.5f\n", acc1->id->a, acc2->id->a, phi);
+  // fprintf(stderr, "id1, id2 phi: %s  %s  %7.5f\n", acc1->id->a, acc2->id->a, phi);
   return (ND){n_02_20, n_02_20 + n_00_22};
 }
 
