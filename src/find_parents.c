@@ -398,6 +398,7 @@ main(int argc, char *argv[])
 	 if(the_genotypes_set->phased){
 	   Xcounts_3 X3 = count_crossovers(the_genotypes_set, F, M, A);
 	   print_Xover_rates(o_stream, X3);
+	   print_X3_info(o_stream, X3);
 	   // fprintf(o_stream, "  %7.5f  %7.5f ", hratios.x1, hratios.x2);
 	 } // end of if phased branch
 
@@ -546,6 +547,7 @@ void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigree
 	fprintf(o_stream, "A  "); // to indicate alternative parents (not those from pedigree file)
 	 print_pedigree_normalized(o_stream, the_pedigrees->a[iii]);
 	 print_Xover_rates(o_stream, a_pedigree->pedigree_stats->X3);
+	    print_X3_info(o_stream, a_pedigree->pedigree_stats->X3);
 	 // fprintf(o_stream, " XXX "); 
       } // loop over solutions for one progeny accession
   }else{

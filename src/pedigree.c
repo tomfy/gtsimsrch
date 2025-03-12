@@ -149,8 +149,10 @@ Xcounts_3 count_crossovers_two_parents(const GenotypesSet* the_gtsset, Accession
     long next_start_index = the_gtsset->chromosome_start_indices->a[i+1];
     
     Xcounts_2 FX = count_crossovers_one_chromosome(the_gtsset, Fparent, offspring, start_index, next_start_index);
-   
     NhetF += FX.Nhet;
+    fprintf(stderr, "%s  %s   %ld %ld  %ld \n",
+	    offspring->id->a, Fparent->id->a, FX.Xa, FX.Xb, NhetF);
+   
     if(FX.Xa < FX.Xb){
       XFmin_2 += FX.Xa; XFmax_2 += FX.Xb;
     }else{
