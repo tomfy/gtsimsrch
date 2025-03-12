@@ -418,10 +418,10 @@ main(int argc, char *argv[])
   if(ploidy != 2) { fprintf(stderr, "# Ploidy of %ld detected. Non-diploid ploidy not implemented. Exiting.\n", ploidy); exit(EXIT_FAILURE); }
   // 'rectification' not needed for duplicate_search
   // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common than 2 for all markers.
+
   //check_genotypesset(the_genotypes_set);
   if(do_filtering) filter_genotypesset(the_genotypes_set, out_stream);
   //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicate_search
-  
   long n_accessions = the_genotypes_set->accessions->size;   
   long n_markers = the_genotypes_set->n_markers;
 

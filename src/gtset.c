@@ -218,37 +218,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       exit(EXIT_FAILURE);
     }
   }
-
-   while((nread = getline(&line, &len, g_stream)) != -1){
-
- // fprintf(stderr, "# reading accession %ld\n", accession_count);
-    saveptr = line; // these are char*
-    char* token = strtok_r(saveptr, "\t \n\r", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
-    if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
-    //fprintf(stderr, "token: %s\n", token); getc(stdin);
-    if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis)
-      Vlong* chromosome_numbers = construct_vlong(1000);
-      while(1){
-	token = strtok_r(NULL, "\t \n\r", &saveptr);
-	if(token == NULL) break;
-	long i_chrom = str_to_long(token);
-	push_to_vlong(chromosome_numbers, i_chrom);
-	//	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
-	//	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
-	//markerid_count++;
-	// fprintf(stderr, "### %30s  %ld %ld \n", mrkr_id, markerid_count, marker_ids->size); 
-      }
-      the_genotypes_set->chromosomes = chromosome_numbers;
-      fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size);
-      break;
-    }else{ 
-      fprintf(stderr, "token: %s (should be CHROMOSOME)\n", token);
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  
-  // *****  done reading first two lines (with marker ids, chromosome numbers)  *****
+ // *****  done reading line with marker ids  *****
   if(the_genotypes_set->marker_missing_data_counts == NULL){    
     the_genotypes_set->marker_missing_data_counts = construct_vlong_zeroes(marker_ids->size);
     the_genotypes_set->marker_alt_allele_counts = construct_vlong_zeroes(marker_ids->size);
@@ -259,7 +229,6 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       the_genotypes_set->marker_dosage_counts[i] = construct_vlong_zeroes(marker_ids->size);
     }
   }
-  
   // if the_genotypes_set already has marker_ids set (from a reference set), check for agreement with marker_ids
   // i.e. in case of using reference set, make sure the set of markers is the same in both data sets.
   if(the_genotypes_set->marker_ids  == NULL){
@@ -282,6 +251,106 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     }
     free_vstr(marker_ids);
   }
+  // *****  Done checking marker ids  *****
+
+
+  
+ long accession_count = 0;
+ // read through next non-comment line, either CHROMOSOME line, or first genotypes line
+   while((nread = getline(&line, &len, g_stream)) != -1){
+
+ // fprintf(stderr, "# reading accession %ld\n", accession_count);
+    saveptr = line; // these are char*
+    char* token = strtok_r(saveptr, "\t \n\r", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
+    if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
+    //fprintf(stderr, "token: %s\n", token); getc(stdin);
+    Vlong* chromosome_numbers;
+      if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis)
+      chromosome_numbers = construct_vlong(marker_ids->size);
+      while(1){
+	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	if(token == NULL) break;
+	long i_chrom = str_to_long(token);
+	push_to_vlong(chromosome_numbers, i_chrom);
+	//	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
+	//	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
+	//markerid_count++;
+	// fprintf(stderr, "### %30s  %ld %ld \n", mrkr_id, markerid_count, marker_ids->size); 
+      }
+      the_genotypes_set->chromosomes = chromosome_numbers;
+      fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size);
+      // break;
+    }else{  // chromosome numbers not specified; just set the chromosome number to 1 for all markers
+      chromosome_numbers = construct_vlong(marker_ids->size);
+      for(long i=0; i<marker_ids->size; i++){
+	push_to_vlong(chromosome_numbers, 0);
+      }
+       the_genotypes_set->chromosomes = chromosome_numbers;
+      fprintf(stderr, "Chromosome numbers are not specified. Phased analysis will not give meaningful results.\n");
+      //
+      char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
+      if(1){
+	fprintf(stderr, "aaaXXXXXXXXXXXXXXXXXXXX\n");
+	read_gts_line_add_accession_to_gtset(the_genotypes_set, acc_id, marker_ids->size, saveptr, max_acc_missing_data_fraction);
+      }else{
+      
+      long marker_count = 0;
+      long accession_missing_data_count = 0;
+      char* genotypes = (char*)calloc((markerid_count+1), sizeof(char));
+      genotypes[markerid_count] = '\0'; // terminate with null.
+      char* phases =  (char*)calloc((markerid_count+1), sizeof(char));
+      phases[markerid_count] = '\0'; // indices 0 through markerid_count-1 are phases ('x', 'p', or 'm'), index markerid_count has terminating null.
+
+      while(1){ // read dosages from one line.
+	//fprintf(stderr, "before saveptr: [%s]\n", saveptr);
+	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	//fprintf(stderr, "saveptr: [%s]  [%s]\n", saveptr, token);
+	if(token == NULL)	break;
+	two_chars dsg_ph = token_to_dosage(token, &(the_genotypes_set->ploidy));
+	genotypes[marker_count] = dsg_ph.ch1;
+	//fprintf(stderr, "dsg_ph.ch2: %c\n", dsg_ph.ch2);
+	if(dsg_ph.ch2 != NO_PHASE_CHAR) the_genotypes_set->phased = true; 
+	phases[marker_count] = dsg_ph.ch2;
+	// fprintf(stderr, "XXX %c %c \n", dsg_ph.ch1, dsg_ph.ch2);
+	if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
+	marker_count++;
+      } // done reading dosages for all markers of this accession
+      // exit(EXIT_FAILURE);
+ if(1){
+	// if accession does not have too much missing data, construct Accession and store in the_genotypes_set
+	if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
+	
+	  Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, phases, accession_missing_data_count);
+	  for(long jjj=0; jjj<markerid_count; jjj++){ //
+	    if(genotypes[jjj] == MISSING_DATA_CHAR){
+	      the_genotypes_set->marker_missing_data_counts->a[jjj]++;
+	      // accession_missing_data_count++; // not needed; has no effect?
+	    }else{
+	      the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
+	    }
+	  }   
+	  push_to_vaccession(the_genotypes_set->accessions, the_accession);
+	  accession_count++;
+	  	  fprintf(stderr, "AAAAA: %ld  %ld\n", accession_count, the_genotypes_set->accessions->size);
+
+	}else{
+	  fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
+		  acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
+	  the_genotypes_set->n_bad_accessions++;
+	}
+      }
+      free(acc_id); // or cut out the middleman (acc_id)?
+      free(genotypes);
+      }
+      }
+      /* */
+      break;
+   }
+
+  
+ 
+  
+ 
 
   double t1 = hi_res_time();
   if(Nthreads == -1){ // old, unthreaded way
@@ -316,13 +385,13 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 
     
   // Read in the rest of the lines, construct an Accession for each line
-  long accession_count = 0;
+ 
   while((nread = getline(&line, &len, g_stream)) != -1){
     // fprintf(stderr, "# reading accession %ld\n", accession_count);
     saveptr = line; // these are char*
     char* token = strtok_r(saveptr, "\t \n\r", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
     if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
-    if(0){
+    // if(0){
     /* fprintf(stderr, "token: %s\n", token); getc(stdin); */
     /* if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis) */
     /*   Vlong* chromosome_numbers = construct_vlong(1000); */
@@ -339,10 +408,42 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     /*   the_genotypes_set->chromosomes = chromosome_numbers; */
     /*   fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size); */
     /*   // the_genotypes_set->phased = true; // now allow for presence of chromosome numbers in unphased data. */
-     }else{ // not CHROMOSOME line, should be acc id, followed by dosages */
-     
-    //char* token = strtok_r(saveptr, "\t \n\r", &saveptr);
+
+    /* if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis) */
+    /*   Vlong* chromosome_numbers = construct_vlong(marker_ids->size); */
+    /*   while(1){ */
+    /* 	token = strtok_r(NULL, "\t \n\r", &saveptr); */
+    /* 	if(token == NULL) break; */
+    /* 	long i_chrom = str_to_long(token); */
+    /* 	push_to_vlong(chromosome_numbers, i_chrom); */
+    /* 	//	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char)); */
+    /* 	//	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store */
+    /* 	//markerid_count++; */
+    /* 	// fprintf(stderr, "### %30s  %ld %ld \n", mrkr_id, markerid_count, marker_ids->size);  */
+    /*   } */
+    /*   the_genotypes_set->chromosomes = chromosome_numbers; */
+    /*   fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size); */
+    /*   // break; */
+    /* }/\* else{  // chromosome numbers not specified; just set the chromosome number to 1 for all markers *\/ */
+    /* /\*   chromosome_numbers = construct_vlong(marker_ids->size); *\/ */
+    /* /\*   for(long i=0; i<marker_ids->size; i++){ *\/ */
+    /* /\* 	push_to_vlong(chromosome_numbers, 0); *\/ */
+    /* /\*   } *\/ */
+    /* /\*    the_genotypes_set->chromosomes = chromosome_numbers; *\/ */
+    /* /\*   fprintf(stderr, "Chromosome numbers are not specified. Phased analysis will not give meaningful results.\n"); *\/ */
+    /* /\*   // exit(EXIT_FAILURE); *\/ */
+    /* /\* } *\/ */
+
+      
+    /* else{ // not CHROMOSOME line, should be acc id, followed by dosages *\/ */
+
+   
+      //char* token = strtok_r(saveptr, "\t \n\r", &saveptr);
       char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
+      if(1){
+		fprintf(stderr, "bbbXXXXXXXXXXXXXXXXXXXX\n");
+	read_gts_line_add_accession_to_gtset(the_genotypes_set, acc_id, marker_ids->size, saveptr, max_acc_missing_data_fraction);
+      }else{
       long marker_count = 0;
       long accession_missing_data_count = 0;
       char* genotypes = (char*)calloc((markerid_count+1), sizeof(char));
@@ -355,45 +456,46 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	token = strtok_r(NULL, "\t \n\r", &saveptr);
 	//fprintf(stderr, "saveptr: [%s]  [%s]\n", saveptr, token);
 	if(token == NULL)	break;
-      two_chars dsg_ph = token_to_dosage(token, &(the_genotypes_set->ploidy));
-      genotypes[marker_count] = dsg_ph.ch1;
-      //fprintf(stderr, "dsg_ph.ch2: %c\n", dsg_ph.ch2);
-      if(dsg_ph.ch2 != NO_PHASE_CHAR) the_genotypes_set->phased = true; 
-      phases[marker_count] = dsg_ph.ch2;
-      // fprintf(stderr, "XXX %c %c \n", dsg_ph.ch1, dsg_ph.ch2);
-      if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
-      marker_count++;
-    } // done reading dosages for all markers of this accession
-    if(marker_count != markerid_count) {
-      fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, markerid_count);
-      exit(EXIT_FAILURE); 
-    }
-    // double fraction_to_keep = 0.75;  
-    // if((double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){
-    if(1){
-      // if accession does not have too much missing data, construct Accession and store in the_genotypes_set
-      if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
-	
-	Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, phases, accession_missing_data_count);
-	for(long jjj=0; jjj<markerid_count; jjj++){ //
-	  if(genotypes[jjj] == MISSING_DATA_CHAR){
-	    the_genotypes_set->marker_missing_data_counts->a[jjj]++;
-	    // accession_missing_data_count++; // not needed; has no effect?
-	  }else{
-	    the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
-	  }
-	}   
-	push_to_vaccession(the_genotypes_set->accessions, the_accession);
-	accession_count++;
-      }else{
-	fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
-		acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
-	the_genotypes_set->n_bad_accessions++;
+	two_chars dsg_ph = token_to_dosage(token, &(the_genotypes_set->ploidy));
+	genotypes[marker_count] = dsg_ph.ch1;
+	//fprintf(stderr, "dsg_ph.ch2: %c\n", dsg_ph.ch2);
+	if(dsg_ph.ch2 != NO_PHASE_CHAR) the_genotypes_set->phased = true; 
+	phases[marker_count] = dsg_ph.ch2;
+	// fprintf(stderr, "XXX %c %c \n", dsg_ph.ch1, dsg_ph.ch2);
+	if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
+	marker_count++;
+      } // done reading dosages for all markers of this accession
+      if(marker_count != markerid_count) {
+	fprintf(stderr, "# marker_count, markerid_count: %ld %ld \n", marker_count, markerid_count);
+	exit(EXIT_FAILURE); 
       }
-    }
-    free(acc_id); // or cut out the middleman (acc_id)?
-    free(genotypes);
-    }
+      // double fraction_to_keep = 0.75;  
+      // if((double)rand()/((double)(RAND_MAX)+1) < fraction_to_keep){
+      if(1){
+	// if accession does not have too much missing data, construct Accession and store in the_genotypes_set
+	if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
+	
+	  Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, phases, accession_missing_data_count);
+	  for(long jjj=0; jjj<markerid_count; jjj++){ //
+	    if(genotypes[jjj] == MISSING_DATA_CHAR){
+	      the_genotypes_set->marker_missing_data_counts->a[jjj]++;
+	      // accession_missing_data_count++; // not needed; has no effect?
+	    }else{
+	      the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
+	    }
+	  }   
+	  push_to_vaccession(the_genotypes_set->accessions, the_accession);
+	  accession_count++;
+	  fprintf(stderr, "B: %ld  %ld\n", accession_count, the_genotypes_set->accessions->size);
+	}else{
+	  fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
+		  acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
+	  the_genotypes_set->n_bad_accessions++;
+	}
+      }
+      free(acc_id); // or cut out the middleman (acc_id)?
+      free(genotypes);
+      }
   } // done reading all lines
   }else{ // threaded!
     threaded_input(g_stream, 720, max_acc_missing_data_fraction, Nthreads, marker_ids, the_genotypes_set);
@@ -1556,6 +1658,58 @@ long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions){
   return 1;
 }
 
+//void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, long markerid_count, char* saveptr){
+void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char* acc_id, long markerid_count, char* saveptr, double max_acc_missing_data_fraction){
+
+      long marker_count = 0;
+      long accession_missing_data_count = 0;
+      char* genotypes = (char*)calloc((markerid_count+1), sizeof(char));
+      genotypes[markerid_count] = '\0'; // terminate with null.
+      char* phases =  (char*)calloc((markerid_count+1), sizeof(char));
+      phases[markerid_count] = '\0'; // indices 0 through markerid_count-1 are phases ('x', 'p', or 'm'), index markerid_count has terminating null.
+      char* token;
+      
+      while(1){ // read dosages from one line.
+	//fprintf(stderr, "before saveptr: [%s]\n", saveptr);
+	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	//fprintf(stderr, "saveptr: [%s]  [%s]\n", saveptr, token);
+	if(token == NULL)	break;
+	two_chars dsg_ph = token_to_dosage(token, &(the_genotypes_set->ploidy));
+	genotypes[marker_count] = dsg_ph.ch1;
+	//fprintf(stderr, "dsg_ph.ch2: %c\n", dsg_ph.ch2);
+	if(dsg_ph.ch2 != NO_PHASE_CHAR) the_genotypes_set->phased = true; 
+	phases[marker_count] = dsg_ph.ch2;
+	// fprintf(stderr, "XXX %c %c \n", dsg_ph.ch1, dsg_ph.ch2);
+	if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
+	marker_count++;
+      } // done reading dosages for all markers of this accession
+      // exit(EXIT_FAILURE);
+ if(1){
+	// if accession does not have too much missing data, construct Accession and store in the_genotypes_set
+	if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
+	  long accession_count = the_genotypes_set->accessions->size;
+	  Accession* the_accession = construct_accession(acc_id, accession_count, genotypes, phases, accession_missing_data_count);
+	  for(long jjj=0; jjj<markerid_count; jjj++){ //
+	    if(genotypes[jjj] == MISSING_DATA_CHAR){
+	      the_genotypes_set->marker_missing_data_counts->a[jjj]++;
+	      // accession_missing_data_count++; // not needed; has no effect?
+	    }else{
+	      the_genotypes_set->marker_alt_allele_counts->a[jjj] += (long)(genotypes[jjj]-48); // 48->+=0, 49->+=1, 50->+=2, etc.
+	    }
+	  }   
+	  push_to_vaccession(the_genotypes_set->accessions, the_accession);
+	  accession_count++;
+	  	  fprintf(stderr, "AAAAA: %ld  %ld\n", accession_count, the_genotypes_set->accessions->size);
+
+	}else{
+	  fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
+		  acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
+	  the_genotypes_set->n_bad_accessions++;
+	}
+      }
+      free(acc_id); // or cut out the middleman (acc_id)?
+      free(genotypes);
+}
 
 
 //  #####  unused  ############################
@@ -1570,8 +1724,7 @@ double agmr0(GenotypesSet* the_gtsset){
     double f1 = the_gtsset->marker_dosage_counts[1]->a[i]/ok_count;
     double f2 = the_gtsset->marker_dosage_counts[2]->a[i]/ok_count;;
     n_exp_different += 2*(f0*(f1+f2) + f1*f2);
-    n_exp_ok += ok_count/(double)the_gtsset->accessions->size;
-  }
+    n_exp_ok += ok_count/(double)the_gtsset->accessions->size; }
  
   double agmr0 = (n_exp_ok > 0)? n_exp_different/n_exp_ok : -1;
   the_gtsset->agmr0 = agmr0;

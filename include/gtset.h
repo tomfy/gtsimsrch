@@ -170,7 +170,7 @@ ND phase_switches_one_chrom(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start);
 ND phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms);
 
 two_doubles heterozyg_ratios(Accession* acc1, Accession* acc2);
-
+void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char* acc_id, long markerid_count, char* saveptr, double max_acc_missing_data_fraction);
 // ##### unused #####
 
 double agmr0(GenotypesSet* the_gtsset);
