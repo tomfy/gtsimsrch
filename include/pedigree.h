@@ -97,14 +97,16 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
 Vpedigree* calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
 
-long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d, double max_ok_z);
+long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d);
+long d_ok(Pedigree_stats* p, double max_ok_d); // 1: d looks good; 0: d too large.
+
 void free_pedigree(const Pedigree* the_pedigree);
 
 // *****  Vpedigree  *****
 Vpedigree* construct_vpedigree(long cap);
 Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset);
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
-Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_z, double max_ok_d);
+Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_d);
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose);
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 void sort_vpedigree_by_d(Vpedigree* the_vped);

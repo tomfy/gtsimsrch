@@ -1,21 +1,32 @@
 #!/usr/bin/perl -w
 use strict;
-
+use Getopt::Long;
+use List::Util qw(min max sum shuffle);
 # mean and mode of number of words per line (whitespace separated)
-my $lines_then_words = shift // 1;
-my $verbose = shift // 1;
-my $n_words_to_print = shift // undef;
+my $lines_then_words = 1;
+my $output_sample_line = 0;
+my $n_words_to_print = undef;
+
+GetOptions(
+	   'nlines!' => \$lines_then_words, # 1 -> output in order of number of lines with each number of words
+	   'sample_line!' => \$output_sample_line, # print the first line with each number of words
+	   'words_out=i' => \$n_words_to_print,
+	   );
 
 my %nwords_nlines = ();
+my %nwords_firstline = ();
 my $nlines = 0;
 my $total_nwords = 0;
-while(<>){
-  my @cols = split(" ", $_);
+while(my $line = <>){
+  my @cols = split(" ", $line);
   my $nwords = scalar @cols;
   if(defined $n_words_to_print  and  $nwords == $n_words_to_print){
-    print; # "$nwords [$_]\n";
+    print $line; # "$nwords [$line]\n";
   }
   $nwords_nlines{$nwords}++;
+  if($nwords_nlines{$nwords} == 1){
+    $nwords_firstline{$nwords} = $line;
+  }
   $total_nwords += $nwords;
   $nlines++;
 }
@@ -33,8 +44,10 @@ my $str = ($lines_then_words)?
   "# max number of words per line:  " . $sorted_nwords[0] . " ; which occurs on " . $nwords_nlines{$sorted_nwords[0]} . " lines.";
 print "$str\n";
 
-if ($verbose) {
-  for my $nw (@sorted_nwords) {
-    print "# there are ", $nwords_nlines{$nw}, " lines with $nw words.\n";
+
+for my $nw (@sorted_nwords) {
+  print "# there are ", $nwords_nlines{$nw}, " lines with $nw words.\n";
+  if ($output_sample_line){
+    print "   ", $nwords_firstline{$nw};
   }
 }

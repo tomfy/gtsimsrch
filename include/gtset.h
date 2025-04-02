@@ -33,11 +33,14 @@ typedef struct{
   double agmr0;
   double n_exp_00_1_22_1;
   double  n_exp_00_1_22_1_self;
-  long n2exp0s; // considering markers with 2 in this accession, expected number of 0's in a random other accession (for xhgmr denom). 
+  long n2exp0s; // considering markers with 2 in this accession, expected number of 0's in a random other accession (for xhgmr denom).
+  bool has_pedigree; // true iff pedigree file gives at least one parent for this accession.
   long Fpar_idx; // index of female parent according to pedigree file (or ID_NA_INDEX if not in file)
   long Mpar_idx; // index of male parent according to pedigree file (or ID_NA_INDEX if not in file)
-  bool has_pedigree; // true iff pedigree file gives at least one parent for this accession.
+ 
   bool search_done; // true iff search for parents has been done
+  //Accession* pedFpar;
+  //Accession* pedMpar;
 }Accession;
 
 typedef struct{
@@ -73,7 +76,7 @@ typedef struct{
 
   Vchar* acc_filter_info;
   Vchar* marker_filter_info;
-  double d_scale_factor;
+  //double d_scale_factor;
   double mean_hgmr;
   double mean_R;
   double mean_d;
@@ -144,7 +147,8 @@ Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);
 ND bitwise_hgmr(Accession* acc1, Accession* acc2);
 ND bitwise_R(Accession* parent, Accession* offspring);
-void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, double max_hgmr);
+// void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, double max_hgmr);
+Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_hgmr);
 void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
 ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
 four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
@@ -179,4 +183,4 @@ double agmr0_accvsall(const GenotypesSet* the_gtsset, Accession* A);
 double pair_agmr0(Accession* A, Accession* B);
 void n_00_1_22_1_accvsall(const GenotypesSet* the_gtsset, Accession* A );
 
-two_doubles logPABPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B);
+two_doubles logPABlogPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B);
