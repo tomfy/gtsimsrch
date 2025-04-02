@@ -137,7 +137,7 @@ double clock_time(clockid_t a_clock){
   return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
 }
 
-two_longs check_phases(Accession* acc);
+four_longs check_phases(Accession* acc);
 
 
 // *************************  end of declarations  **********************************************
@@ -447,17 +447,25 @@ main(int argc, char *argv[])
   // *****  done reading, filtering, and storing input  **********
   
   check_genotypesset(the_genotypes_set);
+
+  long het_phased = 0;
+  long het_unphased = 0;
   for(long i=0; i < the_genotypes_set->accessions->size; i++){
     Accession* an_acc = the_genotypes_set->accessions->a[i];
-    two_longs n_bad_no_phase = check_phases(an_acc);
-    if(n_bad_no_phase.l2 > 0) fprintf(stderr, "unphased data present at %ld markers. \n", n_bad_no_phase.l2);
-    if(n_bad_no_phase.l1 > 0){
-      fprintf(stderr, "N bad phases: %ld.\n", n_bad_no_phase.l1);
+    four_longs n_bad_phase_no_phase = check_phases(an_acc);
+    if(n_bad_phase_no_phase.l2 > 0){ fprintf(stderr, "acc: %s  %ld\n", an_acc->id->a, n_bad_phase_no_phase.l2); }
+    //if(n_bad_phase_no_phase.l3 > 0) fprintf(stderr, "unphased data present at %ld markers. \n", n_bad_phase_no_phase.l3);
+    het_phased += n_bad_phase_no_phase.l2;
+    het_unphased += n_bad_phase_no_phase.l3;
+    if(n_bad_phase_no_phase.l1 > 0){
+      fprintf(stderr, "N bad phases: %ld.\n", n_bad_phase_no_phase.l1);
       exit(EXIT_FAILURE);
     }
   }
+  fprintf(stderr, "Heterozygous genotypes; phased: %ld,  unphased %ld\n", het_phased, het_unphased);
   double t_after_chk = clock_time(clock1);
   fprintf(stdout, "# Time for check_genotypesset: %lf\n", t_after_chk - t_after_input);
+  
   if(BITWISE || get_all_est_agmrs) set_Abits_Bbits(the_genotypes_set, Nthreads);
   double t_after_set_ABbits = clock_time(clock1);
   fprintf(stdout, "# Time for set_Abits_Bbits: %lf\n", t_after_set_ABbits - t_after_chk);
@@ -1112,8 +1120,10 @@ void print_command_line(FILE* ostream, int argc, char** argv){
   }fprintf(ostream, "\n");
 }
 
-two_longs check_phases(Accession* acc){
+four_longs check_phases(Accession* acc){
+  //  
   long n_bad = 0;
+  long n_phase = 0;
   long n_no_phase = 0;
   for(long i=0; i < acc->genotypes->length; i++){
     char gt = acc->genotypes->a[i];
@@ -1121,15 +1131,19 @@ two_longs check_phases(Accession* acc){
     if((gt == '0' || gt == '2') && (phase != 'x')){
       n_bad++;
     }
-    if( (gt == '1') && (phase != 'p'  &&  phase != 'm') ){
-      if(phase == 'x'){
-	n_no_phase++;
+    if(gt == '1'){
+      if(phase != 'p'  &&  phase != 'm'){
+	if(phase == 'x'){
+	  n_no_phase++;
+	}else{
+	  n_bad++;
+	}
       }else{
-	n_bad++;
+	n_phase++;
       }
     }
   }
-  return (two_longs){n_bad, n_no_phase};
+  return (four_longs){n_bad, n_phase, n_no_phase, 0};
 }
 
 
