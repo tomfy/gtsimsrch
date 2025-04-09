@@ -5,7 +5,6 @@ use Getopt::Long;
 use File::Basename 'dirname';
 use List::Util qw 'min max sum';
 
-
 use Cwd 'abs_path';
 my ( $bindir, $libdir );
 BEGIN {     # this has to go in Begin block so happens at compile time
@@ -17,14 +16,9 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 use lib $libdir;
 use Cluster1d;
 
-my $missing_data_char = 'X';
-# my $bad_distance = -1;
-# my $d_to_consensus_factor = 0.5; # count cluster members further than $d_to_consensus_factor*$line_max_distance
-
-
-# read duplicatesearch output and find clusters of accessions
+# read duplicate_search output and find clusters of accessions
 # with near-identical genotypes
-# specifically, create a graph, and for any pairs in duplicatesearch output with
+# specifically, create a graph, and for any pairs in duplicate_search output with
 # distance <= $link_max_distance, make an edge in the graph between the accessions of the pair.
 # the clusters are then the connected components of the graph.
 # i.e. two accession belong to the same cluster iff you can get from
@@ -32,32 +26,35 @@ my $missing_data_char = 'X';
 # one line of output for each cluster, with fields
 # cluster size, min distance, max distance, 'missing_distance_count (should be 0)', the ids of accessions in cluster.
 # e.g.:    3  0.0104 0.0142 0  TMEB778:250254008  TMEB778:250304613  TMEB778:250597946
-# the duplicatesearch output should have all the distances for all the pairs in each cluster,
+# the duplicate_search output should have all the distances for all the pairs in each cluster,
 # and in that case the 4th field ('missing_distance_count') will be 0. If missing_distance_count > 0,
 # consider rerunning this script with a smaller $max_distance,
-# or rerun duplicatesearch with a larger value of 'max_estimated_distance' (-e option)
+# or rerun duplicate_search with a larger value of 'max_estimated_distance' (-e option)
 
 # usage example:
-# clusterer.pl -in duplicatesearch.out  -out  distance_clusters  [-cluster_distance 0.08]
+# clusterer.pl -in duplicate_search.out  -out  distance_clusters  [-cluster_distance 0.08]
 
-# runs duplicatesearch, then distance_cluster, and outputs a file
-# with the same format as duplicatesearch input, but now with just one
+# runs duplicate_search, then distance_cluster, and outputs a file
+# with the same format as duplicate_search input, but now with just one
 # line representing each cluster.
 
 {				# beginning of 'main'
-
+  my $command_str = "# command:  $0  " . join(" ", @ARGV);
+  
   my $distances_filename = undef;
   my $link_max_distance = 'auto'; # construct graph with edges between pairs of accessions iff their distance is <= this.
   my $maxD = 1; # just ignore pairs separated by greater distance than this.
-  my $output_cluster_filename = "distance_cluster.out";
+  my $output_cluster_filename = "clusterer.out";
   my $pow = 1; # cluster transformed values tx_i = pow(x_i, $pow), or if $pow is 'log' tx_i = log(x_i)
-
+# column numbers are unit-based:
   my $id1_column = 1;
-  my $id2_column = 2;
-  my $d_column = 3; # the distances to use for clustering are found in this column (unit-based)
+  my $mdc1_column = 2; # missing data count, accession 1
+  my $id2_column = 3;
+  my $mdc2_column = 4; # missing data count, accession 2
+  my $d_column = 5; # the distances to use for clustering are found in this column (unit-based)
   my $in_out_factor = 1.2;
   my $f = 0.2; # fraction of way auto link_max_distance is across the Q > 0.5*Qmax range.
-  my $full_output = 1; # if '-nofull' will not output the degrees, etc for each cluster member, etc.
+  my $full_output = 0; # if '-nofull' will not output the degrees, etc for each cluster member, etc.
   my $prune_factor = 0.2; # if cluster member has edges to < this fraction of other cluster members, delete it.
 
   my $min_minextra_maxintra_ratio = -1; # can use this to only output clusters whose
@@ -65,8 +62,8 @@ my $missing_data_char = 'X';
   # is at least this large.
 
   GetOptions(
-	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 distance  ... (duplicatesearch output)
-	     'cluster_distance|link_distance|dlink=s' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
+	     'distances_file|input=s' => \$distances_filename, # file with id1 id2 distance  ... (duplicate_search output)
+	     'cluster_distance|dcluster=s' => \$link_max_distance, # cluster using graph with edges for pairs with distance < this.
 	     'output_file=s' => \$output_cluster_filename,
 
 	     'maxd|dmax=f' => \$maxD,
@@ -78,16 +75,19 @@ my $missing_data_char = 'X';
 	     'prune_factor=f' => \$prune_factor,
 	     'full_output!' => \$full_output,
 	    );
-  print "# Getting accessions ids from columns: $id1_column, $id2_column \n";
-  print "# Clustering based on distances in column: $d_column\n";
-  # $column--;
+
   if (!defined $distances_filename) {
-    
-    print STDERR "Basic usage example: \n", "clusterer -in duplicatesearch.out  -out cluster.out \n";
-    print STDERR "by default distance_cluster will attempt to automatically decide the max distance between duplicates.\n",
-      " but you can specify it with the cluster_distance option, e.g.  -cluster_distance 0.06 \n";
+    print STDERR "Input file must be specified.\n";
+    print STDERR "Basic usage example: \n", "  clusterer -in duplicate_search.out  -out cluster.out  -dcluster 0.03\n";
+    print STDERR "This would do single-linkage clustering with max edge length (max agmr) of 0.03.\n";
+    print STDERR "If -dcluster is omitted, an attempt is made to choose it automatically, but this is not very reliable.\n";
+    print STDERR "It is recommended to choose the max edge length by inspecting a histogram of the agmrs (in duplicate_search output)\n";
     exit;
   }
+  
+  print "# Getting accessions ids from columns: $id1_column, $id2_column \n";
+  print "# Clustering based on distances in column: $d_column\n";
+  print STDERR "Pair distances filename: $distances_filename \n";
 
   #######################################################################################################
   # store all distances in the distances file in hash refs $edge_weight and id_closeidds
@@ -95,17 +95,13 @@ my $missing_data_char = 'X';
   # $id_closeidds : keys are ids, values array ref of array refs of ids and distances of other accessions.
 
   #print STDERR "$distances_filename $id1_column $id2_column $d_column $maxD\n";
-  my ($edge_weight, $id_closeidds) = store_distances($distances_filename, $id1_column, $id2_column, $d_column, $maxD);
+  my ($edge_weight, $id_closeidds, $id_mdcount) = store_distances($distances_filename,
+								  $id1_column, $mdc1_column, $id2_column, $mdc2_column,
+								  $d_column, $maxD);
   #######################################################################################################
-  # get array of edges order by weight (distance), small to large.
-  # while(my ($e, $w) = each %$edge_weight){
-  #   print "$e $w\n";
-  # }
+  # get array of edges ordered by weight (distance), small to large.
   my @sorted_edges = sort {$edge_weight->{$a} <=> $edge_weight->{$b} } keys %$edge_weight;
   print "# Number of edges stored ", scalar @sorted_edges, "\n";
-  # for my $ed (@sorted_edges){
-  #   print "edge:  $ed\n";
-  # }
 
   #######################################################################################################
   # if $link_max_distance not specified, attempt to find a reasonable value by looking at the distances
@@ -125,7 +121,7 @@ my $missing_data_char = 'X';
   # construct graph with edges between vertices (accessions) for pairs with distance < $link_max_distance
   # construct graph by adding edges & their endpoints; graph does not contain single unconnected vertices.
 
-  my ($the_graph, $id_degree) = construct_graph($edge_weight, $link_max_distance, \@sorted_edges);
+  my $the_graph = construct_graph($edge_weight, $link_max_distance, \@sorted_edges);
   # the connected components of graph are the clusters
   my @clusters = $the_graph->connected_components; # array of array refs of ids
   my @vertices = $the_graph->vertices();
@@ -133,7 +129,7 @@ my $missing_data_char = 'X';
   print "# Graph created with ", scalar @clusters, " clusters and $n_nodes cluster members.\n";
   ########################################################################################################
 
-  prune_graph($the_graph, $id_degree, $prune_factor);
+  prune_graph($the_graph, $prune_factor);
   @clusters = $the_graph->connected_components; # array of array refs of ids
   @vertices = $the_graph->vertices();
   $n_nodes = scalar @vertices;
@@ -149,8 +145,8 @@ my $missing_data_char = 'X';
     $count_cluster_accessions += $cluster_size;
     my %thisclusterids = map(($_ => 1), @$accs);
 
-    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds) =
-      cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance, $id_degree);
+    my ($cluster_min_d, $cluster_avg_d, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, $out_iddegds, $min_degree) =
+      cluster_quality1($accs, $edge_weight, $the_graph, $link_max_distance);
 
     my ($cluster_noncluster_gap, $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt) =
       cluster_quality2($the_graph, \%thisclusterids, $id_closeidds, $link_max_distance, $in_out_factor*$link_max_distance);
@@ -162,19 +158,22 @@ my $missing_data_char = 'X';
     $cluster_q_category++ if($cluster_noncluster_gap < 1.2*$link_max_distance);
     
     my $output_line_string = '';
-    if ($full_output) {
-      my @iddegds = map( sprintf("%s %1d %7.5f  ", $_->[0], $_->[1],
-				 # $_->[2],
-				 $_->[3]), @$out_iddegds);
-      $output_line_string = join("  ", @iddegds);
+    if ($full_output) { # for each duplicate group member output  id, degree, rms dist from duplicates
+      # sort by missing data, low to high.
+      my @sorted_iddegds = sort {$id_mdcount->{$a->[0]} <=> $id_mdcount->{$b->[0]}} @$out_iddegds;
+      
+      $output_line_string = join("  ", map(  sprintf("%s %1d %7.5f  ", $_->[0], $_->[1], $_->[3]) ,@sorted_iddegds) );
     } else {
-      my @ids = map( sprintf("%s  ", $_->[0]), @$out_iddegds);
-      $output_line_string = join("  ", @ids);
+      #my @ids = map( sprintf("%s  ", $_->[0]), @$out_iddegds);
+      my @ids = map($_->[0], @$out_iddegds);
+      my @sorted_ids = sort {$id_mdcount->{$a} <=> $id_mdcount->{$b}} @ids;
+      print join(" ", map(sprintf(" %s %ld ", $_, $id_mdcount->{$_}), @sorted_ids)), "\n";
+      $output_line_string = join("  ", @sorted_ids);
     }
     $output_line_string = sprintf("%4d  %7.5f %7.5f %7.5f %7.5f  %4d %4d %4d %4d   %s\n ",
 				  $cluster_size, $cluster_min_d, $cluster_avg_d, $cluster_max_d, $cluster_noncluster_gap,
 				  $N_nearby_noncluster_pts, $N_cluster_pts_with_nearby_noncluster_pt,
-				  $intracluster_far_pair_count, $missing_distance_count,
+				  $intracluster_far_pair_count+$missing_distance_count, $min_degree,
 				  #  $d, $e,
 				  #	  $cluster_q_category,
 				  $output_line_string);
@@ -193,10 +192,12 @@ my $missing_data_char = 'X';
   my $N_clusters_out = scalar @output_lines;
   die if($N_clusters_out + $count_rejected_clusters != scalar @clusters);
   print "# Found $N_clusters_out acceptable clusters containing $count_cluster_accessions_out accessions.\n";
+  print "# Removing duplicates will reduce the number of accessions by ", $count_cluster_accessions_out - $N_clusters_out , "\n"; 
   open my $fhout, ">", "$output_cluster_filename" or die "Couldn't open $output_cluster_filename for writing.\n";
-  
+  print $fhout $command_str, "\n";
   print $fhout "# Graph max edge length: $link_max_distance. \n";
   print $fhout "# Found $N_clusters_out acceptable clusters, containing $count_cluster_accessions_out accessions.\n";
+  print $fhout "# Removing duplicates will reduce the number of accessions by ", $count_cluster_accessions_out - $N_clusters_out , "\n"; 
   print $fhout "# col 1: cluster size.\n";
   print $fhout "# col 2, 3, 4: min, avg. and max. intra-cluster distances.\n";
   print $fhout "# col 5: min distance between cluster pts and non-cluster pts.\n";
@@ -204,10 +205,13 @@ my $missing_data_char = 'X';
   print $fhout "# col 7: number of cluster pts with 'nearby' non-cluster pts.\n";
   print $fhout "# 'nearby' defined as within $in_out_factor * link_max_distance = ", $in_out_factor*$link_max_distance, ".\n";
   print $fhout "# col 8: number of intra-cluster distances > link_max_distance ($link_max_distance).\n";
-  print $fhout "# col 9: number of intra-cluster pairs with distance not present in input file.\n";
+  print $fhout "# col 9: minimum degree of cluster members.\n";
   #  print $fhout "# col 10: max distance between cluster pt. and cluster consensus.\n";
   #  print $fhout "# col 11: number of cluster pts. further than $d_to_consensus_factor * link_max_distance from cluster consensus.\n";
-  print $fhout "# then clusters and for each the number of other cluster members within link_max_distance.\n";
+  print $fhout "# then ids of cluster members, sorted with least missing data first.\n";
+  print $fhout "# if -full option invoked, then each id is followed by:\n";
+  print $fhout "#   degree of the accession and its rms distance from others in cluster.\n";
+  print $fhout "#   and for each the number of other cluster members within link_max_distance.\n";
   my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
   print $fhout join('', @sorted_output_lines);
   close $fhout;
@@ -235,21 +239,26 @@ sub compare_str{    # sort by cluster size;
 sub store_distances{
   my $distances_filename = shift;
   my $id1_col = shift;
+  my $mdc1_col = shift;
   my $id2_col = shift;
-  my $d_column = shift; # (unit based) column number in which to find the distances.
+  my $mdc2_col = shift;
+  my $d_column = shift; # (unit based) column number in which to find the distances (agmrs).
   my $maxD = shift;
-  $id1_col--; $id2_col--; $d_column--;
+  $id1_col--; $mdc1_col--; $id2_col--; $mdc2_col--; $d_column--; # make them zero-based
   my $n_def = 0;
   my $n_undef = 0;
   my %edge_weight = (); # keys are ordered pairs of accession ids representing graph edges, values are distances
   my %id_closeidds = (); # keys are ids, values array ref of array refs of ids and distances of other accessions.
-  # all pairs found in duplicatesearch output are included. id1:[[$id2, $distance12], [$id3, $distance13], ...]
+  my %id_mdc = (); # keys: ids; values: missing data counts.
+  # all pairs found in duplicate_search output are included. id1:[[$id2, $distance12], [$id3, $distance13], ...]
   open my $fhin, "<", "$distances_filename" or die "Couldn't open $distances_filename for reading.\n";
   while (my $line = <$fhin>) {
     next if($line =~ /^\s*#/);
     my @cols = split(" ", $line);
-    my ($id1, $id2) = @cols[$id1_col, $id2_col];
+    my ($id1, $mdc1, $id2, $mdc2) = @cols[$id1_col, $mdc1_col, $id2_col, $mdc2_col];
     my $distance = $cols[$d_column];
+    $id_mdc{$id1} = $mdc1;
+    $id_mdc{$id2} = $mdc2;
     #   print STDERR "$id1 $id2  $distance  $maxD\n";
     next if($distance > $maxD);
     my $edge_verts = ($id1 lt $id2)? "$id1 $id2" : "$id2 $id1"; # order the pair of ids
@@ -268,8 +277,8 @@ sub store_distances{
     $edge_weight{$edge_verts} = $distance;
   }
   close $fhin;
-  print "n def, undef: $n_def $n_undef\n"; #sleep(2);
-  return (\%edge_weight, \%id_closeidds);
+  print "n def, undef: $n_def $n_undef\n";
+  return (\%edge_weight, \%id_closeidds, \%id_mdc);
 }
 
 sub auto_max_link_distance{
@@ -285,7 +294,8 @@ sub auto_max_link_distance{
   my ($Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Ledge, $Redge) = $cluster1d_obj->find_cluster_at_left($f);
 #  my $Hmid_half_max = 0.5*($Ledge+$Redge);
 #  my $H33 = (0.67*$Ledge + 0.33*$Redge);
-#  printf(STDERR  "# Hopt: %6.4f  maxQ: %6.4f. Hoptavg maxQavg: %6.4f %6.4f   Hmhmx: %6.4f H33: %6.4f \n", $Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Hmid_half_max, $H33);
+  #  printf(STDERR  "# Hopt: %6.4f  maxQ: %6.4f. Hoptavg maxQavg: %6.4f %6.4f   Hmhmx: %6.4f H33: %6.4f \n", $Hopt, $maxQ, $Hopt_avg, $maxQ_avg, $Hmid_half_max, $H33);
+  print STDERR "$Hopt $maxQ  $Ledge $Redge  $Hopt_avg  $maxQ_avg \n";
   return ($Hopt, $maxQ, $Ledge, $Redge, $Hopt_avg, $maxQ_avg);
 }
 
@@ -295,63 +305,49 @@ sub construct_graph{
   my $sorted_edges = shift; # sorted by weight (distance) small to large
   print "number of keys of edge_weight: ", scalar keys %$edge_weight, "\n";
   print "number of sorted edges: ", scalar @$sorted_edges, "\n";
-  # for(keys %$edge_weight){
-  #   print "ewkey: $_\n";
-  # }
-  # for(@$sorted_edges){
-  #   print "sewkey: $_\n";
-  # }
-  # exit;
   my $the_graph = Graph::Undirected->new;
-  # while (my ($e, $w) = each %$edge_weight) {
-  my $id_degree = {};
-  #while (1) {
     for my $e (@$sorted_edges){
-   # my $e = shift @$sorted_edges; # get the edge with least weight (i.e. closest id pair)
- #   my $xxx = ((defined $e)? "[$e]" : 'undef');
- #   print "xxx: $xxx \n"; #sleep(1);
     my $w = $edge_weight->{$e};
     if ($w <= $max_link_distance) {
       my ($id1, $id2) = split(" ", $e);
       $the_graph->add_weighted_edge($id1, $id2, $w);
-      $id_degree->{$id1}++;
-      $id_degree->{$id2}++;
     } else {
       last;
     }
   }
-  return ($the_graph, $id_degree);
+  return $the_graph;
 }
 
 sub prune_graph{
-  # for each cluster,
-  # remove nodes (and assoc. edges) if
-  # degree is small compared to cluster size
+  # for each cluster, remove nodes (and assoc. edges)
+  # if degree too small compared to cluster size
   my $the_graph = shift;
-  my $id_degree = shift;
   my $prune_factor = shift;
+  my $vert_deg = {};
+  for my $v ($the_graph->vertices()){
+    $vert_deg->{$v} = $the_graph->degree($v);
+  }
   my @clusters = $the_graph->connected_components;
   for my $clstr (@clusters) {
-    prune_cluster($the_graph, $clstr, $id_degree, $prune_factor);
+    prune_cluster($the_graph, $clstr, $vert_deg, $prune_factor);
   }
 }
 
 sub prune_cluster{
   my $graph = shift;
-  my $cluster = shift; # array ref of
-  my $id_degree = shift;
+  my $cluster = shift;		# array ref of
+  my $vertex_degree = shift;
   my $prune_factor = shift;
   my $cluster_size = scalar @$cluster;
   my $min_degree = $prune_factor*($cluster_size - 1);
-  for(my $i=0; $i < scalar @$cluster; $i++){
+  my $prune_count = 0;
+  for (my $i=0; $i < scalar @$cluster; $i++) {
     my $u = $cluster->[$i];
-    my $u_dubious = ($id_degree->{$u} < $min_degree);
-      $graph->delete_vertex($u) if($u_dubious);;
-      for(my $j=$i+1; $j < scalar @$cluster; $j++){
-	my $v = $cluster->[$j];
-	my $v_dubious = ($id_degree->{$v} < $min_degree);
-	$graph->delete_edge($u, $v) if($u_dubious and $v_dubious);
-      }
+    my $u_dubious = ($vertex_degree->{$u} < $min_degree);
+    if ($u_dubious) {
+      $graph->delete_vertex($u); # also deletes associated edges
+      $prune_count++;
+    }
   }
 }
 
@@ -360,7 +356,7 @@ sub cluster_quality1{
   my $edge_weight = shift; # hashref; keys: order id pairs, values: weights (distances)
   my $graph = shift;
   my $link_max_distance = shift;
-  my $id_degree = shift;
+  # my $id_degree = shift;
   my $output_line_string = '';
   my @output_id_degree_maxds = ();
   my @sorted_clusterids = sort {$a cmp $b} @$accs; # sort the accession ids in the cluster
@@ -372,7 +368,7 @@ sub cluster_quality1{
   my %id_sumdsq = map  {$_ => 0} @sorted_clusterids;
 
   while (my($i, $v) = each @sorted_clusterids) { # loop over every pair of ids in the cluster.
-    my $v_degree = $id_degree->{$v}; # degree of $v (=number of other nodes at dist <= $link_max_distance
+    my $v_degree = $graph->degree($v); # $id_degree->{$v}; # degree of $v (=number of other nodes at dist <= $link_max_distance
     $sum_of_degrees += $v_degree;    # graph->degree($v);
     $output_line_string .= "$v  $v_degree  ";
     #  $id_degree{$v} = $degree;
@@ -407,14 +403,15 @@ sub cluster_quality1{
     $cluster_max_d = $maxw if($maxw > $cluster_max_d);
 
   } # loop over $v
+  my $min_degree = scalar @sorted_clusterids;
   for my $id (@sorted_clusterids) {
-    my $degree = $id_degree->{$id};
+    my $degree = $graph->degree($id); # $id_degree->{$id};
+    $min_degree = $degree if($degree < $min_degree);
     my $rms_dist = sqrt($id_sumdsq{$id}/($cluster_size-1));
     push @output_id_degree_maxds, [$id, $degree, $id_maxd{$id}, $rms_dist];
-  }
-  
+  }  
   @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
-  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds)
+  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds, $min_degree)
 }
 
 sub cluster_quality2{
@@ -437,7 +434,6 @@ sub cluster_quality2{
     $sum_of_degrees += $degree;
     for my $s (@{$id1_id2ds->{$id1}}) { # loop over accessions with smallish distance to id1
       my ($id2, $d) = @$s;
-      #  print STDERR "#    id2: d(id1, id2):  $id2  $d \n";
       if ( exists $thisclustids->{$id2} ) { # $id2 is in the cluster
 	$min_intracluster_d = min($d, $min_intracluster_d);
 	$max_intracluster_d = max($d, $max_intracluster_d);
@@ -447,7 +443,6 @@ sub cluster_quality2{
 	if ($d < $min_distance_to_noncluster) {
 	  $min_distance_to_noncluster = $d;
 	}
-	#	else{ # @$ is sorted by $d, small to large, so if this $d isn't small enough, we're done with @$s
 	if ($d < $near_noncluster_distance) {
 	  $short_cluster_noncluster_edge_count++;
 	  $near_noncluster_points{$id2}++;
@@ -459,17 +454,10 @@ sub cluster_quality2{
     }			     # end loop over nearish accessions to id1
   }
   $avg_intracluster_d /= ($cluster_size*($cluster_size-1));
-  #  print STDERR "#AAA $cluster_size  $min_intracluster_d $avg_intracluster_d $max_intracluster_d   $cluster_edge_count\n";
-  #print STDERR "# $max_d_to_consensus  $far_from_consensus_count \n";
   my $xxx = ($cluster_size*($cluster_size-1) - $sum_of_degrees)/2;
-  #  print STDERR "cluster size: $cluster_size  $xxx \n";
   my $nearby_noncluster_points_count = scalar keys %near_noncluster_points;
   my $cluster_pts_near_noncluster_pt_count = scalar keys %cluster_pts_near_noncluster_pt;
-  #  printf (STDERR "# %8.6f %5d %5d   %8.6f %5d\n", $min_distance_to_noncluster, $nearby_noncluster_points_count,
-  #	  $cluster_pts_near_noncluster_pt_count, $max_d_to_consensus, $far_from_consensus_count);
   return ($min_distance_to_noncluster, $nearby_noncluster_points_count, $cluster_pts_near_noncluster_pt_count)
-    #	  $max_d_to_consensus, $far_from_consensus_count, \%clusterpt_dist2consensus);
-
 }
 
 ################################################################################################################
@@ -481,7 +469,7 @@ sub cluster_quality2{
 #   # my $clusterids = shift; # hash ref; keys are ids; values array refs of genotypes (0, 1, 2, ...)
 #   # store individual lines of dosage file in hash
 #   open my $fh_dosages, "<", "$dosages_filename";
-#   #open my $fhout, ">", "$output_dosages_filename" or die "Couldn't open $output_dosages_filename for writing.\n";
+#   #open my $fhout, ">", "$dosages_output_filename" or die "Couldn't open $dosages_output_filename for writing.\n";
 
 #   # store ids and genotypes of clusters (size >= 2).
 #   my %id_gts  = (); # key: ids; value: array ref of dosages (0,1,2, $missing_data_char) 

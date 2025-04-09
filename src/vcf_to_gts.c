@@ -20,10 +20,11 @@
 #define split_str "\t"
 
 // There will be one of these structs for each thread,
-// each thread which will process the markers in the range from first_marker to last_marker
+// each thread will process the markers in the range from first_marker to last_marker
 typedef struct{
   long n_accessions;
-  Vstr* marker_ids;
+  Vlong* chrom_numbers;
+  Vstr* marker_ids; 
   Vstr* marker_lines; 
   long first_marker;
   long last_marker;
@@ -34,27 +35,41 @@ typedef struct{
   double delta;
   long ploidy;
 
-  Vstr* gntps; // gntps->a[i]->[j] is genotype (dosage) of ith stored marker for this thread, jth accession
+  Vstr* gntps; // gntps->a[i]->[j] is genotype (dosage) of ith stored marker for this thread, jth accession, coded as a char '0', '1', '2', 'X'
+  Vstr* phases; 
 } TD; // thread data
 
 void* process_marker_range(void* x);
 
-char token_to_genotype_GT(char* token, long TDgtidx, long gpidx, double minGP);
+two_chars token_to_genotype_GT(char* token, long TDgtidx, long gpidx, double minGP);
 char token_to_genotype_DS(char* token, long gtidx, long gpidx, double minGP, double delta);
-char GTstr_to_dosage(char* tkn);
+two_chars GTstr_to_dosage(char* tkn);
 char DSstr_to_dosage(char* tkn, double delta);
 void get_GT_GQ_GP_DS_indices(char* format, long* GTidx, long* GQidx, long* GPidx, long* DSidx);
 bool GP_to_quality_ok(char* token, double minGP);
 char* split_on_char(char* str, char c, long* iptr); 
-void chomp(char* str); // remove any trailing newlines from str
+//void chomp(char* str); // remove any trailing newlines from str
 void print_usage_info(FILE* ostream);
+void output_run_parameters(FILE* o_stream, char* input_filename, Vchar* output_filename,
+			   double minGP, double delta, double max_acc_md, bool use_alt_marker_id, long Nthreads);
+void print_marker_ids(FILE* ostream, Vstr* used_marker_ids);
+void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers);
+void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases, double max_acc_md_fraction, FILE* reject_stream);
+
 double clock_time(clockid_t the_clock){
   struct timespec tspec;
   clock_gettime(the_clock, &tspec);
   return (double)(tspec.tv_sec + 1.0e-9*tspec.tv_nsec);
 }
 
-extern int errno; 
+
+extern int errno;
+
+#define DEFAULT_MIN_GP  0.9
+#define DEFAULT_DELTA  0.1
+#define DEFAULT_MAX_ACC_MISSING_DATA_FRACTION 0.5  //
+#define DEFAULT_MIN_MAF 0.0  // KEEP ALL
+#define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION 1.0  // KEEP ALL
 
 int main(int argc, char *argv[]){
   errno = 0;
@@ -62,11 +77,15 @@ int main(int argc, char *argv[]){
   char* input_filename = NULL;
   FILE *in_stream = NULL;
   Vchar* output_filename = construct_vchar_from_str("vcftogts.out");
-  FILE* out_stream = NULL; 
-
-  // double minGQ = 0; // not implemented, but should be.
-  double minGP = 0;
-
+  FILE* out_stream = NULL;
+  FILE* reject_stream = NULL;
+  
+  double minGP = DEFAULT_MIN_GP;
+  double delta = DEFAULT_DELTA;
+  double max_acc_md = DEFAULT_MAX_ACC_MISSING_DATA_FRACTION;
+  double min_maf = DEFAULT_MIN_MAF; // by default keep all
+  double max_marker_md = DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION; // by default keep all
+  
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads
 
@@ -75,9 +94,6 @@ int main(int argc, char *argv[]){
   bool shuffle_accessions = false;
   long rand_seed = (unsigned)time(0);
 
-  double delta = 0.1;
-  double min_maf = 0.1;
-  double max_marker_md = 0.25;
   long ploidy = 2;
   long n_markers_in_chunk = 5040; // perhaps give this a different name?
   long min_chunk_size = 60;
@@ -89,13 +105,14 @@ int main(int argc, char *argv[]){
     static struct option long_options[] = {
       {"input",   required_argument, 0,  'i'}, // vcf filename
 	{"output",  required_argument, 0,  'o'}, // output filename
-	{"pmin",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
+	{"prob_min",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
+	{"acc_max_missing_data", required_argument, 0, 'm'}, 
 	{"threads", required_argument, 0,  't'}, // number of threads to use. Default: set automatically based on nprocs()
 	{"alternate_marker_ids",  no_argument, 0, 'a'}, // construct marker ids from cols 1 and 2 (in case garbage in col 3)
 	{"randomize",    no_argument, 0,  'r' }, // shuffle the order of the accessions in output
 	{"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
-	{"min_maf", required_argument, 0, 'f'}, // filter out markers with minor allele frequency less than this.
-	{"max_marker_md", required_argument, 0, 'm'}, // filter out markers with missing data fraction > this.
+	//	{"maf_min", required_argument, 0, 'f'}, // filter out markers with minor allele frequency less than this.
+	//	{"marker_max_md", required_argument, 0, 'm'}, // filter out markers with missing data fraction > this.
 	{"delta", required_argument, 0, 'd'},  // if using DS, the dosage will be considered to be missing data if > delta from an integer.
 	{"chunk_size", required_argument, 0, 'c'}, // number of lines (markers) to read and process at a time.
 	{"help", no_argument, 0, 'h'},
@@ -127,26 +144,36 @@ int main(int argc, char *argv[]){
       }
       fprintf(stdout, "# minGP set to: %8.5lf\n", minGP);
       break;
-    case 'f' :
-      if(sscanf(optarg, "%lf ", &min_maf) != 1  ||  errno != 0){
-	fprintf(stderr, "# min_maf; conversion of argument %s to double failed.\n", optarg);
+        case 'm' :
+      if(sscanf(optarg, "%lf ", &max_acc_md) != 1  ||  errno != 0){
+	fprintf(stderr, "# max_acc_md; conversion of argument %s to double failed.\n", optarg);
 	exit(EXIT_FAILURE);
-      }else if((min_maf >= 1) || (min_maf < 0)){
-	fprintf(stderr, "# min_maf was set to %8.4lf , must be >=0 and < 1\n", min_maf);
-	exit(EXIT_FAILURE);
-      }
-      fprintf(stdout, "# min_maf set to: %8.5lf\n", min_maf);
-      break;
-    case 'm' :
-      if(sscanf(optarg, "%lf ", &max_marker_md) != 1  ||  errno != 0){
-	fprintf(stderr, "# max_marker_md; conversion of argument %s to double failed.\n", optarg);
-	exit(EXIT_FAILURE);
-      }else if(max_marker_md > 1){
-	fprintf(stderr, "# max_marker_md was set to %8.4lf , must be > 0 and <= 1\n", max_marker_md);
+      }else if((max_acc_md < 0)){
+	fprintf(stderr, "# max_acc_md specified as %8.4lf , must be >0 and < 1\n", max_acc_md);
 	exit(EXIT_FAILURE);
       }
-      fprintf(stdout, "# max_marker_md set to: %8.5lf\n", max_marker_md);
+      fprintf(stdout, "# max_acc_md set to: %8.5lf\n", max_acc_md);
       break;
+    /* case 'f' : */
+    /*   if(sscanf(optarg, "%lf ", &min_maf) != 1  ||  errno != 0){ */
+    /* 	fprintf(stderr, "# min_maf; conversion of argument %s to double failed.\n", optarg); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   }else if((min_maf >= 1) || (min_maf < 0)){ */
+    /* 	fprintf(stderr, "# min_maf was set to %8.4lf , must be >=0 and < 1\n", min_maf); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   } */
+    /*   fprintf(stdout, "# min_maf set to: %8.5lf\n", min_maf); */
+    /*   break; */
+    /* case 'm' : */
+    /*   if(sscanf(optarg, "%lf ", &max_marker_md) != 1  ||  errno != 0){ */
+    /* 	fprintf(stderr, "# max_marker_md; conversion of argument %s to double failed.\n", optarg); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   }else if(max_marker_md > 1){ */
+    /* 	fprintf(stderr, "# max_marker_md was set to %8.4lf , must be > 0 and <= 1\n", max_marker_md); */
+    /* 	exit(EXIT_FAILURE); */
+    /*   } */
+    /*   fprintf(stdout, "# max_marker_md set to: %8.5lf\n", max_marker_md); */
+    /*   break; */
     case 't' :
       if(sscanf(optarg, "%ld", &Nthreads) != 1  ||  errno != 0){
 	fprintf(stderr, "# Nthreads; conversion of argument %s to long failed.\n", optarg);
@@ -214,6 +241,7 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "Failed to open %s for writing.\n", output_filename->a);
     exit(EXIT_FAILURE);
   }
+  reject_stream = fopen("reject.pdsgs", "w");
 
   clockid_t the_clock = CLOCK_MONOTONIC;
   struct timespec tspec;
@@ -232,6 +260,29 @@ int main(int argc, char *argv[]){
     fprintf(stdout, "# Unthreaded.\n");
   }
 
+  // ****************************************************
+  // *****  Output run parameters  **********************
+  // ****************************************************
+  /* fprintf(stdout, "# vcf file: %s \n# vcf_to_gts output file: %s \n", input_filename, output_filename->a); */
+  /* // fprintf(stdout, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta); */
+  /* // fprintf(stdout, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md); */
+  /* fprintf(stdout, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false"); */
+  /* fprintf(stdout, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed); */
+  /* fprintf(stdout, "# number of threads: %ld \n", Nthreads); */
+  
+  /* fprintf(out_stream, "###############################################################\n"); */
+  /* fprintf(out_stream, "# vcf_to_gts  run parameters: \n"); */
+  /* fprintf(out_stream, "# vcf file: %s \n# vcf_to_gt output file: %s \n", input_filename, output_filename->a); */
+  /* fprintf(out_stream, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta); */
+  /* //  fprintf(out_stream, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md); */
+  /* fprintf(out_stream, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false"); */
+  /* fprintf(out_stream, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed); */
+  /* fprintf(out_stream, "# number of threads: %ld \n", Nthreads); */
+  /* fprintf(out_stream, "###############################################################\n"); */
+  
+  output_run_parameters(stdout, input_filename, output_filename, minGP, delta, max_acc_md, use_alt_marker_id, Nthreads);
+  output_run_parameters(out_stream, input_filename, output_filename, minGP, delta, max_acc_md, use_alt_marker_id, Nthreads);
+  output_run_parameters(reject_stream, input_filename, output_filename, minGP, delta, max_acc_md, use_alt_marker_id, Nthreads);
   
   // ****************************************************
   // *****   Read first line; store accession ids.  *****
@@ -277,13 +328,16 @@ int main(int argc, char *argv[]){
   // *****   Read the rest of the lines, one per marker  *****
   // *****   Each line has genotypes for all accessions  *****
   // *********************************************************
-  
+  double t1 = hi_res_time();
+  double t100 = clock_time(the_clock);
   fprintf(stderr, "# markers analyzed in each chunk: %ld ; which is %ld per thread\n",
 	  n_markers_in_chunk, (Nthreads >= 1)? n_markers_in_chunk/Nthreads : n_markers_in_chunk);
   Vstr* marker_lines = construct_vstr(n_markers_in_chunk);
 
+  Vlong* all_used_chrom_numbers = construct_vlong(1000);
   Vstr* all_used_markerids = construct_vstr(1000);
   Vstr* all_used_genos = construct_vstr(1000);
+  Vstr* all_used_phases = construct_vstr(1000);
   
   long total_lines_read = 0;
   while(nread >= 0){ // loop over chunks
@@ -317,17 +371,23 @@ int main(int argc, char *argv[]){
       td.minmaf = min_maf;
       td.maxmd = max_marker_md;
       td.ploidy = ploidy;
+      td.chrom_numbers = construct_vlong(1000);
       td.marker_ids = construct_vstr(1000);
       td.gntps = construct_vstr(100); // chunk_genos;
+      td.phases = construct_vstr(1000);
       process_marker_range((void*)(&td));
       for(long im=0; im<td.marker_ids->size; im++){ // loop over stored markers
 	push_to_vstr(all_used_genos, td.gntps->a[im]);
+	push_to_vstr(all_used_phases, td.phases->a[im]);
 	push_to_vstr(all_used_markerids, td.marker_ids->a[im]);
+	push_to_vlong(all_used_chrom_numbers, td.chrom_numbers->a[im]);
       }
       free(td.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
       free(td.marker_ids->a);
       free(td.gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
       free(td.gntps->a);
+      free(td.phases);
+      free(td.phases->a);
     }else{ // 1 or more pthreads
       TD* td = (TD*)malloc(Nthreads*sizeof(TD));
       for(long i_thread = 0; i_thread<Nthreads; i_thread++){
@@ -341,8 +401,10 @@ int main(int argc, char *argv[]){
 	td[i_thread].minmaf = min_maf;
 	td[i_thread].maxmd = max_marker_md;
 	td[i_thread].ploidy = ploidy;
+	td[i_thread].chrom_numbers = construct_vlong(1000);
 	td[i_thread].marker_ids = construct_vstr(1000);
 	td[i_thread].gntps = construct_vstr(1000); //chunk_genos[i_thread];
+	td[i_thread].phases = construct_vstr(1000);
       }
       td[Nthreads-1].last_marker = marker_lines->size-1;
     
@@ -359,12 +421,16 @@ int main(int argc, char *argv[]){
       for(long ith=0; ith<Nthreads; ith++){ // loop over threads
 	for(long im=0; im<td[ith].gntps->size; im++){ // loop over markers stored by thread ith
 	  push_to_vstr(all_used_genos, td[ith].gntps->a[im]); //chunk_genos[ith]->a[im]);
+	  push_to_vstr(all_used_phases, td[ith].phases->a[im]); //chunk_genos[ith]->a[im]);
 	  push_to_vstr(all_used_markerids, td[ith].marker_ids->a[im]);
+	  push_to_vlong(all_used_chrom_numbers, td[ith].chrom_numbers->a[im]);
 	}
 	free(td[ith].marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
 	free(td[ith].marker_ids->a);
 	free(td[ith].gntps); // but don't free the c strings containing the actual genotypes (dosages), which are stored in all_used_genos.
 	free(td[ith].gntps->a);
+	free(td[ith].phases);
+	free(td[ith].phases->a);
       }
       
       free(td);
@@ -379,29 +445,25 @@ int main(int argc, char *argv[]){
   } // end of loop over chunks
   fprintf(stderr, "# marker_lines, size and capacity: %ld %ld\n", marker_lines->size, marker_lines->capacity);
   free_vstr(marker_lines);
-  fprintf(stderr, "# number of markers left after filtering: %ld  %ld\n", all_used_markerids->size, all_used_genos->size);
+  fprintf(stderr, "# number of markers left after filtering: %ld  %ld  %ld\n", all_used_chrom_numbers->size, all_used_markerids->size, all_used_genos->size);
   free(line);
   fclose(in_stream);
-  
+ 
+  double t101 = clock_time(the_clock);
+  fprintf(stderr, "time for read/parse vcf: %7.5f  %7.5f\n", hi_res_time() - t1, t101-t100);
   // **********************
   // *****  output  *******
   // **********************
   fprintf(stderr, "# Begin output.\n");
   Vlong* accession_indices = construct_vlong_whole_numbers(accession_ids->size);
   if(shuffle_accessions) shuffle_vlong(accession_indices); 
-    
-  fprintf(out_stream, "MARKER");
-  for(long i_marker=0; i_marker<all_used_markerids->size; i_marker++){
-    fprintf(out_stream, " %s", all_used_markerids->a[i_marker]);
-  }fprintf(out_stream, "\n");
-  for(long iacc=0; iacc< accid_count; iacc++){
-    long i_accession = accession_indices->a[iacc];
-    fprintf(out_stream, "%s", accession_ids->a[i_accession]);
-    for(long im=0; im<all_used_markerids->size; im++){
-      fprintf(out_stream, " %c", all_used_genos->a[im][i_accession]);
-    }
-    fprintf(out_stream, "\n");
-  }
+
+  print_marker_ids(out_stream, all_used_markerids);
+  print_chromosome_numbers(out_stream, all_used_chrom_numbers);
+  print_marker_ids(reject_stream, all_used_markerids);
+  print_chromosome_numbers(reject_stream, all_used_chrom_numbers);
+  print_accessions_genotypes(out_stream, accession_indices, accession_ids, all_used_genos, all_used_phases,
+			     max_acc_md, reject_stream);
   fclose(out_stream);
 
   double t3 = clock_time(the_clock);
@@ -441,6 +503,7 @@ void* process_marker_range(void* x){
   long last_marker = td->last_marker;
   
   Vstr* marker_ids = td->marker_ids;
+  Vlong* chrom_numbers = td->chrom_numbers;
 
   long marker_count = 0;
   char* line;
@@ -448,10 +511,12 @@ void* process_marker_range(void* x){
     line = marker_lines->a[i_marker];
 
     char* one_marker_gts = (char*)malloc((n_accessions+1)*sizeof(char)); // 
+    char* one_marker_phases = (char*)malloc((n_accessions+1)*sizeof(char)); //
       
     char* saveptr = line;
     long tidx = 0;
     Vchar* chromosome = construct_vchar_from_str(split_on_char(line, '\t', &tidx));
+    long chromosome_number = atoi(chromosome->a);
     Vchar* position = construct_vchar_from_str(split_on_char(line, '\t', &tidx)); 
 
     Vchar* marker_id;
@@ -463,7 +528,8 @@ void* process_marker_range(void* x){
     }else{
       marker_id = construct_vchar_from_str(token); // strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
     }
-  
+
+    // fprintf(stderr, "chrom, mrkrid: %ld  %s\n", chromosome_number, marker_id->a);
     free_vchar(chromosome);
     free_vchar(position);
     char* ref_allele =  split_on_char(line, '\t', &tidx); // strtok_r(NULL, split_str, &saveptr);
@@ -487,9 +553,12 @@ void* process_marker_range(void* x){
 	token = split_on_char(line, '\t', &tidx);
 	if(token == NULL)	break; // end of line has been reached.
 	// fprintf(stderr, "token: [%s]     ", token);
-	char genotype = token_to_genotype_GT(token, GTidx, GPidx, td->minGP);
+	two_chars gt_ph = token_to_genotype_GT(token, GTidx, GPidx, td->minGP);
+	char genotype = gt_ph.ch1;
 	//	fprintf(stderr, "[%s]     [%c]\n", token, genotype);
+	// fprintf(stderr, "Z: %c %c\n", gt_ph.ch1, gt_ph.ch2);
 	one_marker_gts[acc_index] = genotype;
+	one_marker_phases[acc_index] = gt_ph.ch2;
 	if(genotype == 'X') {
 	  md_count++;
 	}else{
@@ -506,6 +575,7 @@ void* process_marker_range(void* x){
 	}
 	char genotype = token_to_genotype_DS(token, DSidx, GPidx, td->minGP, td->delta);
 	one_marker_gts[acc_index] = genotype;
+	one_marker_phases[acc_index] = 'u';
 	if(genotype == 'X') {
 	  md_count++;
 	}else{
@@ -520,23 +590,28 @@ void* process_marker_range(void* x){
     double mdf = (double)md_count/n_accessions;
     double maf = (double)alt_allele_count/(td->ploidy*(n_accessions-md_count));
     if(maf > 0.5) maf = 1.0 - maf;
-    if((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker
-      push_to_vstr(td->gntps, one_marker_gts);
-      push_to_vstr(marker_ids, marker_id->a);
-      free(marker_id); // but don't free marker_id->a
-    }else{ // this marker is not used
-      free(one_marker_gts); 
+    // fprintf(stderr, "keep. marker: %s   max, actual mdf: %lf  %lf  min, actual maf: %lf %lf \n", marker_id->a, td->maxmd, mdf, td->minmaf, maf);
+    if((mdf > td->maxmd) || (maf < td->minmaf)){ // this marker is not used
+     free(one_marker_gts);
+      free(one_marker_phases);
       free_vchar(marker_id);
+    }else{ // keep this marker
+      //((mdf <= td->maxmd) && (maf >= td->minmaf)){ // keep this marker 
+      push_to_vstr(td->gntps, one_marker_gts);
+      push_to_vstr(td->phases, one_marker_phases);
+      push_to_vstr(marker_ids, marker_id->a);
+      push_to_vlong(chrom_numbers, chromosome_number);
+      free(marker_id); // but don't free marker_id->a
     }
-     
+    // fprintf(stderr, "acc_index: %ld   %ld\n", acc_index, td->n_accessions);
     assert(acc_index == td->n_accessions); // check that this line has number of accessions = number of accession ids.
     marker_count++;
   } // done reading all lines (markers)
   // fprintf(stdout, "# A thread is done processing markers %ld through %ld; %ld markers x %ld accessions\n", first_marker, last_marker, marker_count, td->n_accessions);
 }
 
-char token_to_genotype_GT(char* token, long gtidx, long gpidx, double minGP){
-  char result;
+two_chars token_to_genotype_GT(char* token, long gtidx, long gpidx, double minGP){
+  two_chars result;
   char* saveptr;
   bool quality_ok = true; // (gpidx >= 0  &&  minGP > 0)? false : true;
   long idx = 0;
@@ -561,7 +636,7 @@ char token_to_genotype_GT(char* token, long gtidx, long gpidx, double minGP){
     idx++;   
   }
 
-  if(! quality_ok) result = 'X';
+  if(! quality_ok) result = (two_chars){'X', 'x'};
   return result;
 }
 
@@ -599,31 +674,78 @@ char token_to_genotype_DS(char* token, long dsidx, long gpidx, double minGP, dou
 bool GP_to_quality_ok(char* token, double minGP){
   if(minGP > 0.0){
     bool quality_ok = false;
-    float p0, p1, p2;
-    if(sscanf(token, "%f,%f,%f", &p0, &p1, &p2) == 3){
+    double p0, p1, p2;
+    if(sscanf(token, "%lf,%lf,%lf", &p0, &p1, &p2) == 3){
       quality_ok = (p0 >= minGP  ||  p1 >= minGP  || p2 >= minGP);
+      //  fprintf(stderr, "A  p1, minGP, p1 >= minGP: %16.14f %16.14f   %s\n", p1, minGP, (p1 >= minGP)? "true" : "false");
+      //  fprintf(stderr, "AAA: %lf %16.14f %lf  ", p0, p1, p2);
     }
+    // fprintf(stderr, "  %s\n", (quality_ok)? "ok" : "ng");
     return quality_ok;
   }else{
     return true; 
   }
 }
 
-char GTstr_to_dosage(char* tkn){
+two_chars GTstr_to_dosage(char* tkn){
   long d = 0;
-  char a1 = tkn[0];
+  char a1 = tkn[0];  
   char a2 = tkn[2];
-  if(a1 == '1'){
-    d++;
-  }else if(a1 == '.'){
-    return 'X';
+  char phase; // 'u' if non-phased, otherwise 'p', 'm', or 'x' ('x' for homozygs and missing data)
+  char dosage = 'X';
+  if(tkn[1] == '|'){ // phased
+    phase = 'x'; // phased undefined (dosage is 'X' or homozygous)
+    if(a1 == '0'){
+      if(a2 == '0'){
+	dosage = '0';
+      }else if(a2 == '1'){ // 0|1  phase is 'p'
+	dosage = '1';
+	phase = 'p';
+      } // else leave dosage as 'X', phase as 'x'
+    }else if(a1 == '1'){
+      if(a2 == '0'){
+	dosage = '1';
+	phase = 'm'; 
+      }else if(a2 == '1'){
+	dosage = '2';
+      }
+    }
+    //fprintf(stderr, "dosage: %c \n", dosage);
+    return (two_chars){dosage, phase};
+  }else{ // unphased
+    phase = 'u'; // 'u' => unknown phase
+      if(a1 == '0'){
+	if(a2 == '0'){
+	  dosage = '0';
+	}else if(a2 == '1'){ // 0|1  phase is 'p'
+	  dosage = '1';
+	  //	phase = 'p';
+	} // else leave dosage as 'X', phase as 'x'
+      }else if(a1 == '1'){
+	if(a2 == '0'){
+	  dosage = '1';
+	  //	phase = 'm';
+	}else if(a2 == '1'){
+	  dosage = '2';
+	}
+      }
+      return (two_chars){dosage, phase};
+
+    /* else{ */
+  /*     if(a1 == '1'){ */
+  /* 	d++; */
+  /*     }else if(a1 == '.'){ */
+  /* 	return 'X'; */
+  /*     } */
+  /*     if(a2 == '1'){ */
+  /* 	d++; */
+  /*     }else if(a2 == '.'){ */
+  /* 	return 'X'; */
+  /*     } */
+  /*     return (char)(d + 48); */
+  /*   } */
+  /* } */
   }
-  if(a2 == '1'){
-    d++;
-  }else if(a2 == '.'){
-    return 'X';
-  }
-  return (char)(d + 48);
 }
 
 char DSstr_to_dosage(char* tkn, double delta){
@@ -681,28 +803,103 @@ char* split_on_char(char* str, char c, long* iptr){
   return str+i_begin;
 } 
 
-void chomp(char* str){ // remove any trailing newlines from str
-  long len = strlen(str);
-  while(str[len-1] == '\n'){
-    str[len-1] = '\0';
-    len--;
-  }
-}
+/* void chomp(char* str){ // remove any trailing newlines from str */
+/*   long len = strlen(str); */
+/*   while(str[len-1] == '\n'){ */
+/*     str[len-1] = '\0'; */
+/*     len--; */
+/*   } */
+/* } */
 
 void print_usage_info(FILE* ostream){
   fprintf(stdout, "Options:\n");
-  fprintf(stdout, "  -input       Input vcf filename (required).\n");
-  fprintf(stdout, "  -out         Output filename (default: vcftogts.out)\n");
-  fprintf(stdout, "  -threads     Number of threads to use. (Default: automatic, from get_nprocs.\n");
-  fprintf(stdout, "  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
-  fprintf(stdout, "  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
-  fprintf(stdout, "  -pmin        Min. estimated genotype probibility (if GP field present; default: 0.9)\n");
-  fprintf(stdout, "  -min_maf     Exclude markers with minor allele frequency < this. (Default: 0.1)\n");
-  fprintf(stdout, "  -max_marker_md  Exclude markers with proportion of missing data > this. (Default: 0.25)\n");
-  fprintf(stdout, "  -delta       If using DS field, must be within this of an integer or call it missing data. (Default: 0.1)\n");
-  fprintf(stdout, "  -randomize   Randomize the order of accessions in output (Default: 0 (false))\n");
-  fprintf(stdout, "  -seed        Random number generator seed. Only relevant if randomizing accession output order.\n");
+  fprintf(stdout, "-i  -input       Input vcf filename (required).\n");
+  fprintf(stdout, "-o  -out         Output filename (default: vcftogts.out)\n");
+  fprintf(stdout, "-p  -prob_min        Min. estimated genotype probability if GP field present (default: %4.2f)\n", DEFAULT_MIN_GP);
+  fprintf(stdout, "-m  -acc_max_missing_data  Accessions with greater than this fraction missing data are rejected (default %4.2f)\n", DEFAULT_MAX_ACC_MISSING_DATA_FRACTION); 
+  //  fprintf(stdout, "-f  -maf_min     Exclude markers with minor allele frequency < this. (Default: %4.2f)\n", DEFAULT_MIN_MAF);
+  //  fprintf(stdout, "-m  -marker_max_md  Exclude markers with proportion of missing data > this. (Default: %4.2f)\n", DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION);
+  fprintf(stdout, "-d  -delta       If using DS field, must be within this of an integer or call it missing data. (Default: %4.2f)\n", DEFAULT_DELTA);
+  fprintf(stdout, "-a  -alternate_marker_ids  Construct marker ids from chromosome, position. (Default: 0 (false))\n");
+  
+  fprintf(stdout, "-c  -chunk_size  Store and process this many input lines at a time. (Default: 5040)\n");
+  fprintf(stdout, "-t  -threads     Number of threads to use. (Default: automatic, based on get_nprocs.)\n");
+
+  fprintf(stdout, "-h  -help        Print this help message.\n");
+   
+  //  fprintf(stdout, "-r  -randomize   Randomize the order of accessions in output (Default: 0 (false))\n");
+  //  fprintf(stdout, "-s  -seed        Random number generator seed. Only relevant if randomizing accession output order.\n");
 }
+
+void print_marker_ids(FILE* ostream, Vstr* used_marker_ids){
+  fprintf(ostream, "MARKER");
+  for(long i_marker=0; i_marker < used_marker_ids->size; i_marker++){
+    fprintf(ostream, " %s", used_marker_ids->a[i_marker]);
+  }fprintf(ostream, "\n");
+}
+
+void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers){
+  fprintf(ostream, "CHROMOSOME");
+  for(long i_chrom=0; i_chrom < used_chrom_numbers->size; i_chrom++){
+    fprintf(ostream, " %ld", used_chrom_numbers->a[i_chrom]);
+  }fprintf(ostream, "\n");
+}
+
+void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases, double max_acc_md_fraction, FILE* reject_stream){
+  for(long iacc=0; iacc< accession_indices->size; iacc++){
+    long i_accession = accession_indices->a[iacc];
+    //  fprintf(ostream, "%s", accession_ids->a[i_accession]);
+    Vchar* acc_gts = construct_vchar(2000);
+    // Vstr* the_acc_gts = construct_vstr(2000);
+    long missing_data_count = 0;
+    // fprintf(stderr, "%ld  %s\n", used_genos->size, accession_ids->a[i_accession]);
+    for(long im=0; im < used_genos->size; im++){
+      char the_phase = used_phases->a[im][i_accession]; // used_genos->a[im] is c str with gts for all accs for marker im
+      char the_geno = used_genos->a[im][i_accession];
+      // fprintf(stderr, "gt, ph: %c  %c \n", the_geno, the_phase);
+      append_char_to_vchar(acc_gts, ' ');
+      if(the_geno == 'X'){
+	missing_data_count++;
+	//	fprintf(ostream, " X");
+	append_char_to_vchar(acc_gts, 'X');
+      }else{
+	if(the_phase == 'm'){ // negative phase
+	  //	  fprintf(ostream, " -%c", used_genos->a[im][i_accession]);
+	  // char* s = (char*)malloc(4*sizeof(char));
+	  append_char_to_vchar(acc_gts, '-');	
+	}else if (the_phase == 'p'){ // positive phase
+	  //	  fprintf(ostream, " +%c", used_genos->a[im][i_accession]);
+	  // push_to_vchar(acc_gts, used_genos->a[im][i_accession]);
+	   append_char_to_vchar(acc_gts, '+');
+	}else { // phase undefined (homozygotes, X) or unknown 
+	  //	  fprintf(ostream, " %c", used_genos->a[im][i_accession]);
+	 
+	}
+	append_char_to_vchar(acc_gts, used_genos->a[im][i_accession]);
+      }
+    }
+    if((double)missing_data_count/(double)used_genos->size <= max_acc_md_fraction){
+      fprintf(ostream, "%s%s\n", accession_ids->a[i_accession], acc_gts->a);
+    }else{ // accession has too much missing data, rejected
+      fprintf(reject_stream, "%s%s\n", accession_ids->a[i_accession], acc_gts->a);
+    }
+  }
+}
+
+void output_run_parameters(FILE* o_stream, char* input_filename, Vchar* output_filename,
+			   double minGP, double delta, double max_acc_md, bool use_alt_marker_id, long Nthreads){ 
+  fprintf(o_stream, "###############################################################\n");
+  fprintf(o_stream, "# vcf_to_gts  run parameters: \n");
+  fprintf(o_stream, "# vcf file: %s \n# vcf_to_gt output file: %s \n", input_filename, output_filename->a);
+  fprintf(o_stream, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta);
+  fprintf(o_stream, "# max accession missing data fraction: %6.4f \n", max_acc_md);
+  //  fprintf(o_stream, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md);
+  fprintf(o_stream, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false");
+  //  fprintf(o_stream, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed);
+  fprintf(o_stream, "# number of threads: %ld \n", Nthreads);
+  fprintf(o_stream, "###############################################################\n");
+}
+
 
 // unused
 

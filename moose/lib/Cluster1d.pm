@@ -89,25 +89,8 @@ sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - 
   if ($pow eq 'log') {
     my $minx = $self->minx // 1.0/($self->median_denom());
     print STDERR "minx $minx \n";
-    #  exit;
     @txs = map(max($minx, $_), @xs);
-    # my $small_limit = 1e-8;
-    # my $xsmall = undef;
-    # for my $x (@txs) { # find first (i.e. least) number >= $small_limit
-    #   if ($x >= $small_limit) {
-    # 	$xsmall = $x;
-    # 	last;
-    #   }
-    # }
-    # for my $x (@txs) {		# numbers < $xsmall get set to $xsmall
-    #   if ($x < $xsmall) {
-    # 	$x = $xsmall
-    #   } else {
-    # 	last;
-    #   }
-    # }
   }
-  #  print STDERR "#  size of txs array: ", scalar @txs, "\n";
 
   if ($pow eq 'log') {
     @txs = map(log($_), @txs);
@@ -116,7 +99,6 @@ sub BUILD{ # for clustering values in range [0,1]; values outside are invalid - 
   }
   $self->txs(\@txs);
 }
-
 
 sub one_d_2cluster{		# cluster 1dim data into 2 clusters
   my $self = shift;
@@ -383,27 +365,25 @@ sub jenks_2cluster{ # divide into 2 clusters using jenks natural breaks
 sub find_cluster_at_left{
   my $self = shift;
   my $f = shift // 0.5;
-  my @txs = @{$self->txs()};	# array ref of transformed values.
-  my $Qmin = 2;
-  
+  my @txs = @{$self->txs()};	# array ref of transformed values. 
   my $n_data_pts = scalar @txs;
 
+  my $Qmin = 2;
   my $maxQ = -1;
   my $opt_nL = -1;
   my $optH = -1;
   my @nlhqs = ();
   my $start_peak = -1; # when Q goes above 1.5*$Qmin this gets set to $nL
   my $end_peak = -1; # when $start_peak > 0 and Q returns to below $Qmin this gets set to $nL
-    my ($Ledge, $Redge) = (1, -1);
-  for my $i (8..int($n_data_pts/4 -1)) { # loop over different values of the L cluster (which has 4*$i pts)
-    my $nL = 4*$i;		# size of L cluster
+  my ($Ledge, $Redge) = (1, -1);
+  for my $i (8..int($n_data_pts/4 -1)) { # loop over different sizes of the L cluster (which has 4*$i pts)
+    my $nL = 4*$i;			 # size of L cluster
     last if($nL >= 0.85*$n_data_pts);
-    #last if($nL >= 10000);
     my $Lq1 = 0.5*($txs[$i - 1] + $txs[$i]); # 1st quartile of L cluster
     my $Lq3 = 0.5*($txs[3*$i - 1] + $txs[3*$i]); # 3rd quartile of L cluster
 
     my $nV = $i;
-    my ($L78ths, $Rx);
+    my ($L78ths, $Rx); # 7/8 of the $nL pts are to left of $L78ths, another $nL/4 are between $L78ths and $Rx
     if ($i % 2 == 0) {		# $i even
       $L78ths = 0.5*($txs[7*$i/2 - 1] + $txs[7*$i/2]);
       $Rx =  0.5*($txs[9*$i/2 - 1] + $txs[9*$i/2]);
@@ -411,27 +391,21 @@ sub find_cluster_at_left{
       $L78ths = $txs[(7*$i-1)/2];
       $Rx = $txs[(9*$i-1)/2];
     }
-    my $H= 0.5*($txs[$nL-1] + $txs[$nL]); # defines R edge of L cluster.
-    #my $delta = $L78ths - $H; # half-width of valley
-    #   my $Rxx = 2*$H  - $L78ths; # another way of defining R edge of valley.
-    #   my $iR = ir(\@txs, $nL, $Rxx); # find $iR, s.t. $Rxx is between $txs[$iR], $txs[$iR+1] 
-    #my $Rx = 0.5*($txs[17*$i -1 ] + $txs[17*$i]); # other size of valley
-    #  print "$Rx $Rxx \n";
-    #   $Rxx = $Rx;
-    
-    my $dL = 2*$i/($Lq3 - $Lq1);
-    my $dV = $i/($Rx - $L78ths);
-    my $Q =  $dL/$dV; #  2*($Rx - $L78ths)/($Lq3 - $Lq1);    #    4*($Rx - $Lq94)/($Lq3 - $Lq1);
+    my $H= 0.5*($txs[$nL-1] + $txs[$nL]); # defines R edge of L cluster 
+
+    my $dL = 2*$i/($Lq3 - $Lq1); # density between $Lq1 and $Lq3 ; interquartile density
+    my $dV = $i/($Rx - $L78ths); # density in the 'valley' between $L78ths and $Rx
+    my $Q =  $dL/$dV; # ratio of peak density to valley density - maximize this.
     if ($Q > $maxQ) { # new best $Q
       $maxQ = $Q;
       $opt_nL = $nL;
       $optH = $H;		# 0.5*($txs[$nL -1 ] + $txs[$nL]);
     }
-    #  my $H = 0.5*($txs[$nL -1 ] + $txs[$nL]);
-  #    print STDERR "$H  $nL  $dL  $dV   $Lq3 $Lq1  $Rx $L78ths  $Q\n";
+    print STDERR "$H  $nL  $Q\n";
+
     if ($Q >= $Qmin) {
-      push @nlhqs, [$nL, $H, $Q];
-      $start_peak = $nL if($start_peak > 0  and  $Q >= 1.5*$Qmin);
+      push @nlhqs, [$nL, $H, $Q]; # number in L cluster, edge coord (transformed), density ratio
+      $start_peak = $nL if($start_peak < 0  and  $Q >= 1.5*$Qmin);
     } else {			# $Q < $Qmin
       if ($start_peak > 0) {
 	if ($end_peak < 0) {
@@ -444,61 +418,80 @@ sub find_cluster_at_left{
 	}
       }
     }
-  #  print "$nL $start_peak $end_peak $opt_nL $maxQ \n";
+      # print "$nL $start_peak $end_peak $opt_nL $Q $maxQ \n";
   } # end of loop over possible L cluster sizes.
-  # print STDERR "# start_peak, end_peak: $start_peak, $end_peak \n";
-#  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
-#  print "maxQ: $maxQ \n";
-my $H_mid_half_max = -1;
-if (scalar @nlhqs > 0) {
-  ($Ledge, $Redge) = (1, -1);
-  my ($nLmin, $nLmax) = (undef, undef);
-  my $nabove = 0;
-  for my $anlhq (@nlhqs) {
-    my ($nl, $h, $q) = @$anlhq;
-    #    print join(", ", @$anlhq), "\n";
-    if ($q >= 0.5*$maxQ) {
-      $nabove++;
-      if ($h < $Ledge) {
-	$Ledge = $h;
-	$nLmin = $nl;
-      }
-      if ($h > $Redge) {
-	$Redge = $h;
-	$nLmax = $nl;
+   #  print STDERR "# start_peak, end_peak: $start_peak, $end_peak \n";
+   #  print STDERR "$maxQ $opt_nL $optH  ", scalar @nlhqs, "\n";
+   #  print "maxQ: $maxQ \n";
+  my $H_mid_half_max = -1;
+  if (scalar @nlhqs > 0) {
+    ($Ledge, $Redge) = (1, -1);
+    my ($nLmin, $nLmax) = (undef, undef);
+    my $nabove = 0;
+    for my $anlhq (@nlhqs) {
+      my ($nl, $h, $q) = @$anlhq;
+      if ($q >= 0.5*$maxQ) { # get points with Q at half-max
+	$nabove++;
+	if ($h < $Ledge) {
+	  $Ledge = $h; 
+	  $nLmin = $nl;
+	}
+	if ($h > $Redge) {
+	  $Redge = $h;
+	  $nLmax = $nl;
+	}
       }
     }
+    #print "aaa $nabove  $Ledge $Redge \n";
+    if ($nabove >= 1) {
+      $H_mid_half_max = 0.5*($Ledge+$Redge);
+    }		     # otherwise leave $H_mid_half_max as -1;
+  } else {	     # no pts with $Q > 2 leave $H_mid_half_max as -1;
   }
-  #    print "$nabove  $Ledge $Redge \n";
-  if ($nabove >= 1) {
-    $H_mid_half_max = 0.5*($Ledge+$Redge);
-  }		     # otherwise leave $H_mid_half_max as -1;
-} else {	     # no pts with $Q > 2 leave $H_mid_half_max as -1;
-}
-  # return $optH value at which $maxQ occurs,
-  # and $Ledge, $Redge, the Left and Right sides of the > half max range.
+
   my $halfN = 16;
-  my $N = 2*$halfN;
+  my $N = 2*$halfN; # sliding window width (number of candidate cluster sizes in average)
   my $Qsum = 0;
   my ($Qsum_opt, $mid_opt) = (-1, undef);
-  for my $i (0..$N){
-$Qsum += $nlhqs[$i]->[2];
-}
-  for(my $i=1; $i+$N < scalar @nlhqs; $i++){
-    $Qsum += $nlhqs[$i+$N]->[2] - $nlhqs[$i-1]->[2];
+  for my $i (0..$N) {
+    $Qsum += $nlhqs[$i]->[2];
+  }
+  for (my $i=1; $i+$N < scalar @nlhqs; $i++) {
+    $Qsum += $nlhqs[$i+$N]->[2] - $nlhqs[$i-1]->[2]; # sum of Q over sliding window
     my $mid = $i+$halfN;
-   # print STDERR $mid, "  ", join("  ", @{$nlhqs[$mid]}), "  ", $Qsum/($N+1), "\n";
-    if($Qsum > $Qsum_opt){
+    # print STDERR $mid, "  ", join("  ", @{$nlhqs[$mid]}), "  ", $Qsum/($N+1), "\n";
+    if ($Qsum > $Qsum_opt) {
       $Qsum_opt = $Qsum;
       $mid_opt = $mid;
     }
   }
   my $Qavg_opt = $Qsum_opt/($N+1);
-  # print STDERR "### $mid_opt  $Qsum_opt \n";
-  return ($optH, $maxQ, $nlhqs[$mid_opt]->[1], $Qavg_opt, $Ledge, $Redge); # $H_mid_half_max);
+  #
+  $optH = $self->inverse_transform($optH);
+  my $hmidopt = $self->inverse_transform($nlhqs[$mid_opt]->[1]);
+  $Ledge = $self->inverse_transform($Ledge);
+  $Redge = $self->inverse_transform($Redge);
+ #   print "$optH  $maxQ  $hmidopt  $Qavg_opt  $Ledge  $Redge \n";
+  
+  ## optH RH edge when Q is maximized, maxQ max peak to valley density ratio
+  ## $hmidopt comes from maximizing the avg Q over some range nL
+  ## and $Ledge, $Redge, the Left and Right sides of the > half max range.
+  return ($optH, $maxQ, $hmidopt, $Qavg_opt, $Ledge, $Redge);
 }
 
-  #########################################################
+sub inverse_transform{
+  my $self = shift;
+  my $value = shift;
+  my $pow = $self->pow();
+  if($pow eq 'log'){
+    $value = exp($value);
+  }else{
+    $value = $value**(1.0/$pow);
+  }
+  return $value;
+}
+
+#########################################################
 
 #   sub ir{
 #     my $txs = shift;

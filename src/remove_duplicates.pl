@@ -4,8 +4,8 @@ use Getopt::Long;
 use List::Util qw(min max sum shuffle);
 use File::Spec;
 
-# runs duplicatesearch, then agmr_cluster, and outputs a file
-# with the same format as duplicatesearch input, but now with just one
+# runs duplicate_search, then agmr_cluster, and outputs a file
+# with the same format as duplicate_search input, but now with just one
 # line representing each cluster.
 
 # read in dosages file and cluster file (i.e. agmr_cluster output)
@@ -137,7 +137,7 @@ if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then outpu
     my $max_d = shift @cols;
     my $min_d_to_noncluster = shift @cols;
     my $n_bad1 = shift @cols; # number of intracluster distances > 
-    my $n_bad2 = shift @cols; # number of of intracluster distances not found by duplicatesearch
+    my $n_bad2 = shift @cols; # number of of intracluster distances not found by duplicate_search
     my $rep_id = $cols[0];   # id of the representative of the cluster
 
     #  print STDERR "done storing cluster of size $cluster_size \n";
@@ -158,7 +158,7 @@ if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then outpu
     my $max_d = shift @cols;
     my $min_d_to_noncluster = shift @cols;
     my $n_bad1 = shift @cols; # number of intracluster distances > 
-    my $n_bad2 = shift @cols; # number of of intracluster distances not found by duplicatesearch
+    my $n_bad2 = shift @cols; # number of of intracluster distances not found by duplicate_search
     my $rep_id = $cols[0];   # id of the representative of the cluster
 
     #  print STDERR "done storing cluster of size $cluster_size \n";

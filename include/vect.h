@@ -52,12 +52,24 @@ typedef struct{
   double d;
 }Ld;
 
-typedef struct{
+typedef struct{ 
   long capacity;
   long size;
   Ld** a;
 }Vld;
 
+typedef struct{
+  long idx;
+  //double agmr;
+  //double hgmr;
+  double xhgmr;
+}Iaxh;
+
+typedef struct{ 
+  long capacity;
+  long size;
+  Iaxh** a;
+}Viaxh;
 
 // *****  Function declarations  ************************************************************
 
@@ -99,6 +111,7 @@ void free_vchar(const Vchar* the_vchar);
 // ***** Vdouble *****
 Vdouble* construct_vdouble(long cap); // construct empty Vdouble with capacity cap.
 Vdouble* construct_vdouble_from_array(long size, double* array); // intialize with array of known size
+Vdouble* construct_vdouble_zeroes(long size); // use calloc, set both capacity and size to size
 Vdouble* copy_vdouble(Vdouble* the_vdouble);
 Vdouble* push_to_vdouble(Vdouble* the_vdouble, double x);
 double pop_from_vdouble(Vdouble* the_vdouble);
@@ -120,9 +133,18 @@ long index_of_id_in_vidxid(Vidxid* the_vidxid, char* id);
 void print_vidxid(FILE* fh, Vidxid* the_vidxid);
 void free_vidxid(const Vidxid* the_vidxid);
 
-// ******  Vld  *******
+// ******  Vld  ******
 Vld* construct_vld(long init_capacity);
 void push_to_vld(Vld* the_vld, long l, double d);
 void sort_vld_by_d(Vld* the_vld);
 int compare_ld(const void* a, const void* b);
 void free_vld(Vld* the_vld);
+
+// ******  Viaxh  ******
+Viaxh* construct_viaxh(long init_capacity);
+void push_to_viaxh(Viaxh* the_viaxh, long idx, double xhgmr); //, double hgmr);
+void sort_viaxh_by_xhgmr(Viaxh* the_viaxh);
+//void sort_viaxh_by_hgmr(Viaxh* the_viaxh);
+int compare_xhgmr(const void* a, const void* b);
+//int compare_hgmr(const void* a, const void* b);
+void free_viaxh(Viaxh* the_viaxh);

@@ -353,7 +353,8 @@ sub bin_data{ # populate the bins using existing bin specification (binwidth, et
 	# $bin_centers[$bin_number] = ($bin_number+0.5)*$self->binwidth()
       }
     }
-    $max_bin_y = max(max(@bin_counts), $max_bin_y);
+    $max_bin_y = max(max(@bin_counts), $max_bin_y) if($col ne 'pooled');
+    # print "# Col: $col  max_bin_y: $max_bin_y\n";
     my $log0count = $self->filecol_hdata()->{$col}->log0_count();
     $self->filecol_hdata()->{$col}->bin_counts( \@bin_counts );
     $self->filecol_hdata()->{$col}->bin_centers( \@bin_centers );
@@ -378,9 +379,9 @@ sub as_string{
   my %fcs_cumulative = ();
   # print STDERR "filecolspecs: ", join("; ", @filecol_specs), "\n";
   my $horiz_line_string .= sprintf("#------------------------------------");
-  for (@filecol_specs) {
+  for my $fcs (@filecol_specs) {
     $horiz_line_string .= "--------------------";
-    $fcs_cumulative{$_} = 0;
+    $fcs_cumulative{$fcs} = 0;
   }
   $horiz_line_string .= "\n";
 
@@ -713,6 +714,8 @@ sub data_min_max{
   my $self = shift;
   return ($self->filecol_hdata->{'pooled'}->min(), $self->filecol_hdata->{'pooled'}->max());
 }
+
+__PACKAGE__->meta->make_immutable;
 
 1;
 

@@ -7,7 +7,7 @@ my $dist_filename = $partial_filename . ".mdist";
 my $id_filename = $partial_filename . ".mdist.id";
 
 my $filename_out = shift;
-my $max_distance = shift // 0.2;
+my $max_distance = shift // 1.1;
 
 # my $filename_out = $partial_filename . ".dists";
 
@@ -41,7 +41,7 @@ while(my $line = <$fhdist>){
       my $distance = $distances[$i];
       if($distance <= $max_distance){
 #	my $id2 = $ids[$i];
-	printf($fhout "%s  %s  %8.6f\n",$id1, $ids[$i], $distance);
+	printf($fhout "%s  %s  %10.8f \n", $id1, $ids[$i], $distance);
       }
     }
   $line_number++;

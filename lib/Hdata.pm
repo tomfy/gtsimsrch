@@ -185,4 +185,6 @@ sub calculate_median{
   return $median;
 }
 
+__PACKAGE__->meta->make_immutable;
+
 1;
