@@ -866,9 +866,9 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
   return result;
 }
 
-long d_ok(Pedigree_stats* p, double max_ok_d){ // 1: d looks good; 0: d too large.
+bool d_ok(Pedigree_stats* p, double max_ok_d){ // true: d looks good; false: d too large.
   double d = n_over_d(p->d);
-  return (d <= max_ok_d)? 1 : 0;
+  return (d <= max_ok_d)? true : false;
 }
   
 void free_pedigree(const Pedigree* the_pedigree){

@@ -95,7 +95,7 @@ Vpedigree* calculate_triples_for_one_accession(Accession* prog, const GenotypesS
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const GenotypesSet* the_gtsset);
 
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d);
-long d_ok(Pedigree_stats* p, double max_ok_d); // 1: d looks good; 0: d too large.
+bool d_ok(Pedigree_stats* p, double max_ok_d); // 1: d looks good; 0: d too large.
 
 void free_pedigree(const Pedigree* the_pedigree);
 
