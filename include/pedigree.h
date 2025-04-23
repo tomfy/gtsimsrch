@@ -39,9 +39,6 @@ typedef struct{ // 0: progeny, 1, 2: parents
   double R2_n;
   double d_n;
   double z_n;
-  
-  //double scaled_d; // to make threshold agree with z threshold
-  //double max_scaleddz;
 
   double hgmr1;
   double hgmr2;
@@ -94,8 +91,8 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
 //double hgmr(char* gts1, char* gts2);
 Pedigree_stats* construct_pedigree_stats(void); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
-Vpedigree* calculate_triples_for_one_accession(Accession* prog, GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, GenotypesSet* the_gtsset);
+Vpedigree* calculate_triples_for_one_accession(Accession* prog, const GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const GenotypesSet* the_gtsset);
 
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d);
 long d_ok(Pedigree_stats* p, double max_ok_d); // 1: d looks good; 0: d too large.
@@ -106,7 +103,7 @@ void free_pedigree(const Pedigree* the_pedigree);
 Vpedigree* construct_vpedigree(long cap);
 Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset);
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
-Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_d);
+// Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_d);
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose);
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 void sort_vpedigree_by_d(Vpedigree* the_vped);
