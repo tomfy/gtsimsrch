@@ -202,6 +202,7 @@ two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
   return (two_longs){phase_a, phase_b};
 }
 
+/*
 Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy){ // 
 
   char c1, c2, c3;
@@ -473,6 +474,7 @@ Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy
 
   return pedigree_stats;
 } // end of triple_counts
+/* */
 
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){ //, GenotypesSet* the_gtset){
   
@@ -688,16 +690,15 @@ Pedigree_stats* construct_pedigree_stats(void){
   the_ps->xhgmr2 = NAN;
   return the_ps;
 }
-Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const GenotypesSet* the_gtsset){ //, long* d0counts, long* d1counts, long* d2counts){ //, GenotypesSet* the_gtsset){
+Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const GenotypesSet* the_gtsset){
   long ploidy = the_gtsset->ploidy;
-  //double d_scale_factor = the_gtsset->d_scale_factor;
   Pedigree_stats* the_ps; //  = construct_pedigree_stats(); // (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
   assert(the_pedigree->F != NULL  ||  the_pedigree->M != NULL); // shouldn't have both parents NULL //
   if(the_pedigree->F != NULL  &&  the_pedigree->M != NULL){
    
     the_ps = bitwise_triple_counts(the_pedigree->F,  the_pedigree->M,  the_pedigree->A);
 
-    if(0){ // compare bitwise, nonbitwise calculations as check - slow
+    /*   if(0){ // compare bitwise, nonbitwise calculations as check - slow
       Pedigree_stats* nobw_ps = triple_counts( the_pedigree->F->genotypes->a,  the_pedigree->M->genotypes->a,  the_pedigree->A->genotypes->a, ploidy );
       assert
 	(NDs_equal(the_ps->agmr12, nobw_ps->agmr12));
@@ -707,7 +708,7 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const Genotypes
       assert(NDs_equal(the_ps->par2_R, nobw_ps->par2_R));
       assert(NDs_equal(the_ps->d, nobw_ps->d));
       assert(NDs_equal(the_ps->z, nobw_ps->z));
-    }
+    } /* */
        
     //  the_ps->par1_xhgmr = xhgmr(the_gtsset, the_pedigree->F, the_pedigree->A, false);
     //  the_ps->par2_xhgmr = xhgmr(the_gtsset, the_pedigree->M, the_pedigree->A, false);
@@ -715,7 +716,6 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const Genotypes
     the_ps = construct_pedigree_stats();
     the_ps->agmr12 = (ND) {0, 0};
     the_ps->z = (ND) {0, 0};
-    // the_ps->xz = (ND) {0, 0};
     if(the_pedigree->F != NULL){ // we have female parent id, no male parent id
       four_longs hgmrR = hgmr_R(the_pedigree->F->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
    
@@ -729,7 +729,6 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const Genotypes
       //  the_ps->par2_xhgmr = (ND) {0, 0};
     }else{ // we have male parent id, no female parent id
       if(DO_ASSERT) assert(the_pedigree->M != NULL);
-      //        fprintf(stderr, "pedigree with male parent only.\n");
       the_ps->par1_hgmr = (ND) {0, 0};
       the_ps->par1_R = (ND) {0, 0};
       four_longs hgmrR = hgmr_R(the_pedigree->M->genotypes->a, the_pedigree->A->genotypes->a, (char)(ploidy + 48));
@@ -791,7 +790,7 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
     print_d_r(fh, the_pedigree_stats->z);
     //print_d_r(fh, the_pedigree_stats->d_old);
 
-  }else{ // print ratios but not denominators
+  }else{ // print ratios but not numerators and denominators
     print_n_over_d(fh, the_pedigree_stats->agmr12);
     print_n_over_d(fh, the_pedigree_stats->par1_hgmr);
     // print_n_over_d(fh, the_pedigree_stats->par1_xhgmr);
@@ -831,7 +830,7 @@ void print_double_nan_as_hyphen(FILE* fh, double x){
   }
 }
 
-
+/* 
 long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d){
   //  > 0 pedigree looks good
   //  <= 0 pedigree looks bad
@@ -864,7 +863,7 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
     }
   }
   return result;
-}
+} /* */
 
 bool d_ok(Pedigree_stats* p, double max_ok_d){ // true: d looks good; false: d too large.
   double d = n_over_d(p->d);
@@ -996,7 +995,7 @@ void free_vpedigree(const Vpedigree* the_vped){
   free((Vpedigree*)the_vped);
 }
 
-// *****  sorting an array of Idxhgmr  *****
+/* // *****  sorting an array of Idxhgmr  ***** 
 int cmpidxhgmr(const void* v1, const void* v2){
   const Idxhgmr* s1 = (const Idxhgmr*)v1;
   const Idxhgmr* s2 = (const Idxhgmr*)v2;
@@ -1005,7 +1004,7 @@ int cmpidxhgmr(const void* v1, const void* v2){
 
 void sort_idxhgmr_by_hgmr(long size, Idxhgmr* array){ // sort in place
   qsort(array, size, sizeof(Idxhgmr), cmpidxhgmr);
-}
+} ?* */
 
 //  ************ unused *************************
 

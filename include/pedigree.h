@@ -64,10 +64,10 @@ typedef struct{
   Pedigree** a;
 }Vpedigree;
 
-typedef struct{
-  long idx;
-  double hgmr;
-}Idxhgmr;
+/* typedef struct{ */
+/*   long idx; */
+/*   double hgmr; */
+/* }Idxhgmr; */
 
 typedef struct{
   long XFmin;
@@ -84,6 +84,7 @@ typedef struct{
 
 
 
+
 // *****  function declarations  *****
 
 // *****  Pedigree  *****
@@ -94,7 +95,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
 Vpedigree* calculate_triples_for_one_accession(Accession* prog, const GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const GenotypesSet* the_gtsset);
 
-long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d);
+// long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d);
 bool d_ok(Pedigree_stats* p, double max_ok_d); // 1: d looks good; 0: d too large.
 
 void free_pedigree(const Pedigree* the_pedigree);
@@ -104,7 +105,7 @@ Vpedigree* construct_vpedigree(long cap);
 Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_vidxid, GenotypesSet* the_gtsset);
 const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessions);
 // Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSet* const the_gtsset, const Vlong* parent_idxs, double max_ok_hgmr, double max_ok_d);
-void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose);
+// void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose);
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 void sort_vpedigree_by_d(Vpedigree* the_vped);
 int compare_pedigree_d(const void* a, const void* b);
@@ -112,17 +113,16 @@ int compare_pedigree_d(const void* a, const void* b);
 void free_vpedigree(const Vpedigree* the_vped);
 
 // *****  array of Idxhgmr  *****
-int cmpidxhgmr(const void* v1, const void* v2);
-void sort_idxhgmr_by_hgmr(long size, Idxhgmr* array);
+//int cmpidxhgmr(const void* v1, const void* v2);
+//void sort_idxhgmr_by_hgmr(long size, Idxhgmr* array);
 
-Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
+//Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
 Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
 Xcounts_2 count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 Xcounts_2 count_crossovers_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long last);
 Xcounts_3 count_crossovers_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase);
-
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose);
 void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree);

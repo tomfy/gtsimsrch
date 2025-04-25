@@ -386,12 +386,14 @@ main(int argc, char *argv[])
 	free(the_pedigree_stats);
 	//    end of accession has pedigree branch
       }else{  // accession has no pedigree
-	// Accession* prog =  A; // the_genotypes_set->accessions->a[i]; // the progeny accession, for which we seek parents
+	if( (alternative_pedigrees_level == 1)  ||  (alternative_pedigrees_level == 3) ){
+	  // Accession* prog =  A; // the_genotypes_set->accessions->a[i]; // the progeny accession, for which we seek parents
 	  fprintf(o_stream, "%s  P - - - - - - - - - - - - - - - - - - - - - - - -  ", A->id->a); // dummy output for pedigree
 	  Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[i], max_candidate_parents);
 	  sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream);
 	  fprintf(o_stream, "\n");
 	  free_vpedigree(alt_pedigrees);
+	}
       }
       
     } // end loop over accessions 
