@@ -250,7 +250,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
     Vlong* chromosome_numbers;
     if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis)
-      the_genotypes_set->phased = true;
+      // the_genotypes_set->phased = true;
       chromosome_numbers = construct_vlong(marker_ids->size);
       while(1){
 	token = strtok_r(NULL, "\t \n\r", &saveptr);
@@ -1091,8 +1091,9 @@ double hgmr(char* gts1, char* gts2){
   return (n_denom > 0)? (double)n_numer/(double)n_denom : 2.0;  
 }
 
-two_doubles  heterozyg_ratios(Accession* acc1, Accession* acc2){
-  if(acc1 == NULL  ||  acc2 == NULL) return (two_doubles){-1, -1};
+// two_doubles
+three_longs heterozyg_ratios(Accession* acc1, Accession* acc2){
+  if(acc1 == NULL  ||  acc2 == NULL) return (three_longs){-1, -1, -1};
   char* gts1 = acc1->genotypes->a;
   char* gts2 = acc2->genotypes->a;
   char c1, c2;
@@ -1117,7 +1118,8 @@ two_doubles  heterozyg_ratios(Accession* acc1, Accession* acc2){
   }
   /* fprintf(stderr, "in heterozyg_ratios: %s %s  %ld %ld %ld  %7.5f %7.5f\n",
      acc1->id->a, acc2->id->a, nhet1, nhet2, n11, (double)n11/nhet1, (double)n11/nhet2); /* */
-  two_doubles result = {(double)n11/nhet1, (double)n11/nhet2};
+  //two_doubles result = {(double)n11/nhet1, (double)n11/nhet2};
+  three_longs result = {n11, nhet1, nhet2};
   return result;
 }
 
@@ -1251,8 +1253,12 @@ void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char*
 	token = strtok_r(NULL, "\t \n\r", &saveptr);
 	if(token == NULL)	break;
 	two_chars dsg_ph = token_to_dosage(token, &(the_genotypes_set->ploidy));
+	// fprintf(stderr, "token, dsg_ph: %s  %c  %c \n", token, dsg_ph.ch1, dsg_ph.ch2);
 	genotypes[marker_count] = dsg_ph.ch1;
-	if(dsg_ph.ch2 != NO_PHASE_CHAR) the_genotypes_set->phased = true; 
+	if(dsg_ph.ch2 != NO_PHASE_CHAR){
+	  // fprintf(stderr, "dsg_ph.ch2: %c  %c \n", dsg_ph.ch1, dsg_ph.ch2);
+	  the_genotypes_set->phased = true; 
+	}
 	phases[marker_count] = dsg_ph.ch2;
 	if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
 	marker_count++;

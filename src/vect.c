@@ -458,6 +458,7 @@ void free_vidxid(const Vidxid* the_vidxid){
 }
 
 //  *****  Vld  *****
+/*
 Vld* construct_vld(long init_capacity){
   Vld* the_vld = (Vld*)malloc(1*sizeof(Vld));
   the_vld->capacity = init_capacity;
@@ -501,6 +502,7 @@ void free_vld(Vld* the_vld){
   free(the_vld->a);
   free(the_vld);
 }
+/* */
 
 //  *****  Viaxh  *****
 Viaxh* construct_viaxh(long init_capacity){

@@ -24,21 +24,21 @@ Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, A
   }
   Xcounts_3 X3;
     if(Fparent == NULL){ // only have male parent in pedigree
-      X3 = (Xcounts_3){(Xcounts_2){0, 0, 0}, count_crossovers_one_parent(the_gtsset, Mparent, offspring), 0, 0, 0, 0};
+      X3 = (Xcounts_3){(Xcounts_2mmn){0, 0, 0}, count_crossovers_one_parent(the_gtsset, Mparent, offspring), 0, 0, 0, 0};
     }else if(Mparent == NULL){ // only have female parent in pedigree
-      X3 = (Xcounts_3){count_crossovers_one_parent(the_gtsset, Fparent, offspring), (Xcounts_2){0, 0, 0}, 0, 0, 0, 0};
+      X3 = (Xcounts_3){count_crossovers_one_parent(the_gtsset, Fparent, offspring), (Xcounts_2mmn){0, 0, 0}, 0, 0, 0, 0};
     }else{ // both F and M are non-NULL
-      X3 = count_crossovers_two_parents(the_gtsset, Fparent, Mparent, offspring);   
+      X3 = count_crossovers_two_parents(the_gtsset, Fparent, Mparent, offspring);
     }
   return X3;
 }
 
-Xcounts_2 count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
+Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
   // Assuming that parent is indeed a parent of offspring,
   // count the min number of crossovers needed to reconcile them
 
   if(parent == NULL  ||  offspring == NULL) {
-    return (Xcounts_2){-1, -1, -1};
+    return (Xcounts_2mmn){-1, -1, -1};
   }
   long Xmin = 0, Xmax = 0, Nhet = 0; // Nhet = number of heterozyg gts in parent
   long Xa = 0, Xb = 0;
@@ -94,7 +94,7 @@ Xcounts_2 count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession*
     Xmin += Xb; Xmax += Xa;
   }
  
-  return (Xcounts_2){Xmin, Xmax, Nhet};
+  return (Xcounts_2mmn){Xmin, Xmax, Nhet};
 } // end of count_crossovers
 
 Xcounts_2 count_crossovers_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long next){
@@ -141,16 +141,14 @@ Xcounts_2 count_crossovers_one_chromosome(const GenotypesSet* the_gtsset, Access
 Xcounts_3 count_crossovers_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
   long NhetF = 0, XFmin_2 = 0, XFmax_2 = 0, XFmin_3 = 0, XFmax_3 = 0;
   long NhetM = 0, XMmin_2 = 0, XMmax_2 = 0, XMmin_3 = 0, XMmax_3 = 0;
- 
   long n_chroms = the_gtsset->chromosome_start_indices->size - 1;
+
   for(long i=0; i < n_chroms; i++){
-   
     long start_index = the_gtsset->chromosome_start_indices->a[i];
     long next_start_index = the_gtsset->chromosome_start_indices->a[i+1];
-    
+
     Xcounts_2 FX = count_crossovers_one_chromosome(the_gtsset, Fparent, offspring, start_index, next_start_index);
     NhetF += FX.Nhet;
-    // fprintf(stderr, "XXXXX  %s  %s   %ld %ld  %ld \n", offspring->id->a, Fparent->id->a, FX.Xa, FX.Xb, NhetF);
    
     if(FX.Xa < FX.Xb){
       XFmin_2 += FX.Xa; XFmax_2 += FX.Xb;
@@ -180,7 +178,7 @@ Xcounts_3 count_crossovers_two_parents(const GenotypesSet* the_gtsset, Accession
       XMmax_3 += MX.Xb;
     }
   } // end loop over chromosomes
-  Xcounts_3 X3 = {(Xcounts_2){XFmin_2, XFmax_2, NhetF}, (Xcounts_2){XMmin_2, XMmax_2, NhetM}, XFmin_3, XFmax_3, XMmin_3, XMmax_3};
+  Xcounts_3 X3 = {(Xcounts_2mmn){XFmin_2, XFmax_2, NhetF}, (Xcounts_2mmn){XMmin_2, XMmax_2, NhetM}, XFmin_3, XFmax_3, XMmin_3, XMmax_3};
   return X3;
 }
 

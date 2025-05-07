@@ -5,9 +5,16 @@ typedef struct{
   long Nhet;
 }Xcounts_2;
 
+typedef struct{ // same as Xcounts_2, except Xmin (Xmax)
+  // is the min (max) the 2 
+  long Xmin; 
+  long Xmax;
+  long Nhet;
+}Xcounts_2mmn;
+
 typedef struct{
-  Xcounts_2 XFA;
-  Xcounts_2 XMA;
+  Xcounts_2mmn XFA;
+  Xcounts_2mmn XMA;
   long XFmin_3;
   long XFmax_3;
   long XMmin_3;
@@ -119,7 +126,7 @@ void free_vpedigree(const Vpedigree* the_vped);
 //Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
 Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
-Xcounts_2 count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
+Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 Xcounts_2 count_crossovers_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long last);
 Xcounts_3 count_crossovers_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase);
