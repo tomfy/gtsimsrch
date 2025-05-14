@@ -33,10 +33,13 @@ void set_scaled_d_in_one_pedigree(Pedigree_stats* the_ps, double d_scale_factor)
 void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor);
 // void print_Xover2_rates(FILE* fh, Xcounts_2 X2);
 void print_X3_info(FILE* o_stream, Xcounts_3 X3);
+void print_crossover_info(FILE* o_stream, Xcounts_3 X3);
 void print_Xover_rates(FILE* fh, Xcounts_3 X3);
 // void d_z_of_random_set(GenotypesSet* gtset, long sample_size, double* mean_d, double* mean_z);
 void random_set_means(GenotypesSet* gtset, long sample_size);
 Viaxh* hgmrs_wrt_one_accession(GenotypesSet* the_genotypes_set, Accession* A, double max_xhgmr);
+void print_dummy_pedigree_output(FILE* stream); // for when an accession has no pedigree
+
 // double* mean_hgmr, double* mean_R, double* mean_d, double* mean_z);
 // **********************************************************************************************
 // ***********************************  main  ***************************************************
@@ -360,8 +363,9 @@ main(int argc, char *argv[])
 	// two_doubles hratios = heterozyg_ratios(A, F);
 	if(the_genotypes_set->phased){
 	  Xcounts_3 X3 = count_crossovers(the_genotypes_set, F, M, A);
-	  print_Xover_rates(o_stream, X3);
-	  print_X3_info(o_stream, X3);
+	  //	  print_Xover_rates(o_stream, X3);
+	  //      print_X3_info(o_stream, X3);
+	  print_crossover_info(o_stream, X3);
 	} // end of if phased branch
 	if(alternative_pedigrees_level == 1){ // search for parents, considering only accessions in parent_idxs as possible parents
 	    Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[A->index], max_candidate_parents);
@@ -389,7 +393,11 @@ main(int argc, char *argv[])
       }else{  // accession has no pedigree
 	if( (alternative_pedigrees_level == 1)  ||  (alternative_pedigrees_level == 3) ){
 	  // Accession* prog =  A; // the_genotypes_set->accessions->a[i]; // the progeny accession, for which we seek parents
-	  fprintf(o_stream, "%s  P - - - - - - - - - - - - - - - - - - - - - - - -  ", A->id->a); // dummy output for pedigree
+	  
+	  //  fprintf(o_stream, "%s  P - -  - - - - - - -  - - - - - - - ", A->id->a); // dummy output for pedigree
+	  
+	  fprintf(o_stream, "%s ", A->id->a);
+	  print_dummy_pedigree_output(o_stream);
 	  Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[i], max_candidate_parents);
 	  sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream);
 	  fprintf(o_stream, "\n");
@@ -418,7 +426,11 @@ main(int argc, char *argv[])
       // fprintf(stderr, "offspring accession:  %ld  %s\n", prog->index, prog->id->a);
       Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(prog, the_genotypes_set, pairwise_info[i], max_candidate_parents);
       //fprintf(stderr, "after calculate_triples_for_one_accession.\n");
-      fprintf(o_stream, "%s  ", prog->id->a); // output the progeny id
+      fprintf(o_stream, "%s ", prog->id->a); // output the progeny id
+      if(1){
+	// fprintf(o_stream, "  P - -  - - - - - - -  - - - - - - -  "); // dummy output where pedigree output would be in we had pedigrees.
+	print_dummy_pedigree_output(o_stream);
+      }
       sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream); //, long_output_format, d_scale_factor);
       //fprintf(stderr, "after sort_and_output...\n");
       fprintf(o_stream, "\n");
@@ -502,8 +514,10 @@ void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigree
       if(the_gtsset->phased){
 	a_pedigree->pedigree_stats->X3 = count_crossovers(the_gtsset, a_pedigree->F, a_pedigree->M, a_pedigree->A);
 	//fprintf(stderr, "after count_crossovers.\n");
-	print_Xover_rates(o_stream, a_pedigree->pedigree_stats->X3);
-	print_X3_info(o_stream, a_pedigree->pedigree_stats->X3);
+	// print_Xover_rates(o_stream, a_pedigree->pedigree_stats->X3);
+	// print_X3_info(o_stream, a_pedigree->pedigree_stats->X3);
+	print_crossover_info(o_stream, a_pedigree->pedigree_stats->X3);
+
       }
       // fprintf(o_stream, " XXX "); 
     } // loop over solutions for one progeny accession
@@ -511,6 +525,10 @@ void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigree
     fprintf(o_stream, " this accession has no candidate parents.");
   }
 } // end of sort_and_output_pedigrees
+
+void print_dummy_pedigree_output(FILE* stream){ // for when an accession has no pedigree
+  fprintf(stream, " P  - -  - - - - - - -  - - - - - - -  ");
+}
 
 /* void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor){ */
 /*   for(long i = 0; i < the_pedigrees->size; i++){ */
@@ -527,6 +545,25 @@ void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigree
 /*     the_ps->scaled_d = d_scale_factor*d; */
 /*   } */
 /* } */
+
+void print_Xover_rates(FILE* fh, Xcounts_3 X3){
+  double Fnhet = X3.XFA.Nhet;
+  double Mnhet = X3.XMA.Nhet;
+  double XFA_rate = X3.XFA.Xmin/Fnhet; // N crossovers implied if F is parent of A
+  double XMA_rate = X3.XMA.Xmin/Mnhet; // N crossovers implied if M is parent of A
+  print_double_nan_as_hyphen(fh, XFA_rate); 
+  print_double_nan_as_hyphen(fh, XMA_rate);
+
+  // now output numbers of crossovers implied by F and M being the parents of A, and
+  // each pair of chromosomes in A must derive, one from F and the other from M.
+  if(isnan(XFA_rate)  ||  isnan(XMA_rate)){ // if either parent is unknown, one of these will be nan.
+    fprintf(fh, " - - - ");
+  }else{
+    print_double_nan_as_hyphen(fh, X3.XFmin_3/Fnhet);
+    print_double_nan_as_hyphen(fh, X3.XMmin_3/Mnhet);
+    print_double_nan_as_hyphen(fh, (X3.XFmin_3+X3.XMmin_3)/(Fnhet+Mnhet));
+  }
+}
 
 void print_X3_info(FILE* o_stream, Xcounts_3 X3){
   /* if(X3.XFA.Xa < X3.XFA.Xb){
@@ -545,24 +582,30 @@ void print_X3_info(FILE* o_stream, Xcounts_3 X3){
 }
 
 void print_crossover_info(FILE* fh, Xcounts_3 X3){
-   long Fnhet = X3.XFA.Nhet;
+  long Fnhet = X3.XFA.Nhet;
   long Mnhet = X3.XMA.Nhet;
   double XFA_rate = X3.XFA.Xmin/Fnhet; // N crossovers implied if F is parent of A
   double XMA_rate = X3.XMA.Xmin/Mnhet; // N crossovers implied if M is parent of A
   // fprintf(fh, " %ld %ld %ld ", X3.XFA.Xmin, X3.XF);
 
-  fprintf(fh, " %ld %ld %ld ", Fnhet, X3.XFA.Xmin, X3.XFmin_3);
-  fprintf(fh, " %ld %ld %ld ", Mnhet, X3.XMA.Xmin, X3.XMmin_3);
-  
-  print_double_nan_as_hyphen(fh, XFA_rate); 
-  print_double_nan_as_hyphen(fh, XMA_rate);
+  fprintf(fh, " %ld %ld %ld ", X3.XFA.Xmin, X3.XFmin_3, Fnhet);
+  fprintf(fh, " %ld %ld %ld ", X3.XMA.Xmin, X3.XMmin_3, Mnhet);
+
+  /*  fprintf(stderr, " %ld %ld %ld %ld \n", X3.XFmin_3, Fnhet, X3.XMmin_3, Mnhet);
+    long n =  (X3.XFmin_3+X3.XMmin_3);
+    long d = Fnhet+Mnhet;
+    fprintf(stderr, " %ld %ld \n", n, d);
+    print_double_nan_as_hyphen(stderr,(double)n/d); /* */
+  //print_double_nan_as_hyphen(fh, XFA_rate); 
+  //print_double_nan_as_hyphen(fh, XMA_rate);
 
   // now output numbers of crossovers implied by F and M being the parents of A, and
   // each pair of chromosomes in A much derive, one from F and the other from M.
   if(Fnhet == 0  ||  Mnhet == 0){ // if either parent is unknown, one of these will be nan.
     fprintf(fh, " - ");
   }else{
-    print_double_nan_as_hyphen(fh, (X3.XFmin_3+X3.XMmin_3)/(Fnhet+Mnhet));
+    print_double_nan_as_hyphen(fh, (double)(X3.XFmin_3+X3.XMmin_3)/(Fnhet+Mnhet));
+    //print_double_nan_as_hyphen(fh, (X3.XFmin_3+X3.XMmin_3)/(Fnhet+Mnhet));
   } 
 }
 
@@ -608,28 +651,6 @@ void random_set_means(GenotypesSet* gtset, long sample_size){
   gtset->mean_d = mean_d;
   gtset->mean_z = mean_z;
 }
-
-
-
-void print_Xover_rates(FILE* fh, Xcounts_3 X3){
-  double Fnhet = X3.XFA.Nhet;
-  double Mnhet = X3.XMA.Nhet;
-  double XFA_rate = X3.XFA.Xmin/Fnhet; // N crossovers implied if F is parent of A
-  double XMA_rate = X3.XMA.Xmin/Mnhet; // N crossovers implied if M is parent of A
-  print_double_nan_as_hyphen(fh, XFA_rate); 
-  print_double_nan_as_hyphen(fh, XMA_rate);
-
-  // now output numbers of crossovers implied by F and M being the parents of A, and
-  // each pair of chromosomes in A must derive, one from F and the other from M.
-  if(isnan(XFA_rate)  ||  isnan(XMA_rate)){ // if either parent is unknown, one of these will be nan.
-    fprintf(fh, " - - - ");
-  }else{
-    print_double_nan_as_hyphen(fh, X3.XFmin_3/Fnhet);
-    print_double_nan_as_hyphen(fh, X3.XMmin_3/Mnhet);
-    print_double_nan_as_hyphen(fh, (X3.XFmin_3+X3.XMmin_3)/(Fnhet+Mnhet));
-  }
-}
-
 
 
 //  **************  unused  *********************
