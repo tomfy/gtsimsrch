@@ -139,28 +139,27 @@ void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid 
 void* set_Abits_Bbits_1thread(void* x);
 void store_homozygs(GenotypesSet* the_gtsset);
 void set_chromosome_start_indices(GenotypesSet* the_gtsset);
-void set_agmr0s(GenotypesSet* the_gtsset);
-void set_n_00_1_22_1s(GenotypesSet* the_gtsset);
-void set_n2exp0s(GenotypesSet* gtsset, long i);
-Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
+// void set_agmr0s(GenotypesSet* the_gtsset);
+// void set_n2exp0s(GenotypesSet* gtsset, long i);
+// Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);
 ND bitwise_hgmr(Accession* acc1, Accession* acc2);
-ND bitwise_R(Accession* parent, Accession* offspring);
-// void calculate_hgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, double max_hgmr);
-Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_hgmr);
-void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
-ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
-four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
+// ND bitwise_R(Accession* parent, Accession* offspring);
+// Viaxh** calculate_hgmrs_old(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_hgmr);
+Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_parent_idxs, long max_candidate_parents, double max_hgmr);
+// void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
+// ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
+// four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
 //ND quick_and_dirty_hgmr_a(Accession* acc1, Accession* acc2);
 double hgmr(char* gts1, char* gts2);
 four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char);
-ND xhgmr(GenotypesSet* gtset, Accession* a1, Accession* a2, bool quick);
-void calculate_xhgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, bool quick_xhgmr, double max_xhgmr);
-ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // get quick 'hgmr', and then if not large get true hgmr.
-two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon);
-ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
-ND ghgmr(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
+// ND xhgmr(const GenotypesSet* gtset, Accession* a1, Accession* a2, bool quick);
+// void calculate_xhgmrs(GenotypesSet* the_genotypes_set, Viaxh** progeny_cplds, bool quick_xhgmr, double max_xhgmr);
+// ND quick_and_dirty_hgmr(Accession* acc1, Accession* acc2, char ploidy_char); // get quick 'hgmr', and then if not large get true hgmr.
+// two_doubles lls(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny, FILE* stream, double epsilon);
+//ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
+//ND ghgmr(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
 //ND psr(Accession* acc1, Accession* acc2, Vlong* chroms); // phase mismatch rate
 void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset);
 void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset);
@@ -173,7 +172,7 @@ long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);
 ND phase_switches_one_chrom(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start);
 ND phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms);
 
-two_doubles heterozyg_ratios(Accession* acc1, Accession* acc2);
+three_longs heterozyg_ratios(Accession* acc1, Accession* acc2);
 void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char* acc_id, long markerid_count, char* saveptr, double max_acc_missing_data_fraction);
 // ##### unused #####
 

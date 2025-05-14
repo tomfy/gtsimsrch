@@ -448,21 +448,16 @@ main(int argc, char *argv[])
   
   check_genotypesset(the_genotypes_set);
 
-  long het_phased = 0;
-  long het_unphased = 0;
+  long het_phased = 0; long het_unphased = 0;
   for(long i=0; i < the_genotypes_set->accessions->size; i++){
     Accession* an_acc = the_genotypes_set->accessions->a[i];
-    four_longs n_bad_phase_no_phase = check_phases(an_acc);
-    if(n_bad_phase_no_phase.l2 > 0){ fprintf(stderr, "acc: %s  %ld\n", an_acc->id->a, n_bad_phase_no_phase.l2); }
-    //if(n_bad_phase_no_phase.l3 > 0) fprintf(stderr, "unphased data present at %ld markers. \n", n_bad_phase_no_phase.l3);
-    het_phased += n_bad_phase_no_phase.l2;
-    het_unphased += n_bad_phase_no_phase.l3;
-    if(n_bad_phase_no_phase.l1 > 0){
-      fprintf(stderr, "N bad phases: %ld.\n", n_bad_phase_no_phase.l1);
-      exit(EXIT_FAILURE);
-    }
+    four_longs phase_counts = check_phases(an_acc);
+    if(phase_counts.l3 > 0){ fprintf(stderr, "acc: %s  phased:%ld  unphased: %ld  bad: %ld \n",
+				     an_acc->id->a, phase_counts.l1, phase_counts.l2, phase_counts.l3); }
+    het_phased += phase_counts.l1;
+    het_unphased += phase_counts.l2;
   }
-  fprintf(stderr, "Heterozygous genotypes; phased: %ld,  unphased %ld\n", het_phased, het_unphased);
+  fprintf(stderr, "# Heterozygous genotypes; phased: %ld,  unphased %ld\n", het_phased, het_unphased);
   double t_after_chk = clock_time(clock1);
   fprintf(stdout, "# Time for check_genotypesset: %lf\n", t_after_chk - t_after_input);
   
@@ -1063,13 +1058,14 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Mci* the_mci = the_vmci->a[i_m];      
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
-      two_doubles hetrats = heterozyg_ratios(q_acc, m_acc);
+      three_longs  hetinfo = heterozyg_ratios(q_acc, m_acc);
       //double phased_mismatch_rate = pmr(q_acc, m_acc);
       //fprintf(ostream, "%s  %s  %8.6f %8.6f ", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
       fprintf(ostream, "%s %ld  %s %ld  %8.6f %8.6f ", // %8.6f",
 	      q_acc->id->a, q_acc->missing_data_count, m_acc->id->a, m_acc->missing_data_count,
 	      the_mci->agmr, the_mci->hgmr); //, the_mci->psr);
       //  fprintf(ostream, " %7.5f %7.5f ", hetrats.x1, hetrats.x2);
+      fprintf(ostream, " %ld %ld %ld ", hetinfo.l1, hetinfo.l2, hetinfo.l3);
       if(output_format != 1){
 	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
 	fprintf(ostream, "  %6.2f %ld %7.5f ", // %7.5f ",
@@ -1143,7 +1139,7 @@ four_longs check_phases(Accession* acc){
       }
     }
   }
-  return (four_longs){n_bad, n_phase, n_no_phase, 0};
+  return (four_longs){n_phase, n_no_phase, n_bad, 0};
 }
 
 
