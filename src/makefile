@@ -19,7 +19,7 @@ OBJ1 = $(patsubst %,$(ODIR)/%,$(_OBJ1))
 _OBJ3 = vect.o  gtset.o pedigree.o find_parents.o various.o
 OBJ3 = $(patsubst %,$(ODIR)/%,$(_OBJ3))
 
-_OBJ4 = vect.o  vcf_to_gts.o various.o
+_OBJ4 = vect.o  vcf_to_dsgm.o various.o
 OBJ4 = $(patsubst %,$(ODIR)/%,$(_OBJ4))
 
 #_OBJ5 = plnkout_to_dsout.o 
@@ -38,7 +38,7 @@ duplicate_search: $(OBJ1)
 find_parents: $(OBJ3)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
-vcf_to_gts: $(OBJ4)
+vcf_to_dsgm: $(OBJ4)
 	$(CC) -O3 -o $@ $^ $(CFLAGS) $(LIBS)
 
 #plnkout_to_dsout: $(OBJ5)
@@ -46,7 +46,7 @@ vcf_to_gts: $(OBJ4)
 
 .PHONY: all
 
-all: duplicate_search  find_parents vcf_to_gts
+all: duplicate_search  find_parents vcf_to_dsgm
 #all: duplicate_search pedigree_test find_parents vcf_to_gts plnkout_to_dsout
 
 .PHONY: clean
