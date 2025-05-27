@@ -1,3 +1,4 @@
+#define  _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -50,7 +51,7 @@ bool GP_to_quality_ok(char* token, double minGP);
 char* split_on_char(char* str, char c, long* iptr); 
 //void chomp(char* str); // remove any trailing newlines from str
 void print_usage_info(FILE* ostream);
-void output_run_parameters(FILE* o_stream, char* input_filename, Vchar* output_filename,
+void output_run_parameters(FILE* o_stream, Vchar* input_filename, Vchar* output_filename,
 			   double minGP, double delta, double max_acc_md, bool use_alt_marker_id, long Nthreads);
 void print_marker_ids(FILE* ostream, Vstr* used_marker_ids);
 void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers);
@@ -74,9 +75,9 @@ extern int errno;
 int main(int argc, char *argv[]){
   errno = 0;
 
-  char* input_filename = NULL;
+  Vchar* input_filename = NULL;
   FILE *in_stream = NULL;
-  Vchar* output_filename = construct_vchar_from_str("vcftogts.out");
+  Vchar* output_filename = NULL; // construct_vchar_from_str("vcftogts.out");
   FILE* out_stream = NULL;
   FILE* reject_stream = NULL;
   
@@ -103,7 +104,8 @@ int main(int argc, char *argv[]){
     int an_option = 0;
     int option_index = 0;
     static struct option long_options[] = {
-      {"input",   required_argument, 0,  'i'}, // vcf filename
+        {"input",   required_argument, 0,  'i'}, // vcf filename
+        {"vcf_input",   required_argument, 0,  'i'}, // vcf filename
 	{"output",  required_argument, 0,  'o'}, // output filename
 	{"prob_min",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
 	{"acc_max_missing_data", required_argument, 0, 'm'}, 
@@ -123,10 +125,10 @@ int main(int argc, char *argv[]){
     if(an_option == -1) break;
     switch(an_option){
     case 'i':
-      input_filename = optarg;
-      in_stream = fopen(input_filename, "r");
+      input_filename = construct_vchar_from_str(optarg);
+      in_stream = fopen(input_filename->a, "r");
       if(in_stream == NULL){
-	fprintf(stderr, "Failed to open %s for reading.\n", input_filename);
+	fprintf(stderr, "Failed to open %s for reading.\n", input_filename->a);
 	exit(EXIT_FAILURE);
       }
       break;
@@ -236,12 +238,19 @@ int main(int argc, char *argv[]){
     print_usage_info(stdout);
     exit(EXIT_FAILURE);
   }
+
+  if(output_filename == NULL){
+    //Vchar* inputfile = construct_vchar_from_str(input_filename->a);
+      char* inptfname =  strcpy((char*)malloc(input_filename->capacity*sizeof(char)), input_filename->a);
+    output_filename = append_str_to_vchar(construct_vchar_from_str(basename(inptfname)), ".dsgm"); // 
+    fprintf(stderr, "output_filename:  %s \n", output_filename->a);
+  }
   out_stream = fopen(output_filename->a, "w");
   if(out_stream == NULL){
     fprintf(stderr, "Failed to open %s for writing.\n", output_filename->a);
     exit(EXIT_FAILURE);
   }
-  reject_stream = fopen("reject.pdsgs", "w");
+  reject_stream = fopen("rejected_accessions.dsgm", "w");
 
   clockid_t the_clock = CLOCK_MONOTONIC;
   struct timespec tspec;
@@ -813,8 +822,8 @@ char* split_on_char(char* str, char c, long* iptr){
 
 void print_usage_info(FILE* ostream){
   fprintf(stdout, "Options:\n");
-  fprintf(stdout, "-i  -input       Input vcf filename (required).\n");
-  fprintf(stdout, "-o  -out         Output filename (default: vcftogts.out)\n");
+  fprintf(stdout, "-i  -vcf_input       Input vcf filename (required).\n");
+  fprintf(stdout, "-o  -out             Output filename (default: append .dsgm to input filename)\n");
   fprintf(stdout, "-p  -prob_min        Min. estimated genotype probability if GP field present (default: %4.2f)\n", DEFAULT_MIN_GP);
   fprintf(stdout, "-m  -acc_max_missing_data  Accessions with greater than this fraction missing data are rejected (default %4.2f)\n", DEFAULT_MAX_ACC_MISSING_DATA_FRACTION); 
   //  fprintf(stdout, "-f  -maf_min     Exclude markers with minor allele frequency < this. (Default: %4.2f)\n", DEFAULT_MIN_MAF);
@@ -886,11 +895,11 @@ void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* a
   }
 }
 
-void output_run_parameters(FILE* o_stream, char* input_filename, Vchar* output_filename,
+void output_run_parameters(FILE* o_stream, Vchar* input_filename, Vchar* output_filename,
 			   double minGP, double delta, double max_acc_md, bool use_alt_marker_id, long Nthreads){ 
   fprintf(o_stream, "###############################################################\n");
   fprintf(o_stream, "# vcf_to_gts  run parameters: \n");
-  fprintf(o_stream, "# vcf file: %s \n# vcf_to_gt output file: %s \n", input_filename, output_filename->a);
+  fprintf(o_stream, "# vcf file: %s \n# vcf_to_gt output file: %s \n", input_filename->a, output_filename->a);
   fprintf(o_stream, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta);
   fprintf(o_stream, "# max accession missing data fraction: %6.4f \n", max_acc_md);
   //  fprintf(o_stream, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md);
