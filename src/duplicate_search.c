@@ -1058,14 +1058,15 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       Mci* the_mci = the_vmci->a[i_m];      
       Accession* q_acc = the_accessions->a[i_q];
       Accession* m_acc = the_accessions->a[the_mci->match_index];
-      three_longs  hetinfo = heterozyg_ratios(q_acc, m_acc);
+    
       //double phased_mismatch_rate = pmr(q_acc, m_acc);
       //fprintf(ostream, "%s  %s  %8.6f %8.6f ", q_acc->id->a, m_acc->id->a, the_mci->agmr, the_mci->hgmr);
       fprintf(ostream, "%s %ld  %s %ld  %8.6f %8.6f ", // %8.6f",
 	      q_acc->id->a, q_acc->missing_data_count, m_acc->id->a, m_acc->missing_data_count,
 	      the_mci->agmr, the_mci->hgmr); //, the_mci->psr);
       //  fprintf(ostream, " %7.5f %7.5f ", hetrats.x1, hetrats.x2);
-      fprintf(ostream, " %ld %ld %ld ", hetinfo.l1, hetinfo.l2, hetinfo.l3);
+      /*  three_longs  hetinfo = heterozyg_ratios(q_acc, m_acc);
+       fprintf(ostream, " %ld %ld %ld ", hetinfo.l1, hetinfo.l2, hetinfo.l3); /* */
       if(output_format != 1){
 	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
 	fprintf(ostream, "  %6.2f %ld %7.5f ", // %7.5f ",

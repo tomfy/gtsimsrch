@@ -18,14 +18,18 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 use lib $libdir;
 
 my $dosages_file = $datadir . '/8698x5621.dsgs';
-my $std_dsout_file = $datadir . '/8698x5621.dsout';
-my $test_dsout_file = '8698x5621.dsout';
+my $std_dsout_file = $datadir . '/8698x5621.dsout_std';
+# print "# dosages file: $dosages_file\n";
+# print "# duplicate_search output standard file: $std_dsout_file \n";
+my $test_dsout_file = '8698x5621.dsout_test';
+
 my $rng_seed = 123456789;
 
-my $ds_command = 'duplicate_search -in ' . $datadir . '/8698x5621.dsgs -out ' . $test_dsout_file . ' -seed ' . $rng_seed . ' > /dev/null  2> /dev/null';
+my $ds_command = "duplicate_search  -in $dosages_file  -out $test_dsout_file  -seed $rng_seed  > /dev/null  2> /dev/null";
 # print "$ds_command \n";
 system "$ds_command";
 
+# print "diff $std_dsout_file $test_dsout_file \n";
 my $diff_out = `diff $std_dsout_file $test_dsout_file`;
 
 print "diff output:[$diff_out]\n";

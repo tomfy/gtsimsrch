@@ -26,13 +26,14 @@ my $pedigrees_input_filename = undef; # if specified, pedigree file to be uniqui
 my $dosages_output_filename = undef; # if not specified prepend 'u_' to $dosages_input_filename
 my $pedigrees_output_filename = undef; # if not specified prepend 'u_' to $pedigree_input_filename
 my $cluster_filename = undef; # output of clusterer, with info on clusters
+my $columns_string = ''; # can specify alternative columns with, e.g.  -columns '-3,-2,-1' 
 
 my $cluster_fraction = 0.0; # fraction of other cluster members to keep (aside from one representative which is always kept)
 my $vote = 0;
 my $missing_str = "X";
-my $progeny_col = -3; # default is pedigree ids are in last 3 cols (progeny, Fparent, Mparent)
-my $Fparent_col = -2;
-my $Mparent_col = -1;
+my $progeny_col = 1; # -3; # default is pedigree ids are in first 3 cols (progeny, Fparent, Mparent)
+my $Fparent_col = 2; # -2;
+my $Mparent_col = 3; # -1;
 my $nskip = 0; # number of lines to skip at top of pedigree file.
 
 GetOptions(
@@ -41,6 +42,7 @@ GetOptions(
 	   'pedigrees_input_file=s' => \$pedigrees_input_filename,
 	   'pedigrees_output_file=s' => \$pedigrees_output_filename, # uniquified
 	   'cluster_filename=s' => \$cluster_filename,
+	   'columns|cols=s' => \$columns_string, # e.g. '3,4,5' ; 1 is left-most col., -1 is right-most.
 
 # less useful options:
 	   'fraction=f' => \$cluster_fraction,
@@ -107,57 +109,67 @@ close $fh_clusters;
 ###############################################################################
 ####   read in pedigree file, if specified.    ################################
 ###############################################################################
-if(defined $pedigrees_input_filename){
+if (defined $pedigrees_input_filename) {
   open my $fhpedin, "<", "$pedigrees_input_filename";
-  if(!defined $pedigrees_output_filename){
+  if (!defined $pedigrees_output_filename) {
     my ($v, $dir, $pedigrees_filename_in) = File::Spec->splitpath( $pedigrees_input_filename );
     $pedigrees_output_filename = "u_" . $pedigrees_filename_in;
     print STDERR "uniquified pedigrees file:  $pedigrees_output_filename \n";
   }
-  # want col 1 to be leftmost, -1 rightmost
-$progeny_col-- if($progeny_col > 0);
-$Fparent_col-- if($Fparent_col > 0);
-$Mparent_col-- if($Mparent_col > 0);
-open my $fhpedout, ">", "$pedigrees_output_filename";
-for(1..$nskip){ <$fhpedin>; } # skip first nskip lines.
 
-my $pedigrees_in_count = 0;
-my $progeny_NA_count = 0;
-my $duplicate_progeny_count = 0;
-my $pedigrees_out_count = 0;
-
-my %uniqprogeny = ();
-while (my $line = <$fhpedin>) {
-  next if($line =~ /^\s*#/);
-  $pedigrees_in_count++;
-  $line =~ s/\s+$//;	# remove newline, any other whitespace at end.
-  my @cols = split(" ", $line);
-  my $progeny_id = $cols[$progeny_col];
-
-  if ($progeny_id ne 'NA') { # output, replacing ids by ids of the cluster representatives if in a cluster
-    if (exists $uniqprogeny{$progeny_id}) { # the progeny is a duplicate of a previous one.
-      $duplicate_progeny_count++;
-    } else {
-      $uniqprogeny{$progeny_id}++;
-      $pedigrees_out_count++;
-      $progeny_id = $clusterid_repid{$progeny_id} // $progeny_id;
-      my $Fpar_id = $clusterid_repid{$cols[$Fparent_col]} // $cols[$Fparent_col]; # replace id with rep id if F parent is a duplicate group member
-      my $Mpar_id = $clusterid_repid{$cols[$Mparent_col]} // $cols[$Mparent_col]; # replace id with rep id if M parent is a duplicate group member
-      print $fhpedout "$progeny_id  $Fpar_id  $Mpar_id\n";
-    }
-  } else {
-    $progeny_NA_count++;
+  if ($columns_string ne '') {
+    ($progeny_col, $Fparent_col, $Mparent_col) = split(',', $columns_string);
+    #print STDERR "$progeny_col  $Fparent_col  $Mparent_col\n";
   }
-}
-close $fhpedin;
-} # end if defined $pedigrees_input_filename
+  #print STDERR "$progeny_col  $Fparent_col  $Mparent_col\n";
+  # want col 1 to be leftmost, -1 rightmost
+  $progeny_col-- if($progeny_col > 0);
+  $Fparent_col-- if($Fparent_col > 0);
+  $Mparent_col-- if($Mparent_col > 0);
+  #print STDERR "$progeny_col  $Fparent_col  $Mparent_col\n";
+ 
+  open my $fhpedout, ">", "$pedigrees_output_filename";
+  for (1..$nskip) {
+    <$fhpedin>;
+  }			    # skip first nskip lines of pedigree file.
+
+  my $pedigrees_in_count = 0;
+  my $progeny_NA_count = 0;
+  my $duplicate_progeny_count = 0;
+  my $pedigrees_out_count = 0;
+
+  my %uniqprogeny = ();
+  while (my $line = <$fhpedin>) {
+    next if($line =~ /^\s*#/);
+    $pedigrees_in_count++;
+    $line =~ s/\s+$//;	# remove newline, any other whitespace at end.
+    my @cols = split(" ", $line);
+    my $progeny_id = $cols[$progeny_col];
+
+    if ($progeny_id ne 'NA') { # output, replacing ids by ids of the cluster representatives if in a cluster
+      if (exists $uniqprogeny{$progeny_id}) { # the progeny is a duplicate of a previous one.
+	$duplicate_progeny_count++;
+      } else {
+	$uniqprogeny{$progeny_id}++;
+	$pedigrees_out_count++;
+	$progeny_id = $clusterid_repid{$progeny_id} // $progeny_id;
+	my $Fpar_id = $clusterid_repid{$cols[$Fparent_col]} // $cols[$Fparent_col]; # replace id with rep id if F parent is a duplicate group member
+	my $Mpar_id = $clusterid_repid{$cols[$Mparent_col]} // $cols[$Mparent_col]; # replace id with rep id if M parent is a duplicate group member
+	print $fhpedout "$progeny_id  $Fpar_id  $Mpar_id\n";
+      }
+    } else {
+      $progeny_NA_count++;
+    }
+  }
+  close $fhpedin;
+}			    # end if defined $pedigrees_input_filename
 
 ################################################################################
 ####   read in dosages  ########################################################
 ####   store id and dosages of cluster members    ##############################
 ####   output id and dosages of others       ###################################
 ################################################################################
-print STDERR "before storing dosages\n";
+#print STDERR "before storing dosages\n";
 
 # store individual lines of dosage file in hash
 open my $fh_dosages, "<", "$dosages_input_filename";
@@ -181,7 +193,7 @@ while (my $line = <$fh_dosages>) {
   }
 }
 close($fh_dosages);
-print STDERR "after storing dosages\n";
+# print STDERR "after storing dosages\n";
 ###############################################################################
 
 my @duplicate_lines = ();
