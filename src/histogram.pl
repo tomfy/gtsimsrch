@@ -153,12 +153,15 @@ use Histograms;
     $gnuplot_plot->draw_histograms();
 
     if ($interactive) {
-      #####  modify plot in response to keyboard commands: #####
-      while (1) {		# loop to handle interactive commands.
+	print STDERR "INTERACTIVE MODE!\n";
+	#####  modify plot in response to keyboard commands: #####
+	my $i = 0;
+      while ($i< 100) {		# loop to handle interactive commands.
 	my $commands_string = <STDIN>; # command and optionally a parameter, e.g. 'x:0.8'
 	my $done = $gnuplot_plot->handle_interactive_command($commands_string);
 	#print "done with interactive commands? $done \n";
 	last if($done);
+	$i++;
       }
     }
     #}
@@ -191,11 +194,14 @@ use Histograms;
     close $fhout;
 
     if ($interactive) {
-      #####  modify plot in response to keyboard commands: #####
-      while (1) {		# loop to handle interactive commands.
+	print STDERR "INTERACTIVE MODE 2\n";
+	#####  modify plot in response to keyboard commands: #####
+      my $i = 0;
+      while ($i<100) {		# loop to handle interactive commands.
 	my $commands_string = <STDIN>; # command and optionally a parameter, e.g. 'x:0.8'
 	my $done = $gd_plot->handle_interactive_command($commands_string);
 	last if($done);
+	$i++;
       }
     }
     } else {

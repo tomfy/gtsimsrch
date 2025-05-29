@@ -174,7 +174,7 @@ if ($plink) {			#####  PLINK  #####
   $t1 = clock_gettime(CLOCK_MONOTONIC);
   print STDERR "# time to determine file format, etc.:  ", $t1 - $t0, "\n";
   if ($input_format eq 'vcf') {
-    my $vcf2gts_command = $bindir . "/vcf_to_gts -input $input_filename -pmin $minGP "; # for now uses GT field, can filter on GP
+    my $vcf2gts_command = $bindir . "/vcf_to_dsgm -input $input_filename -prob_min $minGP "; # for now uses GT field, can filter on GP
     $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
     $vcf2gts_command .= " -output $genotypes_filename ";
     print  "# vcf_to_gts command: $vcf2gts_command \n";
@@ -222,12 +222,13 @@ if ($plink) {			#####  PLINK  #####
 
 print  "######### running clusterer ##########\n";
 my $cluster_filename = $filename_stem . "_clusters";
-my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
+my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 5 -cluster_d $cluster_distance ";
 print  "# clusterer command: $cluster_command\n";
 if (! $full_cluster_out) {
   $cluster_command .= " -nofull ";
 }
 # system "$cluster_command";
+print STDERR "CLUSTER COMMAND: $cluster_command\n";
 my $cluster_stdout = `$cluster_command`;
 print "clusterer output to stdout: ", $cluster_stdout, "\n";
 my $vline_xpos = undef;
@@ -243,7 +244,7 @@ if(!defined $histogram_filename){ $histogram_filename = $filename_stem . '_dista
 my $histogram_command =
   #($histogram_agmr0  and  $full_duplicate_search_output)?
   #"$histogram_path -data $distances_filename:3/8 " :
-  "$histogram_path -data '$distances_filename" . ':3""' . "' ";
+  "$histogram_path -nointeractive -data '$distances_filename" . ':5"Graph"' . "' ";
  #if(lc $graphics eq 'gd');
 $histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
 $histogram_command .= " -xlabel $plot_xlabel " if(defined $plot_xlabel);
