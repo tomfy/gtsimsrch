@@ -401,7 +401,7 @@ sub find_cluster_at_left{
       $opt_nL = $nL;
       $optH = $H;		# 0.5*($txs[$nL -1 ] + $txs[$nL]);
     }
-    print STDERR "$H  $nL  $Q\n";
+    # print STDERR "in Cluster1d.find_cluster_at_left   H, nL, Q:  $H  $nL  $Q\n";
 
     if ($Q >= $Qmin) {
       push @nlhqs, [$nL, $H, $Q]; # number in L cluster, edge coord (transformed), density ratio

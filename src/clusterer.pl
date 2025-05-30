@@ -104,10 +104,10 @@ use Cluster1d;
   # $edge_weight : keys are ordered pairs of accession ids representing graph edges, values are distances
   # $id_closeidds : keys are ids, values array ref of array refs of ids and distances of other accessions.
 
-  #print STDERR "$distances_filename $id1_column $id2_column $d_column $maxD\n";
-  my ($edge_weight, $id_closeidds, $id_mdcount) = store_distances($distances_filename,
-								  $id1_column, $mdc1_column, $id2_column, $mdc2_column,
-								  $d_column, $maxD);
+  my ($edge_weight, $id_closeidds, $id_mdcount) =
+    store_distances($distances_filename, $id1_column, $mdc1_column,
+		                         $id2_column, $mdc2_column,
+		    $d_column, $maxD);
   #######################################################################################################
   # get array of edges ordered by weight (distance), small to large.
   my @sorted_edges = sort {$edge_weight->{$a} <=> $edge_weight->{$b} } keys %$edge_weight;

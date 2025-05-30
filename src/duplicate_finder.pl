@@ -14,7 +14,7 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 }
 
 # read in a vcf file, and process using either duplicate_search (default) or plink ( -plink );
-# first run vcf_to_gts to convert vcf to format required by duplicate_search or plink;
+# first run vcf_to_dsgm to convert vcf to format required by duplicate_search or plink;
 # then run either duplicate_search or plink;
 # then run clusterer to find clusters of accessions with near-identical genotype sets.
 
@@ -26,7 +26,7 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 # usage:  duplicate_finder.pl -vcf <input vcf file>  -out <output file>
 
 # duplicate_finder.pl  calls:
-# vcf_to_gts
+# vcf_to_dsgm
 # duplicate_search (default) or ( -plink ) plink, plnkout2dsout
 # clusterer.pl
 
@@ -66,9 +66,12 @@ my $histogram_agmr0 = 0;
 my $histogram_color = undef;
 my $nthreads = undef; # use default number of threads of duplicate_search or plink
 
+
 my $graphics = 'gnuplot';
 my $binwidth = 0.002;
-my $plot_xlabel = undef;
+my $plot_title = "counts of agmrs of accession pairs"; 
+my $plot_xlabel = "agmr";
+my $plot_ylabel = "counts";
 my $histogram_filename = undef;
 
 print "# duplicate_finder command: " . join(" ", @ARGV) . "\n";
@@ -80,14 +83,14 @@ my $cluster_distance = 'auto'; # default is 'auto': clusterer will attempt to ch
 
 GetOptions(
 
-	   'input_filename=s' => \$input_filename,
+	   'input_filename|vcf_filename=s' => \$input_filename,
 
 	  # 'format=s' => \$input_format, # either 'vcf' (default) or, if anything else -> dosage.
 	   'output_file=s' => \$filename_stem,
 	   'ref_filename|reference_filename=s' => \$ref_filename,
 	  # 'ref_format=s' => \$ref_format, # default is 'vcf', anything else -> dosage 
 
-	   # used by vcf_to_gts:
+	   # used by vcf_to_dsgm:
 	   'min_gp|gp_min=f' => \$minGP, # if input file is vcf, and GP field present in vcf file, will filter on with this min value
 	   'alt_marker_ids!' => \$use_alt_marker_ids, # -alt_marker_ids  -> construct marker id from chromosome number (col 1) and position (col 2)
 	   #	   'GQmin=f' => \$minGQ,      # min genotype quality. Not implemented.
@@ -138,7 +141,7 @@ if (!defined $filename_stem) {
   #   $filename_stem =~ s/[.]$//; # remove final . if present
   # }
 }
-$genotypes_filename = $filename_stem . "_gts";
+$genotypes_filename = $filename_stem . "_dsgm";
 # print  "# genotypes_filename: $genotypes_filename \n";
 print  "# distances <= $max_distance will be found using ", ($plink)? "plink\n" : "duplicate_search\n";
 
@@ -174,33 +177,34 @@ if ($plink) {			#####  PLINK  #####
   $t1 = clock_gettime(CLOCK_MONOTONIC);
   print STDERR "# time to determine file format, etc.:  ", $t1 - $t0, "\n";
   if ($input_format eq 'vcf') {
-    my $vcf2gts_command = $bindir . "/vcf_to_gts -input $input_filename -pmin $minGP "; # for now uses GT field, can filter on GP
+    my $vcf2gts_command = $bindir . "/vcf_to_dsgm -input $input_filename -prob_min $minGP "; # for now uses GT field, can filter on GP
     $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
     $vcf2gts_command .= " -output $genotypes_filename ";
-    print  "# vcf_to_gts command: $vcf2gts_command \n";
-    print  "######### running vcf_to_gts ##########\n";
+    print  "# vcf_to_dsgm command: $vcf2gts_command \n";
+    print  "######### running vcf_to_dsgm ##########\n";
     system "$vcf2gts_command";
-    print  "#########   vcf_to_gts done  ##########\n\n";
+    print  "#########   vcf_to_dsgm done  ##########\n\n";
     $t2 = clock_gettime(CLOCK_MONOTONIC);
-    print STDERR "# time for vcf_to_gts: ", $t2 - $t1, "\n";
+    print STDERR "# time for vcf_to_dsgm: ", $t2 - $t1, "\n";
   } else { # format was not 'vcf', assume input file has dosage format directly readable by duplicate_search
     $genotypes_filename = $input_filename;
   }
 
   if(defined $ref_filename  and  $ref_format eq 'vcf'){
-      my $vcf2gts_command = $bindir . "/vcf_to_gts -input $ref_filename -pmin $minGP "; # for now uses GT field, can filter on GP
+      my $vcf2gts_command = $bindir . "/vcf_to_dsgm -input $ref_filename -pmin $minGP "; # for now uses GT field, can filter on GP
     $vcf2gts_command .= " -alternate_marker_ids " if($use_alt_marker_ids);
     $vcf2gts_command .= " -output $ref_genotypes_filename ";
-    print  "# vcf_to_gts command: $vcf2gts_command \n";
-    print  "######### running vcf_to_gts ##########\n";
+    print  "# vcf_to_dsgm command: $vcf2gts_command \n";
+    print  "######### running vcf_to_dsgm ##########\n";
       system "$vcf2gts_command";
-    print  "#########   vcf_to_gts done  ##########\n\n";
+    print  "#########   vcf_to_dsgm done  ##########\n\n";
   }else{
     $ref_genotypes_filename = $ref_filename;
   }
   
   $distances_filename = $filename_stem . ".dists";
   my $ds_command = $bindir . "/duplicate_search -input $genotypes_filename -maf_min $min_marker_maf -output $distances_filename";
+  print STDERR "$ds_command\n";
   if ($max_distance ne 'default') {
     $ds_command .= " -distance_max $max_distance ";
   }
@@ -222,7 +226,7 @@ if ($plink) {			#####  PLINK  #####
 
 print  "######### running clusterer ##########\n";
 my $cluster_filename = $filename_stem . "_clusters";
-my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 3 -cluster_d $cluster_distance ";
+my $cluster_command = $bindir . "/clusterer.pl -in $distances_filename -out $cluster_filename -dcolumn 5 -cluster_d $cluster_distance ";
 print  "# clusterer command: $cluster_command\n";
 if (! $full_cluster_out) {
   $cluster_command .= " -nofull ";
@@ -239,15 +243,18 @@ if($cluster_stdout =~ /Max link distance: (\S+)/){
 print  "#########  clusterer done  ##########\n\n";
 
 print "#########  histogramming distances  ##########\n\n";
+
 if(!defined $histogram_filename){ $histogram_filename = $filename_stem . '_distances_histogram.png'; }
 my $histogram_command =
   #($histogram_agmr0  and  $full_duplicate_search_output)?
   #"$histogram_path -data $distances_filename:3/8 " :
-  "$histogram_path -data '$distances_filename" . ':3""' . "' ";
+  "$histogram_path -data '$distances_filename" . ':5"' . $plot_title . '"' . "' ";
  #if(lc $graphics eq 'gd');
 $histogram_command .= " -vline $vline_xpos " if(defined $vline_xpos);
 $histogram_command .= " -xlabel $plot_xlabel " if(defined $plot_xlabel);
+$histogram_command .= " -ylabel $plot_ylabel " if(defined $plot_ylabel);
 $histogram_command .= " -color $histogram_color " if(defined $histogram_color);
+print STDERR "histogram command $histogram_command\n";
 if(lc $graphics eq 'gnuplot'){
   $histogram_command .= ' -graphics gnuplot ';
 }elsif(lc $graphics eq 'gd'){
