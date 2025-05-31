@@ -17,8 +17,10 @@ Find clusters of duplicate accessions:
 
 	clusterer  \-in cassava.dsout \-out cassava.clustout
 
-Running this way using default parameters is probably reasonable, but different genotyping error rates will give different observed agmrs between duplicate accessions. So it is a good idea to make a histogram of the agmr values (column 5\) of the output from duplicate\_search to decide how similar accessions should be (i.e. how small the agmr should be) to be considered duplicates. The default value of this parameter is 0.035 ; a different value can be specified when running clusterer with e.g.:   \-dcluster  0.04  . Let’s look at the histogram to see if this is reasonable.  
-![][image1]  
+Running this way using default parameters is probably reasonable, but different genotyping error rates will give different observed agmrs between duplicate accessions. So it is a good idea to make a histogram of the agmr values (column 5\) of the output from duplicate\_search to decide how similar accessions should be (i.e. how small the agmr should be) to be considered duplicates. The default value of this parameter is 0.035 ; a different value can be specified when running clusterer with e.g.:   \-dcluster  0.04  . Let’s look at the histogram to see if this is reasonable. 
+
+![alt text][cassava\_dsout\_agmr\_histogram.png"title"]  
+
 There is a clear peak at about 0.014, and extending up to about 0.3. This suggests these are due to duplicates whose observed genotypes differ due to a genotyping error rate of \~0.7%. The default value looks quite reasonable.
 
 Remove duplicate accessions:  
