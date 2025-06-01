@@ -41,7 +41,7 @@ finding likely parents if pedigrees are available:
 This generates output with each line starting with the offspring’s id, then 17 columns about the pedigree, and then 17 columns about each of the alternative pedigrees found by searching (up to a maximum of 3 alternative pedigrees).   
 The most interesting numbers (usually) are:  
 Forbidden triple rate (ftr)  in columns 11 for the pedigree and 28, etc. for the alternatives.  
-and (if data is phased):  
+and, if data is phased:  
 Apparent crossover rate (acr) in columns 18 for the pedigree and 35, etc. for the alternatives.  
 These should both be small if the parents are correct.
 
@@ -49,7 +49,7 @@ finding likely parents if pedigrees are not available:
 
 	find_parents  -in u_cassava.dsgm  -out cassava_noped.fpout 
 
-Now the output has ‘-’ characters where the numerical fields for the pedigree (cols 5-18) would be.
+Now the output has ‘-’ characters where the fields for the pedigree (cols 3-18) would be.
 
 **Converting from vcf to dosage matrix** (with each line being one accession)  
 vcf\_to\_dsgm     
