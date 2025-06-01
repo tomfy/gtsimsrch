@@ -5,38 +5,38 @@ Basic example:
 
 Convert from vcf format to the ‘dsgm’ (dosage matrix) format used by the other programs:
 
-vcf\_to\_dsgm  \-vcf cassava.vcf  \-out cassava.dsgm  
+	vcf_to_dsgm  -vcf cassava.vcf  -out cassava.dsgm  
 
 Find pairs of similar accessions:
 
-duplicate\_search  \-in cassava.dsgm  \-out cassava.dsout
+	duplicate_search  -in cassava.dsgm  -out cassava.dsout
 
 The output has 6 columns: id\_1  missing\_data\_count\_1  id\_2  missing\_data\_count\_2  agmr  hgmr
 
 Find clusters of duplicate accessions:
 
-	clusterer  \-in cassava.dsout \-out cassava.clustout
+	clusterer  -in cassava.dsout -out cassava.clustout
 
 Running this way using default parameters is probably reasonable, but different genotyping error rates will give different observed agmrs between duplicate accessions. So it is a good idea to make a histogram of the agmr values (column 5\) of the output from duplicate\_search to decide how similar accessions should be (i.e. how small the agmr should be) to be considered duplicates. The default value of this parameter is 0.035 ; a different value can be specified when running clusterer with e.g.:   \-dcluster  0.04  . Let’s look at the histogram to see if this is reasonable. 
 
-![alt text][cassava\_dsout\_agmr\_histogram.png"title"]  
+![alt text](cassava\_dsout\_agmr\_histogram\_480x360.png "title")  
 
-There is a clear peak at about 0.014, and extending up to about 0.3. This suggests these are due to duplicates whose observed genotypes differ due to a genotyping error rate of \~0.7%. The default value looks quite reasonable.
+There is a clear peak at about 0.014, and extending up to about 0.03 . This suggests these are due to duplicates whose observed genotypes differ due to a genotyping error rate of \~0.7%. The default value looks quite reasonable.
 
 Remove duplicate accessions:  
 I.e. from each cluster of duplicates keep only one (the one with the least missing data). 
 
-	uniquify  \-dosages\_in  cassava.dsgm  \-cluster cassava.clustout
+	uniquify  -dosages_in  cassava.dsgm  -cluster cassava.clustout
 
 If we have a record of the parents of accessions we can also supply the name of the file containing that pedigree information to uniquify:
 
-uniquify  \-dosages\_in  cassava.dsgm  \-pedigrees\_in ptable  \-cluster cassava.clustout
+	uniquify  -dosages_in  cassava.dsgm  -pedigrees_in ptable  -cluster cassava.clustout
 
 Here ptable has the offspring id, followed by the two parents’ ids in the first 3 whitespace-separated columns. The files with duplicate accessions removed will then be  u\_cassava.dsgm  and  u\_ptable.
 
 finding likely parents if pedigrees are available:
 
-find\_parents  \-in u\_cassava.dsgm  \-ped u\_ptable  \-out cassava\_alt3.fpout  \-alt 3
+	find_parents  -in u_cassava.dsgm  -ped u_ptable  -out cassava_alt3.fpout  -alt 3
 
 This generates output with each line starting with the offspring’s id, then 17 columns about the pedigree, and then 17 columns about each of the alternative pedigrees found by searching (up to a maximum of 3 alternative pedigrees).   
 The most interesting numbers (usually) are:  
@@ -47,7 +47,7 @@ These should both be small if the parents are correct.
 
 finding likely parents if pedigrees are not available:
 
-find\_parents  \-in u\_cassava.dsgm  \-out cassava\_noped.fpout 
+	find_parents  -in u_cassava.dsgm  -out cassava_noped.fpout 
 
 Now the output has ‘-’ characters where the numerical fields for the pedigree (cols 5-18) would be.
 
