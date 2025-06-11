@@ -279,14 +279,14 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
   
   filter_genotypesset(the_genotypes_set, o_stream);
-  fprintf(stderr, "after filter_genotypesset\n");
+  // fprintf(stderr, "after filter_genotypesset\n");
   print_vchar(stdout, the_genotypes_set->marker_filter_info);
   print_vchar(o_stream, the_genotypes_set->marker_filter_info);
-  fprintf(stdout, "# phased? %s\n", the_genotypes_set->phased? "true" : "false");
+  fprintf(stdout, "# Phased? %s\n", the_genotypes_set->phased? "true" : "false");
 
   double t_c = hi_res_time();
   fprintf(stdout, "# Time to filter genotype data: %6.3f sec.\n", t_c - t_b);
-  // rectify_markers(the_genotypes_set); // needed for xhgmr to be fast - not using xhgmr
+  // rectify_markers(the_genotypes_set); // only needed for xhgmr to be fast - not using xhgmr
   // store_homozygs(the_genotypes_set); // needed?
   // fprintf(stderr, "before set_chromosome_start_indices.  \n");
   if(the_genotypes_set->phased)    set_chromosome_start_indices(the_genotypes_set);
@@ -307,9 +307,8 @@ main(int argc, char *argv[])
 
   double t_e = hi_res_time();
   long n_gt_accessions = the_genotypes_set->accessions->size;
-
-
-  double initialization_time = hi_res_time();  
+  fprintf(stdout, "# Time to calculate means for %ld  random pairs.: %6.3f sec.\n", sample_size, t_e - t_d);
+ 
   if(p_stream != NULL){ // have pedigree file
     // ********************************************************* 
     // ***  Read the pedigrees file  ***************************
@@ -317,15 +316,16 @@ main(int argc, char *argv[])
     // fprintf(stderr, "About to read_and_store_pedigrees...\n");
     const Vpedigree* the_pedigrees = read_and_store_pedigrees_3col(p_stream, the_gt_vidxid, the_genotypes_set); // acc id and then female, male parent ids in first 3 cols.
     fclose(p_stream); 
-    fprintf(stdout, "# Done reading pedigree file. Time to read pedigree file: %6.3f\n", hi_res_time() - t_d);
+    fprintf(stdout, "# Done reading pedigree file. Time to read pedigree file: %6.3f sec.\n", hi_res_time() - t_d);
     fprintf(stdout, "# Stored genotypes of %ld accessions, and  %ld pedigrees. \n", the_genotypes_set->accessions->size, the_pedigrees->size); 
     // *********************************************************
     // ***  Done reading in pedigrees from file  ***************
     // ********************************************************* 
- 
+  double initialization_time = hi_res_time();
+  fprintf(stdout, "# total initialization time: %6.3f sec.\n", initialization_time - t_begin_main);
 
     // ****************************************************************
-    // ***  If -alt 3 option  ********************
+    // ***  If -alt 1 (i.e. ALL_ALTS)  option  ********************
     // ***  Calculate hgmrs for all pairs  ****************************
     // **************************************************************** 
     Viaxh** pairwise_info = NULL;
@@ -334,20 +334,21 @@ main(int argc, char *argv[])
       fprintf(stderr, "# calculating hgmrs for all pairs\n");
       Vlong* all_acc_idxs = construct_vlong_whole_numbers(the_genotypes_set->accessions->size);
       pairwise_info = calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_nhgmr);
-      fprintf(stdout, "# time for calculate hgmrs x: %.5f\n", hi_res_time() - t_e);
-    }else if(alternative_pedigrees_level == PEDPAR_ALTS){
+      fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - initialization_time);
+    }else if(alternative_pedigrees_level == PEDPAR_ALTS){ // only calculate pairs with at least one acc appearing as parent in pedigree file.
       const Vlong* parent_idxs = accessions_with_offspring(the_pedigrees, the_genotypes_set->accessions->size); // , the_genotypes_set->n_gt_accessions);
       fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
-      pairwise_info = calculate_hgmrs(the_genotypes_set, parent_idxs, max_candidate_parents, max_nhgmr);    
+      pairwise_info = calculate_hgmrs(the_genotypes_set, parent_idxs, max_candidate_parents, max_nhgmr);
+      fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - initialization_time);
     }
     // ***************************************
     // ***  end of pairwise calculation  *****
     // *************************************** 
   
-    initialization_time = hi_res_time(); 
-    fprintf(stdout, "# Cumulative time so far: %6.3f sec.\n", initialization_time - t_begin_main);
+    double t_f = hi_res_time(); 
+    fprintf(stdout, "# Cumulative time so far: %6.3f sec.\n", t_f - t_begin_main);
     fprintf(stderr, "# Analyzing %ld pedigrees from file. \n", the_pedigrees->size);
-    fprintf(stderr, "# phased? %s\n", the_genotypes_set->phased? "true" : "false");
+    //fprintf(stderr, "# Phased? %s\n", the_genotypes_set->phased? "true" : "false");
     Vaccession* the_accessions = the_genotypes_set->accessions;
     for(long i=0; i<the_accessions->size; i++){ 
       if(i % 500  == 0) fprintf(stdout, "# Done testing %ld pedigrees.\n", i);
@@ -406,17 +407,18 @@ main(int argc, char *argv[])
 	}
       }
       
-    } // end loop over accessions 
+    } // end loop over accessions
+      fprintf(stdout, "# time for triple (FTR) calculation: %8.3f\n", hi_res_time() - t_f);
   }else{ // no pedigree file, consider all accessions as possible parents
-    Viaxh** pairwise_info = calculate_hgmrs(the_genotypes_set, construct_vlong_whole_numbers(the_genotypes_set->accessions->size),
-					    max_candidate_parents, max_nhgmr);
-    fprintf(stdout, "# time for calculate hgmrs x: %.5f\n", hi_res_time() - t_e);
+    Viaxh** pairwise_info = calculate_hgmrs(the_genotypes_set,
+					    construct_vlong_whole_numbers(the_genotypes_set->accessions->size), max_candidate_parents, max_nhgmr);
+    fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - t_e);
     
   
     // **************************************************
     // ***  evaluate parent1-parent2-progeny triples  ***
     // **************************************************
-    initialization_time = hi_res_time();
+    double t_g = hi_res_time();
     
     long count_accs_w_no_cand_parents = 0;
     long count_accs_w_too_many_cand_parents = 0;
@@ -428,23 +430,22 @@ main(int argc, char *argv[])
       Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(prog, the_genotypes_set, pairwise_info[i], max_candidate_parents);
       //fprintf(stderr, "after calculate_triples_for_one_accession.\n");
       fprintf(o_stream, "%s ", prog->id->a); // output the progeny id
-      if(1){
+      //if(1){
 	// fprintf(o_stream, "  P - -  - - - - - - -  - - - - - - -  "); // dummy output where pedigree output would be in we had pedigrees.
 	print_dummy_pedigree_output(o_stream);
-      }
+	//}
       sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream); //, long_output_format, d_scale_factor);
       //fprintf(stderr, "after sort_and_output...\n");
       fprintf(o_stream, "\n");
       free_vpedigree(alt_pedigrees);
     } // end loop over offspring accessions
 
-    fprintf(stderr, "# time for triple calculation: %8.3f\n", hi_res_time() - initialization_time);
-    fprintf(o_stream, "# candidate parents have xghmr <= %8.5f\n", max_nhgmr);
+    fprintf(stderr, "# time for triple (FTR) calculation: %8.3f\n", hi_res_time() - t_g);
+    fprintf(o_stream, "# candidate parents have nhgmr <= %8.5f\n", max_nhgmr);
     fprintf(o_stream, "# number of accessions with no candidate parents found: %ld\n", count_accs_w_no_cand_parents);
     fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n",
 	    max_candidate_parents, count_accs_w_too_many_cand_parents);
   }
-  fprintf(stdout, "time after initialization: %6.3f\n", hi_res_time() - initialization_time);
   
   // ********************  cleanup  **************************
   fclose(o_stream);

@@ -259,7 +259,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 	push_to_vlong(chromosome_numbers, i_chrom);
       }
       the_genotypes_set->chromosomes = chromosome_numbers;
-      fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size);
+      // fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size);
     }else{  // chromosome numbers not specified; just set the chromosome number to 1 for all markers
       chromosome_numbers = construct_vlong(marker_ids->size);
       for(long i=0; i<marker_ids->size; i++){
@@ -290,7 +290,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     threaded_input(g_stream, 720, max_acc_missing_data_fraction, Nthreads, marker_ids, the_genotypes_set);
   }
   double t2 = hi_res_time();
-  fprintf(stderr, "t2-t1: %7.5f\n", t2-t1);
+  //fprintf(stderr, "t2-t1: %7.5f\n", t2-t1);
   fclose(g_stream);   
   free(line); // only needs to be freed once.
   the_genotypes_set->n_accessions = the_genotypes_set->accessions->size;
@@ -763,7 +763,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
   filtered_chromosomes->size = n_markers_to_keep;
   free_vlong(the_gtsset->chromosomes);
   the_gtsset->chromosomes = filtered_chromosomes;
-  fprintf(stderr, "in filter_genotypesset. filtered chroms size: %ld \n", the_gtsset->chromosomes->size);
+  // fprintf(stderr, "in filter_genotypesset. filtered chroms size: %ld \n", the_gtsset->chromosomes->size);
   
   // *****  end of filtering of chromosomes array (phased data only)
 
