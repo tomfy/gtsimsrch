@@ -11,12 +11,17 @@ my $ids_file = shift;
 my %ids = ();
 open my $fhids, "<", "$ids_file";
 while (<$fhids>) {
-  if (/(\S+)/) {
+  next if(/^\s*#/);
+  next if(/^\s*MARKER/);
+  next if(/^\s*CHROMOSOME/);
+  if (/^\s*(\S+)\s/) {
+    
     $ids{$1}++;
   }
 }
 my @ids_to_keep = keys %ids;
-# print scalar @ids_to_keep, "\n";
+print STDERR scalar @ids_to_keep, "\n";
+# exit();
 
 my @accids;
 my %id_col = ();
@@ -65,7 +70,9 @@ while (<>) {
   @gts = @gts[9..$#gts];
   for my $anid (@ids_to_keep) {
     # print STDERR "id to keep $anid\n";
-   # sleep(1);
+   
+    # print STDERR "$anid  ", $id_col{$anid} // 'XXX', "\n";
+     # sleep(1);
     my $acol = $id_col{$anid};
     print "\t", $gts[$acol];
   }
