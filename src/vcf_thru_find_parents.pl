@@ -14,6 +14,8 @@ use File::Spec 'splitpath';
 #    either without pedigrees
 #    or if there is a pedigree file, run find_parents in mode 1 (-alt 1)
 
+# the default is to use the defaults of the various programs
+
 my $vcf_path = undef;
 my $pedigree_path = undef;
 my $dcluster = undef; # max agmr for which edges will be made in clustering graph.
@@ -24,6 +26,8 @@ my $alternate_marker_ids = undef;
 
 my $marker_max_missing_data = undef;
 my $maf_min = undef;
+
+my $alternative_pedigree_level = undef;
 
 my $rng_seed = undef;
 
@@ -39,16 +43,20 @@ GetOptions(
 	   'marker_max_missing_data=f' => \$marker_max_missing_data,
 	   'maf_min=f' => \$maf_min,
 	   'seed=i' => \$rng_seed,
+
+	   'alt_pedigrees=i' => \$alternative_pedigree_level,
 	  );
 
 my ($v, $vcfdir, $vcf_filename) = File::Spec->splitpath($vcf_path);
-print "$v  $vcfdir  $vcf_filename\n";
+print "$v  $vcfdir  $vcf_filename\n"; # separate directory and filename, outputs will go in the directory from which script is run
 
 my ($pv, $peddir, $pedigree_filename) = (defined $pedigree_path)? File::Spec->splitpath($pedigree_path) : (undef, undef, undef);
 
 
 # *************** Run vcf_to_dsgm *****************
-my $dsgm_filename = $vcf_filename . '.dsgm'; 
+my $dsgm_filename = $vcf_filename;
+$dsgm_filename =~ s/vcf\s*$//; # remove the 'vcf' if present
+$dsgm_filename .= 'dsgm'; 
 my $vcf2dsgm_command = "vcf_to_dsgm  -vcf $vcf_path  -out  $dsgm_filename "; # just use mostly defaults for now.
 $vcf2dsgm_command .= " -prob_min $prob_min " if(defined $prob_min);
 $vcf2dsgm_command .= " -acc_max $acc_max_missing_data " if(defined $acc_max_missing_data);
@@ -56,7 +64,9 @@ print "running:  $vcf2dsgm_command \n";
 system $vcf2dsgm_command;
 
 # *************** Run duplicate_search ************
-my $dsout_filename = $dsgm_filename . ".dsout";
+my $dsout_filename = $dsgm_filename;
+$dsout_filename =~ s/dsgm\s*$//;
+$dsout_filename .= 'dsout'; # replace final dsgm with dsout
 my $ds_command = "duplicate_search  -in $dsgm_filename  -out $dsout_filename  "; # mostly defaults
 $ds_command .= " -marker_max $marker_max_missing_data " if(defined $marker_max_missing_data);
 $ds_command .= " -maf_min $maf_min " if(defined $maf_min);
@@ -65,7 +75,9 @@ print "running: $ds_command \n";
 system $ds_command;
 
 # *************** Run clusterer *******************
-my $clstrout_filename = $dsout_filename . ".clstrout";
+my $clstrout_filename = $dsout_filename;
+$clstrout_filename =~ s/dsout\s*$//;
+$clstrout_filename .= 'clusterout';
 my $clstr_command = "clusterer  -in $dsout_filename  -out $clstrout_filename "; # mostly defaults
 $clstr_command .= "  -dclust $dcluster " if(defined $dcluster);
 print "running:  $clstr_command \n";
@@ -79,12 +91,17 @@ $uniq_command .= "  -pedigrees_in $pedigree_path  -pedigrees_out $upedigree_file
 print "running: $uniq_command \n";
 system "$uniq_command";
 
+# print "u dsgm   filename: $udsgm_filename \n";
+
 # *************** Run find_parents ****************
-my $fpout_filename = "$udsgm_filename" . '.fpout';
+my $fpout_filename = "$udsgm_filename";
+$fpout_filename =~ s/dsgm//;
+$fpout_filename .= 'fpout';
 my $find_parents_command = "find_parents  -in $udsgm_filename  -out $fpout_filename ";
 $find_parents_command .= " -seed $rng_seed " if(defined $rng_seed);
 if(defined $upedigree_filename){
-   $find_parents_command .= " -alt 1 -ped $upedigree_filename \n";
+  $find_parents_command .= " -ped $upedigree_filename ";
+  $find_parents_command .= " -alt $alternative_pedigree_level " if(defined $alternative_pedigree_level);
  }
 print "running:  $find_parents_command \n";
 system "$find_parents_command \n";
