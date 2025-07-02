@@ -13,7 +13,8 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
   the_pedigree->F = Fparent;
   the_pedigree->M = Mparent;
   the_pedigree->A = Acc;
-  the_pedigree->pedigree_stats = construct_pedigree_stats(); // NULL;
+  the_pedigree->pedigree_stats = NULL; // construct_pedigree_stats(); 
+ 
   return the_pedigree;
 }
 
@@ -648,6 +649,7 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, const Genotypes
       Accession* par2 = the_genotypes_set->accessions->a[par2idx];
       Pedigree_stats* the_ps;
       Pedigree* the_pedigree = construct_pedigree(prog, par1, par2);
+      // free(the_pedigree->pedigree_stats); 
       the_ps = calculate_pedigree_stats(the_pedigree, the_genotypes_set);
       the_pedigree->pedigree_stats = the_ps;
       push_to_vpedigree(alt_pedigrees, the_pedigree);
