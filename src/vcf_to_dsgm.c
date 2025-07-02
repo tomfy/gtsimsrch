@@ -481,16 +481,17 @@ int main(int argc, char *argv[]){
   // *****  cleanup  *****
   //getchar();
   // free_vstr(marker_ids); // getting free() invalid pointer with this.
-  fprintf(stderr, "# before final freeing of memory.\n");
-  fprintf(stderr, "# size, capacity of accession_indices: %ld %ld\n", accession_indices->size, accession_indices->capacity);
+  
+  //  fprintf(stderr, "# before final freeing of memory.\n");
+  //  fprintf(stderr, "# size, capacity of accession_indices: %ld %ld\n", accession_indices->size, accession_indices->capacity);
   free_vlong(accession_indices);
-  fprintf(stderr, "# size, capacity of accession_ids: %ld %ld\n", accession_ids->size, accession_ids->capacity);
+  //  fprintf(stderr, "# size, capacity of accession_ids: %ld %ld\n", accession_ids->size, accession_ids->capacity);
   //  getchar();
   free_vstr(accession_ids);
-  fprintf(stderr, "# size, capacity of all_used_markerids: %ld %ld\n", all_used_markerids->size, all_used_markerids->capacity);
+  //  fprintf(stderr, "# size, capacity of all_used_markerids: %ld %ld\n", all_used_markerids->size, all_used_markerids->capacity);
   //  getchar();
   free_vstr(all_used_markerids);
-  fprintf(stderr, "# size, capacity of all_used_genos: %ld %ld\n", all_used_genos->size, all_used_genos->capacity);
+  //  fprintf(stderr, "# size, capacity of all_used_genos: %ld %ld\n", all_used_genos->size, all_used_genos->capacity);
   // getchar();
   free_vstr(all_used_genos);
   // getchar();
@@ -898,8 +899,8 @@ void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* a
 void output_run_parameters(FILE* o_stream, Vchar* input_filename, Vchar* output_filename,
 			   double minGP, double delta, double max_acc_md, bool use_alt_marker_id, long Nthreads){ 
   fprintf(o_stream, "###############################################################\n");
-  fprintf(o_stream, "# vcf_to_gts  run parameters: \n");
-  fprintf(o_stream, "# vcf file: %s \n# vcf_to_gt output file: %s \n", input_filename->a, output_filename->a);
+  fprintf(o_stream, "# vcf_to_dsgm  run parameters: \n");
+  fprintf(o_stream, "# vcf file: %s \n# vcf_to_dsgm output file: %s \n", input_filename->a, output_filename->a);
   fprintf(o_stream, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta);
   fprintf(o_stream, "# max accession missing data fraction: %6.4f \n", max_acc_md);
   //  fprintf(o_stream, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md);
