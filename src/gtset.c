@@ -705,14 +705,18 @@ void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct 
   sprintf(buffer, "# There are %ld markers before filtering, missing data fraction = %5.3lf, minor allele frequency = %5.3f\n",
 	  marker_md_counts->size, raw_md_fraction, raw_minor_allele_freq);
   append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
+  // fprintf(stderr, "### %s \n", the_gtsset->marker_filter_info->a);
   sprintf(buffer, "# Removed %ld markers with missing data fraction > %6.4f\n", too_much_missing_data_count, the_gtsset->max_marker_missing_data_fraction);
+  
   append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
+  //  fprintf(stderr, "#### %s \n", the_gtsset->marker_filter_info->a);
   sprintf(buffer, "# Removed an additional %ld markers with maf < %6.4f\n", maf_too_low_count, the_gtsset->min_minor_allele_frequency);
   append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
+  //  fprintf(stderr, "##### %s \n", the_gtsset->marker_filter_info->a);
   sprintf(buffer, "# Filtered data has %ld markers, missing data fraction = %6.4lf, minor allele frequency = %5.3lf\n",
 	  n_markers_to_keep, filtered_md_fraction, filtered_minor_allele_freq);
   append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
-
+  // fprintf(stderr, "###### %s \n", the_gtsset->marker_filter_info->a);
   // ***********************************
   // *****  filter the genotypes  ******
   // ***********************************
@@ -1285,6 +1289,7 @@ void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char*
 	}
       free(acc_id); // or cut out the middleman (acc_id)?
       free(genotypes);
+      free(phases);
 }
 
 
