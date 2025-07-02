@@ -111,7 +111,7 @@ use Cluster1d;
   #######################################################################################################
   # get array of edges ordered by weight (distance), small to large.
   my @sorted_edges = sort {$edge_weight->{$a} <=> $edge_weight->{$b} } keys %$edge_weight;
-  print "# Number of edges stored ", scalar @sorted_edges, "\n";
+  print "# Number of distances stored ", scalar @sorted_edges, "\n";
 
   #######################################################################################################
   # if $edge_max_distance not specified, attempt to find a reasonable value by looking at the distances
@@ -417,11 +417,11 @@ sub cluster_quality1{
   for my $id (@sorted_clusterids) {
     my $degree = $graph->degree($id); # $id_degree->{$id};
     $min_degree = $degree if($degree < $min_degree);
-    my $rms_dist = sqrt($id_sumdsq{$id}/($cluster_size-1));
+    my $rms_dist = ($cluster_size >=2)? sqrt($id_sumdsq{$id}/($cluster_size-1)) : 0;
     push @output_id_degree_maxds, [$id, $degree, $id_maxd{$id}, $rms_dist];
   }  
   @output_id_degree_maxds = sort {$b->[1] <=> $a->[1]} @output_id_degree_maxds;
-  return ($cluster_min_d, $cluster_sum_d/$cluster_edge_count, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds, $min_degree)
+  return ($cluster_min_d, ($cluster_edge_count >0)? $cluster_sum_d/$cluster_edge_count : 0, $cluster_max_d, $intracluster_far_pair_count, $missing_distance_count, \@output_id_degree_maxds, $min_degree)
 }
 
 sub cluster_quality2{
@@ -463,7 +463,7 @@ sub cluster_quality2{
       }			     # end id2 not in clustr
     }			     # end loop over nearish accessions to id1
   }
-  $avg_intracluster_d /= ($cluster_size*($cluster_size-1));
+  $avg_intracluster_d /= ($cluster_size > 1)? ($cluster_size*($cluster_size-1)) : 1;
   my $xxx = ($cluster_size*($cluster_size-1) - $sum_of_degrees)/2;
   my $nearby_noncluster_points_count = scalar keys %near_noncluster_points;
   my $cluster_pts_near_noncluster_pt_count = scalar keys %cluster_pts_near_noncluster_pt;
