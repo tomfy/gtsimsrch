@@ -407,6 +407,7 @@ main(int argc, char *argv[])
   }
   fprintf(stdout, "# loading data set.\n");
   add_accessions_to_genotypesset_from_file(input_filename, the_genotypes_set, max_accession_missing_data_fraction, Nthreads); // load the new set of accessions
+
   fprintf(stdout, "# Done reading dosage data from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
 	  input_filename, the_genotypes_set->n_accessions, the_genotypes_set->n_bad_accessions, the_genotypes_set->n_markers);
    fprintf(out_stream, "# Done reading dosage data from file %s. %ld accessions stored (%ld rejected); %ld markers.\n",
@@ -421,12 +422,17 @@ main(int argc, char *argv[])
 
   //check_genotypesset(the_genotypes_set);
   if(do_filtering) filter_genotypesset(the_genotypes_set, out_stream);
+  fprintf(stdout, "# %s \n", the_genotypes_set->acc_filter_info->a);
+  fprintf(out_stream, "# %s \n", the_genotypes_set->acc_filter_info->a);
+  fprintf(stdout, "# %s \n", the_genotypes_set->marker_filter_info->a);
+  fprintf(out_stream, "# %s \n", the_genotypes_set->marker_filter_info->a);
   //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicate_search
   long n_accessions = the_genotypes_set->accessions->size;   
   long n_markers = the_genotypes_set->n_markers;
 
   long n_chunks_per_pass = n_markers/chunk_size;
   long n_chunks = n_passes*n_chunks_per_pass;
+  fprintf(stdout, "# Filtered data has %ld accessions, and %ld markers.\n", n_accessions, n_markers);
   fprintf(out_stream, "# Filtered data has %ld accessions, and %ld markers.\n", n_accessions, n_markers);
   fprintf(stdout, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
   fprintf(out_stream, "# Chunk size: %ld  n_chunks: %ld\n", chunk_size, n_chunks);
@@ -436,9 +442,9 @@ main(int argc, char *argv[])
       filtered_output_filename = "filtered_dosages.out";
     }
     FILE* fh_gtsout = fopen(filtered_output_filename, "w");
-    fprintf(stderr, "before print_genotypesset.\n");
+    // fprintf(stderr, "before print_genotypesset.\n");
     print_genotypesset(fh_gtsout, the_genotypes_set);
-     fprintf(stderr, "after print_genotypesset.\n");
+    // fprintf(stderr, "after print_genotypesset.\n");
     fclose(fh_gtsout);
   }
 
