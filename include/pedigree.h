@@ -35,10 +35,10 @@ typedef struct{ // 0: progeny, 1, 2: parents
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
 
   // ND xz;
-  //ND d_2; // 
-  //ND d_22; // both parents homozyg, delta = 2  i.e. 00_2 + 22_0
-  //ND d_21; // both parents homozyg, delta = 1
-  //ND d_11; // one parent homozyg, one heterozyg, delta = 1
+  // ND d_2; // 
+  // ND d_22; // both parents homozyg, delta = 2  i.e. 00_2 + 22_0
+  // ND d_21; // both parents homozyg, delta = 1
+  // ND d_11; // one parent homozyg, one heterozyg, delta = 1
 
   double hgmr1_n;
   double R1_n;
