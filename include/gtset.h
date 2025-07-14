@@ -133,7 +133,7 @@ void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
 
 void print_genotypesset_stats(GenotypesSet* gtss);
 void check_genotypesset(GenotypesSet* gtss);
-void filter_genotypesset(GenotypesSet* the_genotypes_set, FILE* ostream);
+void filter_genotypesset(GenotypesSet* the_genotypes_set);
 void rectify_markers(GenotypesSet* the_gtsset);
 void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid only
 void* set_Abits_Bbits_1thread(void* x);
