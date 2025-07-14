@@ -1,3 +1,4 @@
+
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
@@ -626,7 +627,7 @@ void check_genotypesset(GenotypesSet* gtss){
   free(marker_md_counts);
 }
 
-void filter_genotypesset(GenotypesSet* the_gtsset, FILE* ostream){ // construct a new set of 'filtered' accession genotypes, which replace the raw ones.
+void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'filtered' accession genotypes, which replace the raw ones.
   double max_marker_md_fraction = the_gtsset->max_marker_missing_data_fraction;
   Vlong* marker_md_counts = the_gtsset->marker_missing_data_counts; // the number of missing data for each marker
   Vlong* alt_allele_counts = the_gtsset->marker_alt_allele_counts;  
