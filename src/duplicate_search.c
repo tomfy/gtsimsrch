@@ -421,11 +421,11 @@ main(int argc, char *argv[])
   // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common than 2 for all markers.
 
   //check_genotypesset(the_genotypes_set);
-  if(do_filtering) filter_genotypesset(the_genotypes_set, out_stream);
-  fprintf(stdout, "# %s \n", the_genotypes_set->acc_filter_info->a);
-  fprintf(out_stream, "# %s \n", the_genotypes_set->acc_filter_info->a);
-  fprintf(stdout, "# %s \n", the_genotypes_set->marker_filter_info->a);
-  fprintf(out_stream, "# %s \n", the_genotypes_set->marker_filter_info->a);
+  if(do_filtering) filter_genotypesset(the_genotypes_set);
+  fprintf(stdout, "# %s", the_genotypes_set->acc_filter_info->a);
+  fprintf(out_stream, "# %s", the_genotypes_set->acc_filter_info->a);
+  fprintf(stdout, "# %s", the_genotypes_set->marker_filter_info->a);
+  fprintf(out_stream, "# %s", the_genotypes_set->marker_filter_info->a);
   //  store_homozygs(the_genotypes_set); // homozygs are not needed for duplicate_search
   long n_accessions = the_genotypes_set->accessions->size;   
   long n_markers = the_genotypes_set->n_markers;
