@@ -139,7 +139,8 @@ use Cluster1d;
   print "# Graph created with ", scalar @clusters, " clusters and $n_nodes cluster members.\n";
   ########################################################################################################
 
-  prune_graph($the_graph, $prune_factor);
+  my $n_cluster_members_pruned = prune_graph($the_graph, $prune_factor);
+  print "# number of accessions pruned from clusters: $n_cluster_members_pruned \n";
   @clusters = $the_graph->connected_components; # array of array refs of ids
   @vertices = $the_graph->vertices();
   $n_nodes = scalar @vertices;
@@ -334,18 +335,20 @@ sub prune_graph{
   my $the_graph = shift;
   my $prune_factor = shift;
   my $vert_deg = {};
+  my $prune_count = 0;
   for my $v ($the_graph->vertices()){
     $vert_deg->{$v} = $the_graph->degree($v);
   }
   my @clusters = $the_graph->connected_components;
   for my $clstr (@clusters) {
-    prune_cluster($the_graph, $clstr, $vert_deg, $prune_factor);
+    $prune_count += prune_cluster($the_graph, $clstr, $vert_deg, $prune_factor);
   }
+  return $prune_count;
 }
 
 sub prune_cluster{
   my $graph = shift;
-  my $cluster = shift;		# array ref of
+  my $cluster = shift;		# array ref
   my $vertex_degree = shift;
   my $prune_factor = shift;
   my $cluster_size = scalar @$cluster;
@@ -359,6 +362,7 @@ sub prune_cluster{
       $prune_count++;
     }
   }
+  return $prune_count;
 }
 
 sub cluster_quality1{
