@@ -332,7 +332,9 @@ int main(int argc, char *argv[]){
   }
   chomp(accession_ids->a[accession_ids->size-1]); // chomp off any trailing newline(s) from the last acc_id 
   long n_accessions = accid_count;
-
+  fprintf(stdout, "# number of accession ids: %ld\n", accession_ids->size);
+  fprintf(out_stream, "# number of accession ids: %ld\n", accession_ids->size);
+  
   // *********************************************************
   // *****   Read the rest of the lines, one per marker  *****
   // *****   Each line has genotypes for all accessions  *****
