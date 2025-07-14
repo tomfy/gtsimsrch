@@ -323,7 +323,7 @@ main(int argc, char *argv[])
   double t_b = hi_res_time();
   fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
   
-  filter_genotypesset(the_genotypes_set, o_stream);
+  filter_genotypesset(the_genotypes_set);
   // fprintf(stderr, "after filter_genotypesset\n");
   print_vchar(stdout, the_genotypes_set->marker_filter_info);
   print_vchar(o_stream, the_genotypes_set->marker_filter_info);
@@ -446,8 +446,7 @@ main(int argc, char *argv[])
       }else{  // accession has no pedigree
 	if( (alternative_pedigrees_level == PEDPAR_ALTS)  ||  (alternative_pedigrees_level == ALL_ALTS ) ){
 	  // Accession* prog =  A; // the_genotypes_set->accessions->a[i]; // the progeny accession, for which we seek parents
-	  
-	  //  fprintf(o_stream, "%s  P - -  - - - - - - -  - - - - - - - ", A->id->a); // dummy output for pedigree
+      	  //  fprintf(o_stream, "%s  P - -  - - - - - - -  - - - - - - - ", A->id->a); // dummy output for pedigree
 	  
 	  fprintf(o_stream, "%s ", A->id->a);
 	  print_dummy_pedigree_output(o_stream);
@@ -461,11 +460,19 @@ main(int argc, char *argv[])
       
     } // end loop over accessions
       fprintf(stdout, "# time for triple (FTR) calculation: %8.3f\n", hi_res_time() - t_f);
-  }else{ // no pedigree file, consider all accessions as possible parents
+  }else{ //  *******  no pedigree file, consider all accessions as possible parents  ********
     Viaxh** pairwise_info = calculate_hgmrs(the_genotypes_set,
-					    construct_vlong_whole_numbers(the_genotypes_set->accessions->size), max_candidate_parents, max_nhgmr);
+					    construct_vlong_whole_numbers(the_genotypes_set->accessions->size),
+					    max_candidate_parents, max_nhgmr);
     fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - t_e);
     
+    double triples_to_calculate = 0;
+    for(long i=0; i<the_genotypes_set->accessions->size; i++){
+      long n_parents = pairwise_info[i]->size;
+      if(n_parents > max_candidate_parents) n_parents = max_candidate_parents;
+      triples_to_calculate += n_parents*(n_parents-1)/2;
+    }
+    fprintf(stderr, "Number of triples to calculate: %8.4g\n", triples_to_calculate);  
   
     // **************************************************
     // ***  evaluate parent1-parent2-progeny triples  ***
@@ -474,12 +481,25 @@ main(int argc, char *argv[])
     
     long count_accs_w_no_cand_parents = 0;
     long count_accs_w_too_many_cand_parents = 0;
-    
+
+    double triples_calculated = 0;
     for(long i=0; i<n_gt_accessions; i++){
-      if(i%100 == 0){ fprintf(stdout, "%ld  ", i); print_mem_info(stdout); }
+      long n_parents = pairwise_info[i]->size;
+      if(n_parents == 0){
+	count_accs_w_no_cand_parents++;
+      }else if(n_parents > max_candidate_parents){
+	count_accs_w_too_many_cand_parents++;
+	n_parents = max_candidate_parents;
+      }
       Accession* prog = the_genotypes_set->accessions->a[i]; // the progeny accession, for which we seek parents.	
       // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]
       Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(prog, the_genotypes_set, pairwise_info[i], max_candidate_parents);
+      triples_calculated += n_parents*(n_parents-1)/2;
+       if(i%100 == 0){
+	// fprintf(stdout, "%ld  ", i); print_mem_info(stdout);
+	 
+	 fprintf(stderr, "#%lld  %8.5g %% done\n",(long long)triples_calculated, 100*triples_calculated/triples_to_calculate);
+      }
       // output
       fprintf(o_stream, "%s ", prog->id->a); // output the progeny id
       print_dummy_pedigree_output(o_stream);
