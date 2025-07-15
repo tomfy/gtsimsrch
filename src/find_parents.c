@@ -88,7 +88,7 @@ void print_Xover_rates(FILE* fh, Xcounts_3 X3);
 // void d_z_of_random_set(GenotypesSet* gtset, long sample_size, double* mean_d, double* mean_z);
 void random_set_means(GenotypesSet* gtset, long sample_size);
 Viaxh* hgmrs_wrt_one_accession(GenotypesSet* the_genotypes_set, Accession* A, double max_nhgmr);
-void print_dummy_pedigree_output(FILE* stream); // for when an accession has no pedigree
+void print_dummy_pedigree_output(FILE* stream, bool phased); // for when an accession has no pedigree
 
 // double* mean_hgmr, double* mean_R, double* mean_d, double* mean_z);
 // **********************************************************************************************
@@ -449,7 +449,7 @@ main(int argc, char *argv[])
       	  //  fprintf(o_stream, "%s  P - -  - - - - - - -  - - - - - - - ", A->id->a); // dummy output for pedigree
 	  
 	  fprintf(o_stream, "%s ", A->id->a);
-	  print_dummy_pedigree_output(o_stream);
+	  print_dummy_pedigree_output(o_stream, the_genotypes_set->phased);
 	  Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[i], max_candidate_parents);
 	  sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream);
 	  fprintf(o_stream, "\n");
@@ -502,7 +502,7 @@ main(int argc, char *argv[])
       }
       // output
       fprintf(o_stream, "%s ", prog->id->a); // output the progeny id
-      print_dummy_pedigree_output(o_stream);
+      print_dummy_pedigree_output(o_stream, the_genotypes_set->phased);
       sort_and_output_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, o_stream);
       fprintf(o_stream, "\n");
       
@@ -601,8 +601,12 @@ void sort_and_output_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigree
   }
 } // end of sort_and_output_pedigrees
 
-void print_dummy_pedigree_output(FILE* stream){ // for when an accession has no pedigree
-  fprintf(stream, " P  - -  - - - - - - -  - - - - - - -  ");
+void print_dummy_pedigree_output(FILE* stream, bool phased){ // for when an accession has no pedigree
+  if(phased){
+    fprintf(stream, " P  - -  - - - - - - -  - - - - - - -  "); // phased  17 fields
+  }else{
+    fprintf(stream, " P  - -  - - - - - - -  "); // unphased  10 fields
+  }
 }
 
 /* void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor){ */
