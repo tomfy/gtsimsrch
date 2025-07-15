@@ -13,6 +13,8 @@ Find pairs of similar accessions:
 
 The output has 6 columns:  &ensp; id\_1  &ensp;  missing\_data\_count\_1  &ensp; id\_2  &ensp;  missing\_data\_count\_2  &ensp;  agmr  &ensp;  hgmr
 
+agmr is the fraction of markers with different genotypes in the two accessions. 
+
 Find clusters of duplicate accessions:
 
 	clusterer  -in cassava.dsout -out cassava.clustout
@@ -59,19 +61,7 @@ Columns 5-11 contain quantities calculated using unphased genotype information.
 If the genotype data is phased there are an additional 7 columns, columns 12-18,  
 containing quantities calculated using phased genotype information.  
 	The most interesting of these is usually column 18, the 'apparent crossover rate' (ACR)  
-	
-If the genotype data is phased, then there are 
-If the data is phased there are 17 columns of output.
-The first column contains the id of the accession whose parents we want to find.
-The second column 
 
-Then there are 7 columns of numbers 
-The most interesting numbers (usually) are:  
-Id of first parent in column 3
-Id of second parent in column 4
-Forbidden triple rate (ftr)  in columns 11 for the pedigree and 28, etc. for the alternatives.  
-and, if data is phased:  
-Apparent crossover rate (acr) in columns 18 for the pedigree and 35, etc. for the alternatives.  
 These should both be small if the parents are correct.
 
 finding likely parents if pedigrees are not available:
