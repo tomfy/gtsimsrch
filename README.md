@@ -11,17 +11,17 @@ Find pairs of similar accessions:
 
 	duplicate_search  -in cassava.dsgm  -out cassava.dsout
 
-The output has 6 columns: id\_1  missing\_data\_count\_1  id\_2  missing\_data\_count\_2  agmr  hgmr
+The output has 6 columns:  &ensp; id\_1  &ensp;  missing\_data\_count\_1  &ensp; id\_2  &ensp;  missing\_data\_count\_2  &ensp;  agmr  &ensp;  hgmr
 
 Find clusters of duplicate accessions:
 
 	clusterer  -in cassava.dsout -out cassava.clustout
 
-Running this way using default parameters is probably reasonable, but different genotyping error rates will give different observed agmrs between duplicate accessions. So it is a good idea to make a histogram of the agmr values (column 5\) of the output from duplicate\_search to decide how similar accessions should be (i.e. how small the agmr should be) to be considered duplicates. The default value of this parameter is 0.035 ; a different value can be specified when running clusterer with e.g.:   \-dcluster  0.04  . Let’s look at the histogram to see if this is reasonable. 
+Running this way using default parameters may be reasonable, but different genotyping error rates will give different observed agmrs between duplicate accessions. So it is a good idea to make a histogram of the agmr values (column 5\) of the output from duplicate\_search to decide how similar accessions should be (i.e. how small the agmr should be) to be considered duplicates. The default value of this parameter is 0.035 ; a different value can be specified when running clusterer with e.g.:   \-dcluster  0.04  . Let’s look at the histogram to see if this is reasonable. 
 
 ![alt text](cassava\_dsout\_agmr\_histogram\_480x360.png "title")  
 
-There is a clear peak at about 0.014, and extending up to about 0.03 . This suggests these are due to duplicates whose observed genotypes differ due to a genotyping error rate of \~0.7%. The default value looks quite reasonable.
+There is a clear peak at about 0.014, and it extends up to about 0.03 . This suggests these are due to duplicates whose observed genotypes differ due to a genotyping error rate of \~0.7%. The default value looks quite reasonable.
 
 Remove duplicate accessions:  
 I.e. from each cluster of duplicates keep only one (the one with the least missing data). 
@@ -34,12 +34,41 @@ If we have a record of the parents of accessions we can also supply the name of 
 
 Here ptable has the offspring id, followed by the two parents’ ids in the first 3 whitespace-separated columns. The files with duplicate accessions removed will then be  u\_cassava.dsgm  and  u\_ptable.
 
-finding likely parents if pedigrees are available:
+Checking pedigrees in a file. 
+We can check whether the pedigrees in u\_ptable are correct as follows:
 
-	find_parents  -in u_cassava.dsgm  -ped u_ptable  -out cassava_alt3.fpout  -alt 3
+	find_parents  -in u_cassava.dsgm  -ped u_ptable  -out cassava.fpout  
 
-This generates output with each line starting with the offspring’s id, then 17 columns about the pedigree, and then 17 columns about each of the alternative pedigrees found by searching (up to a maximum of 3 alternative pedigrees).   
+This will just check the pedigrees read from u\_ptable, without searching for alternative pedigrees.
+
+This generates output with one line for each accession. 
+The first column contains the accession id.  
+This is followed by:
+
+| Column | content |
+| --- | --- |
+| 1 | id of the progeny accession |
+| 2 | the letter 'P' to indicate a pedigree read from a file. |
+| 3 | id of the first parent.  |
+| 4 | id of the second parent. |
+| 11 | forbidden triple rate (FTR) |
+| 18 | apparent crossover rate (ACR) [phased data only]|
+
+Columns 5-11 contain quantities calculated using unphased genotype information.   
+	
+If the genotype data is phased there are an additional 7 columns, columns 12-18,  
+containing quantities calculated using phased genotype information.  
+	The most interesting of these is usually column 18, the 'apparent crossover rate' (ACR)  
+	
+If the genotype data is phased, then there are 
+If the data is phased there are 17 columns of output.
+The first column contains the id of the accession whose parents we want to find.
+The second column 
+
+Then there are 7 columns of numbers 
 The most interesting numbers (usually) are:  
+Id of first parent in column 3
+Id of second parent in column 4
 Forbidden triple rate (ftr)  in columns 11 for the pedigree and 28, etc. for the alternatives.  
 and, if data is phased:  
 Apparent crossover rate (acr) in columns 18 for the pedigree and 35, etc. for the alternatives.  
