@@ -18,7 +18,7 @@
 #define INIT_N_ACCESSIONS 10000
 #define INIT_N_MARKERS 10000
 
-#define split_str "\t"
+#define split_str "\t" // will split only on tabs.
 
 // There will be one of these structs for each thread,
 // each thread will process the markers in the range from first_marker to last_marker
@@ -306,19 +306,22 @@ int main(int argc, char *argv[]){
   while((nread = getline(&line, &len, in_stream)) != -1){
     char* saveptr = NULL;
     char* token = strtok_r(line, split_str, &saveptr);
+  
     
     if((token == NULL) || (token[0] == '#' && token[1] == '#')) continue; // skip comments (starting with ##) and any empty lines
     if(token[0] == '#'){ // this the line with accession ids
       for(long ii = 1; ii <= 8; ii++){ // read in cols 1 through 8 "POS ID REF ..." but don't store them.
 	token = strtok_r(NULL, split_str, &saveptr);
+	  fprintf(stderr, "token: %s\n", token);
       }
       while(1){
 	token = strtok_r(NULL, split_str, &saveptr);
+	  fprintf(stderr, "token: %s\n", token);
 	if(token == NULL) break;
 	long tkn_length = strlen(token);
-	for(long i=0; i< tkn_length; i++){
-	  if(token[i] == ' ') token[i] = '_';
-	}
+	/* for(long i=0; i< tkn_length; i++){ // replace spaces in acc id with underscores */
+	/*   if(token[i] == ' ') token[i] = '_'; */
+	/* } */
 	char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
 
 	push_to_vstr(accession_ids, acc_id); // store
@@ -846,14 +849,14 @@ void print_usage_info(FILE* ostream){
 void print_marker_ids(FILE* ostream, Vstr* used_marker_ids){
   fprintf(ostream, "MARKER");
   for(long i_marker=0; i_marker < used_marker_ids->size; i_marker++){
-    fprintf(ostream, " %s", used_marker_ids->a[i_marker]);
+    fprintf(ostream, "\t%s", used_marker_ids->a[i_marker]);
   }fprintf(ostream, "\n");
 }
 
 void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers){
   fprintf(ostream, "CHROMOSOME");
   for(long i_chrom=0; i_chrom < used_chrom_numbers->size; i_chrom++){
-    fprintf(ostream, " %ld", used_chrom_numbers->a[i_chrom]);
+    fprintf(ostream, "\t%ld", used_chrom_numbers->a[i_chrom]);
   }fprintf(ostream, "\n");
 }
 
@@ -869,7 +872,7 @@ void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* a
       char the_phase = used_phases->a[im][i_accession]; // used_genos->a[im] is c str with gts for all accs for marker im
       char the_geno = used_genos->a[im][i_accession];
       // fprintf(stderr, "gt, ph: %c  %c \n", the_geno, the_phase);
-      append_char_to_vchar(acc_gts, ' ');
+      append_char_to_vchar(acc_gts, '\t'); // need to use tabs here, because accession ids may have spaces
       if(the_geno == 'X'){
 	missing_data_count++;
 	//	fprintf(ostream, " X");

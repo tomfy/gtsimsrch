@@ -160,7 +160,7 @@ main(int argc, char *argv[])
       {"agmr_self_max", required_argument, 0, 'S'},
       {"R_self_max", required_argument, 0, 'R'},
       {"d_max", required_argument, 0, 'D'},
-      //    {"threads", required_argument, 0, 't'},
+      {"threads", required_argument, 0, 't'},
       {0,         0,                 0,  0 }
     };
      
@@ -318,6 +318,7 @@ main(int argc, char *argv[])
   double t_a = hi_res_time();
   GenotypesSet* the_genotypes_set = construct_empty_genotypesset(max_marker_missing_data_fraction, min_minor_allele_frequency, ploidy);
   add_accessions_to_genotypesset_from_file(genotypes_filename, the_genotypes_set, max_accession_missing_data_fraction, Nthreads); // load the new set of accessions
+  fprintf(stderr, "After add_accessions_...\n");
   print_vchar(stdout, the_genotypes_set->acc_filter_info);
   print_vchar(o_stream, the_genotypes_set->acc_filter_info);
   double t_b = hi_res_time();
@@ -341,6 +342,8 @@ main(int argc, char *argv[])
   check_genotypesset(the_genotypes_set);
   set_Abits_Bbits(the_genotypes_set, Nthreads);
   Vidxid* the_gt_vidxid = construct_sorted_vidxid(the_genotypes_set->accessions); // ids and indexes of the_genotypes_set, sorted by id
+
+  // print_vidxid(stderr, the_gt_vidxid);
   double t_d = hi_res_time();
   fprintf(stdout, "# Time for other initial processing of genotype data: %6.3f sec.\n", t_d - t_c);
 
@@ -355,6 +358,7 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to calculate means for %ld  random pairs.: %6.3f sec.\n", sample_size, t_e - t_d);
  
   if(p_stream != NULL){ // have pedigree file
+    
     // ********************************************************* 
     // ***  Read the pedigrees file  ***************************
     // *********************************************************

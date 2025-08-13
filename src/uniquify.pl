@@ -208,14 +208,14 @@ if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then outpu
     for my $representative_id (@sorted_repids){
       my $cluster_accids = $repid_clusterids{$representative_id};
     my $elected_gts = vote($cluster_accids, \%id_gts);
-    print $fhout "$representative_id  ", join(" ", @$elected_gts), "\n";
+    print $fhout "$representative_id\t", join("\t", @$elected_gts), "\n";
   }
 } else {
   print STDERR "duplicate group representative accessions are those  with least missing data.\n";
   # while (my($representative_id, $cluster_accids) = each %repid_clusterids) {
       for my $representative_id (@sorted_repids){
       my $cluster_accids = $repid_clusterids{$representative_id};
-    print $fhout "$representative_id  ", join(" ", @{$id_gts{$representative_id}}), "\n"; # output representative and its dosages.
+    print $fhout "$representative_id\t", join("\t", @{$id_gts{$representative_id}}), "\n"; # output representative and its dosages.
   }
 }
 

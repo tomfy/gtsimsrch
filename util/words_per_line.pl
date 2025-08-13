@@ -6,11 +6,16 @@ use List::Util qw(min max sum shuffle);
 my $lines_then_words = 1;
 my $output_sample_line = 0;
 my $n_words_to_print = undef;
+my $n_lines_max = 1000000;
+my $split_char = 'tab'; # set to anything else (with e.g. -split space ) to split on whitespace.
+
 
 GetOptions(
 	   'nlines!' => \$lines_then_words, # 1 -> output in order of number of lines with each number of words
 	   'sample_line!' => \$output_sample_line, # print the first line with each number of words
 	   'words_out=i' => \$n_words_to_print,
+	   'max_lines=i' => \$n_lines_max,
+	   'split=s' => \$split_char,
 	   );
 
 my %nwords_nlines = ();
@@ -18,7 +23,8 @@ my %nwords_firstline = ();
 my $nlines = 0;
 my $total_nwords = 0;
 while(my $line = <>){
-  my @cols = split(" ", $line);
+  
+  my @cols = ($split_char eq 'tab')? split("\t", $line) : split(" ", $line);
   my $nwords = scalar @cols;
   if(defined $n_words_to_print  and  $nwords == $n_words_to_print){
     print $line; # "$nwords [$line]\n";
@@ -29,6 +35,7 @@ while(my $line = <>){
   }
   $total_nwords += $nwords;
   $nlines++;
+  last if($nlines >= $n_lines_max);
 }
 
 my $mean_nwords = ($nlines > 0)? $total_nwords/$nlines : '--';

@@ -13,7 +13,7 @@ my $n_marker_ids;
 my $n_accessions = 0;
 my ($cume_zero_count, $cume_one_count, $cume_two_count, $cume_X_count, $cumulative_bad_accession_count) = (0, 0, 0, 0, 0);
 print "# dosage counts for each accession.\n";   
-print "# acc_no                             acc_id        n0      n1      n2      nX   n_markers     maf    heterozygosity\n";
+print "# acc_no                        acc_id        n0      n1      n2      nX   n_markers     heterozygosity\n";
 while (<>) {
   next if(/^\s*#/);
   if (/^MARKER/) {
@@ -49,8 +49,8 @@ while (<>) {
     my $alt_allele_freq = ($ok_count > 0)? ($one_count + 2*$two_count)/(2*$ok_count) : -1;
     my $maf = ($alt_allele_freq <= 0.5)? $alt_allele_freq : 1.0 - $alt_allele_freq;
     my $heterozygosity = ($ok_count > 0)? $one_count/$ok_count : -1;
-    printf(STDOUT "%5ld %30s   %6ld %6ld (%5d,%5d) %5ld %7ld   %7ld   %8.4f    %8.4f\n",
-	   $n_accessions, $acc_id, $zero_count, $one_count, $minus_count, $plus_count, $two_count, $X_count, $marker_count, $maf, $heterozygosity) if($verbose);
+    printf(STDOUT "%5ld %30s   %6ld %6ld (%5d,%5d) %5ld %7ld   %7ld   %8.4f\n",
+	   $n_accessions, $acc_id, $zero_count, $one_count, $minus_count, $plus_count, $two_count, $X_count, $marker_count, $heterozygosity) if($verbose);
    # print STDOUT "#           ", $one_count + 2*$two_count, "  ", $ok_count, "  ", $alt_allele_freq, "\n"
   }
 }

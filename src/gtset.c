@@ -193,12 +193,12 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   char* saveptr = NULL;
   while((nread = getline(&line, &len, g_stream)) != -1){
     saveptr = line;
-    char* token = strtok_r(line, "\t \n\r", &saveptr);
+    char* token = strtok_r(line, "\t\n", &saveptr); // must be tab separated
     
     if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
     if((strcmp(token, "MARKER") == 0)){
       while(1){
-	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	token = strtok_r(NULL, "\t\n", &saveptr);
 	if(token == NULL) break;
 	char* mrkr_id = (char*)malloc((strlen(token)+1)*sizeof(char));
 	push_to_vstr(marker_ids, strcpy(mrkr_id, token)); // store
@@ -210,6 +210,9 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
       exit(EXIT_FAILURE);
     }
   }
+  fprintf(stderr, "Done reading line with marker ids\n");
+  fprintf(stderr, "Number of marker ids stored: %ld\n", marker_ids->size);
+
  // *****  done reading line with marker ids  *****
   
   if(the_genotypes_set->marker_missing_data_counts == NULL){    
@@ -247,18 +250,19 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   long accession_count = 0;
   while((nread = getline(&line, &len, g_stream)) != -1){
     saveptr = line; // these are char*
-    char* token = strtok_r(saveptr, "\t \n\r", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
+    char* token = strtok_r(saveptr, "\t\n", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
     if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
     Vlong* chromosome_numbers;
     if((strcmp(token, "CHROMOSOME") == 0)){ // CHROMOSOME line is present, store chromosome info (needed for phased analysis)
       // the_genotypes_set->phased = true;
       chromosome_numbers = construct_vlong(marker_ids->size);
       while(1){
-	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	token = strtok_r(NULL, "\t\n", &saveptr);
 	if(token == NULL) break;
 	long i_chrom = str_to_long(token);
 	push_to_vlong(chromosome_numbers, i_chrom);
       }
+    
       the_genotypes_set->chromosomes = chromosome_numbers;
       // fprintf(stderr, "in add_accession_... size of chromosomes vlong. %ld \n", the_genotypes_set->chromosomes->size);
     }else{  // chromosome numbers not specified; just set the chromosome number to 1 for all markers
@@ -273,19 +277,24 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
     }
     break;
   }
+    fprintf(stderr, "Done reading line with chromosome numbers\n");
+    fprintf(stderr, "Number of chrom numbers stored: %ld\n", the_genotypes_set->chromosomes->size);
+
 
   // Read in the rest of the lines, construct an Accession for each line
   double t1 = hi_res_time();
   if(Nthreads == -1){ // old, unthreaded way    
   while((nread = getline(&line, &len, g_stream)) != -1){
     saveptr = line; // these are char*
-    char* token = strtok_r(saveptr, "\t \n\r", &saveptr); // read first token in line, either "CHROMOSOME" or and accession id
+    char* token = strtok_r(saveptr, "\t\n", &saveptr); // read first token in line, an accession id
     if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
     //char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
+    // fprintf(stderr, "line starts with: %s\n", token);
     read_gts_line_add_accession_to_gtset(the_genotypes_set,
 					 //acc_id,
 					 strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token),
 					 marker_ids->size, saveptr, max_acc_missing_data_fraction);
+   
   } // done reading all lines
   }else{ // threaded!
     threaded_input(g_stream, 720, max_acc_missing_data_fraction, Nthreads, marker_ids, the_genotypes_set);
@@ -412,7 +421,7 @@ void* input_lines_1thread(void* x){ // process 1 thread's set of lines
   for(long i=tis->first_line; i<=tis->last_line; i++){
     char* line = tis->accession_lines->a[i];
     char* saveptr = line;
-    char* token = strtok_r(line, "\t \n\r", &saveptr);
+    char* token = strtok_r(line, "\t\n", &saveptr);
     char* acc_id = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token);
     long marker_count = 0;
     long accession_missing_data_count = 0;
@@ -421,7 +430,7 @@ void* input_lines_1thread(void* x){ // process 1 thread's set of lines
     char* phases = (char*)calloc((tis->markerid_count+1), sizeof(char));
     phases[tis->markerid_count] = '\0'; // NEEDED?
     while(1){ // read dosages from one line.   
-      token = strtok_r(NULL, "\t \n\r", &saveptr);
+      token = strtok_r(NULL, "\t\n", &saveptr);
       if(token == NULL)	break;
          two_chars dsg_ph = token_to_dosage(token, &(tis->ploidy));
       genotypes[marker_count] = dsg_ph.ch1;
@@ -480,6 +489,7 @@ long str_to_long(char* str){ // using strtol and checking for various problems.
 two_chars token_to_dosage(char* token, long* ploidy){
   char dsg;
   char phase = NO_PHASE_CHAR; // for 'plus'; corresponds to 1 in pdsgs file, phase = 'm' for -1 in pdsgs file.
+  // fprintf(stderr, "in ttd. token: [%s]\n", token);
   if(strcmp(token, "X") == 0){ // missing data
     dsg = MISSING_DATA_CHAR;
   }else{
@@ -492,6 +502,7 @@ two_chars token_to_dosage(char* token, long* ploidy){
     }
     long l = str_to_long(token);
     if(errno != 0){
+      fprintf(stderr, "str_to_long has  non-zero errno= %d bye.\n", errno);
       exit(EXIT_FAILURE);
     }else if(l < 0  ||  l > MAX_PLOIDY){ // if outside the range of possible dosages.
       dsg = MISSING_DATA_CHAR;
@@ -1255,10 +1266,11 @@ void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char*
       char* token;
       
       while(1){ // read dosages from one line.
-	token = strtok_r(NULL, "\t \n\r", &saveptr);
+	token = strtok_r(NULL, "\t\n", &saveptr);
 	if(token == NULL)	break;
+	//fprintf(stderr, "bef token_to_dosage. token: [%s]\n", token);
 	two_chars dsg_ph = token_to_dosage(token, &(the_genotypes_set->ploidy));
-	// fprintf(stderr, "token, dsg_ph: %s  %c  %c \n", token, dsg_ph.ch1, dsg_ph.ch2);
+	//fprintf(stderr, "marker_count: %ld  token, dsg_ph: %s  %c  %c \n", marker_count, token, dsg_ph.ch1, dsg_ph.ch2);
 	genotypes[marker_count] = dsg_ph.ch1;
 	if(dsg_ph.ch2 != NO_PHASE_CHAR){
 	  // fprintf(stderr, "dsg_ph.ch2: %c  %c \n", dsg_ph.ch1, dsg_ph.ch2);
@@ -1268,7 +1280,7 @@ void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char*
 	if(genotypes[marker_count] == MISSING_DATA_CHAR) accession_missing_data_count++;
 	marker_count++;
       } // done reading dosages for all markers of this accession
-     
+      // fprintf(stderr, "Marker Count: %ld\n", marker_count);
 	// if accession does not have too much missing data, construct Accession and store in the_genotypes_set
 	if(accession_missing_data_count <= max_acc_missing_data_fraction * the_genotypes_set->marker_ids->size){
 	  long accession_count = the_genotypes_set->accessions->size;

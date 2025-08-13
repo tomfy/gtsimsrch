@@ -28,7 +28,10 @@ open $fhin, "<", $gtfile;
 while(<$fhin>){ # skip initial comment lines
   next if(/^\s*#/);
   print if(/^\s*MARKER/); # print 1st non-comment line (with marker ids)
-  last;
+  if(/^\s*CHROMOSOME/){
+    print;
+    last;
+  }
 }
 
 while(<$fhin>){

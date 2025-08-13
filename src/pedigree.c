@@ -889,10 +889,10 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_gt_vidxid, 
   long not_in_genotypes_set_count = 0;
   long no_parent_gts_count = 0; // counts the accessions with neither parent having genotypes
   Vpedigree* pedigrees = construct_vpedigree(1000);
+  
   while((nread = getline(&line, &len, p_stream)) != -1){
     Vstr* fields = construct_vstr(3);
     char* token = strtok_r(line, "\t \n\r", &saveptr);
- 
     push_to_vstr(fields, strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token)); // store copy of accession id
     while(1){
       token = strtok_r(NULL, "\t \n\r", &saveptr);
@@ -904,20 +904,37 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_gt_vidxid, 
     char* fempar_id = ith_str_from_vstr(fields, 1);
     char* malpar_id = ith_str_from_vstr(fields, 2);  
     long acc_idx, fempar_idx, malpar_idx;
-  
+ 
     if(strcmp(acc_id, "NA") != 0){ // id of this accession is not "NA" 
       acc_idx = index_of_id_in_vidxid(the_gt_vidxid, acc_id);
       Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
       if(acc_idx == ID_NA_INDEX){ // no genotypes for this accession
 	not_in_genotypes_set_count++;
       }else{ // have genotypes for this accession
+
 	fempar_idx = index_of_id_in_vidxid(the_gt_vidxid, fempar_id);
 	malpar_idx = index_of_id_in_vidxid(the_gt_vidxid, malpar_id);	 
-	if( (fempar_idx != ID_NA_INDEX) || (malpar_idx != ID_NA_INDEX) ){ // pedigree file gives at least 1 parent for which there are genotypes
-	   
+	if( (fempar_idx != ID_NA_INDEX) || (malpar_idx != ID_NA_INDEX) ){ // pedigree file has at least 1 parent for which there are genotypes
+
+	  /* bool gt1pedigree = false; */
+	  /* if(Acc->has_pedigree){ */
+	  /*   gt1pedigree = true; */
+	  /*   long fidx = Acc->Fpar_idx;	     */
+	  /*   char* fid = (fidx == ID_NA_INDEX)? "NA": the_gtsset->accessions->a[fidx]->id->a; */
+	  /*   long midx = Acc->Mpar_idx;	     */
+	  /*   char* mid = (midx == ID_NA_INDEX)? "NA" : the_gtsset->accessions->a[midx]->id->a; */
+	  /*   fprintf(stderr, "offspring %s  Fpar %s  Mpar %s \n", Acc->id->a, fid, mid);  */
+	  /* } */
 	  Acc->has_pedigree = true;
 	  Acc->Fpar_idx = fempar_idx;
 	  Acc->Mpar_idx = malpar_idx;
+	  /* if(gt1pedigree){ */
+	  /*   long fidx = Acc->Fpar_idx;	     */
+	  /*   char* fid = (fidx == ID_NA_INDEX)? "NA": the_gtsset->accessions->a[fidx]->id->a; */
+	  /*   long midx = Acc->Mpar_idx;	     */
+	  /*   char* mid = (midx == ID_NA_INDEX)? "NA" : the_gtsset->accessions->a[midx]->id->a; */
+	  /*   fprintf(stderr, "   offspring %s  Fpar %s  Mpar %s \n\n", Acc->id->a, fid, mid); */
+	  /* } */
 	  Accession* Fpar = (fempar_idx != ID_NA_INDEX)?
 	    the_gtsset->accessions->a[fempar_idx] : NULL; // id->index;
 	  Accession* Mpar = (malpar_idx != ID_NA_INDEX)?
