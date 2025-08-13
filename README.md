@@ -43,7 +43,7 @@ We can check whether the pedigrees in u\_ptable are correct as follows:
 
 This will just check the pedigrees read from u\_ptable, without searching for alternative pedigrees.
 
-This generates output with one line for each accession. 
+This generates output with one line for each accession. The most useful
 The first column contains the accession id.  
 This is followed by:
 
