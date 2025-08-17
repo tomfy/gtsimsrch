@@ -808,7 +808,7 @@ void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree){
   //double mean_hgmr, double mean_R, double mean_d, double mean_z){
   Accession* F = the_pedigree->F;
   Accession* M = the_pedigree->M;
-  fprintf(fh, "%s  %s  %ld  ", (F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA",  the_pedigree->pedigree_stats->all_good_count);
+  fprintf(fh, "%s\t%s\t%ld\t", (F != NULL)? F->id->a : "NA", (M != NULL)? M->id->a : "NA",  the_pedigree->pedigree_stats->all_good_count);
   print_normalized_pedigree_stats(fh, the_pedigree->pedigree_stats);
 }
 
@@ -824,9 +824,9 @@ void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stat
 
 void print_double_nan_as_hyphen(FILE* fh, double x){
   if(isnan(x)){
-    fprintf(fh, "-  ");
+    fprintf(fh, "-\t");
   }else{
-    fprintf(fh, "%7.5lf  ", x);
+    fprintf(fh, "%7.5lf\t", x);
   }
 }
 

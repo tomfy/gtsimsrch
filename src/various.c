@@ -32,17 +32,17 @@ double n_over_d(ND the_nd){ // for positive n and d. return -1 if denom is zero.
 
 void print_d_r(FILE* fh, ND nd){
   if(nd.d == 0){
-    fprintf(fh, "    0     -  ");
+    fprintf(fh, "0\t-\t");
   }else{
-    fprintf(fh, "%5ld %6.5lf  ", nd.d, (double)nd.n/(double)nd.d);
+    fprintf(fh, "%5ld\t%6.5lf\t", nd.d, (double)nd.n/(double)nd.d);
   }
 }
 
 void print_n_over_d(FILE* fh, ND nd){
   if(nd.d == 0){
-    fprintf(fh, " -  ");
+    fprintf(fh, "-\t");
   }else{
-    fprintf(fh, "%6.5lf  ", (double)nd.n/(double)nd.d);
+    fprintf(fh, "%6.5lf\t", (double)nd.n/(double)nd.d);
   }
 }
 

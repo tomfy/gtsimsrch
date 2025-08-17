@@ -180,7 +180,7 @@ use Cluster1d;
       # sort by missing data, low to high.
       my @sorted_iddegds = sort {$id_mdcount->{$a->[0]} <=> $id_mdcount->{$b->[0]}} @$out_iddegds;
       
-      $output_line_string = join("\t", map(  sprintf("%s %1d %7.5f  ", $_->[0], $_->[1], $_->[3]) ,@sorted_iddegds) );
+      $output_line_string = join("\t", map(  sprintf("%s\t%1d\t%7.5f", $_->[0], $_->[1], $_->[3]) ,@sorted_iddegds) );
     } else {
       #my @ids = map( sprintf("%s  ", $_->[0]), @$out_iddegds);
       my @ids = map($_->[0], @$out_iddegds);
@@ -232,7 +232,6 @@ use Cluster1d;
   print $fhout "# then ids of cluster members, sorted with least missing data first.\n";
   print $fhout "# if -full option invoked, then each id is followed by:\n";
   print $fhout "#   degree of the accession and its rms distance from others in cluster.\n";
-  print $fhout "#   and for each the number of other cluster members within edge_max_distance.\n";
   my @sorted_output_lines = sort { compare_str($a, $b) }  @output_lines;
   print $fhout join('', @sorted_output_lines);
   close $fhout;

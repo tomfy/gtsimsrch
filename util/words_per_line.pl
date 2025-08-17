@@ -8,7 +8,7 @@ my $output_sample_line = 0;
 my $n_words_to_print = undef;
 my $n_lines_max = 1000000;
 my $split_char = 'tab'; # set to anything else (with e.g. -split space ) to split on whitespace.
-
+my $include_comments = 0;
 
 GetOptions(
 	   'nlines!' => \$lines_then_words, # 1 -> output in order of number of lines with each number of words
@@ -16,15 +16,24 @@ GetOptions(
 	   'words_out=i' => \$n_words_to_print,
 	   'max_lines=i' => \$n_lines_max,
 	   'split=s' => \$split_char,
+	   'comments!' => \$include_comments,
 	   );
+
+my $skip_include_comments = ($include_comments)? "Including" : "Skipping";
+print "# $skip_include_comments comments (i.e. lines with # as first non-whitespace character.)\n";
+print "# Splitting on:  ", (($split_char eq 'tab')? 'tab' : 'whitespace'), "\n";
 
 my %nwords_nlines = ();
 my %nwords_firstline = ();
 my $nlines = 0;
 my $total_nwords = 0;
 while(my $line = <>){
-  
+  next if(!$include_comments and $line =~ /^\s*#/);
+  chomp($line);
   my @cols = ($split_char eq 'tab')? split("\t", $line) : split(" ", $line);
+  # while(my ($i, $v) = each @cols){
+  #   print "$i  [$v]\n";
+  # }exit;
   my $nwords = scalar @cols;
   if(defined $n_words_to_print  and  $nwords == $n_words_to_print){
     print $line; # "$nwords [$line]\n";
@@ -55,6 +64,7 @@ print "$str\n";
 for my $nw (@sorted_nwords) {
   print "# there are ", $nwords_nlines{$nw}, " lines with $nw words.\n";
   if ($output_sample_line){
-    print "   ", $nwords_firstline{$nw};
+    print "   ", $nwords_firstline{$nw}, "\n";
   }
 }
+ print "\n";
