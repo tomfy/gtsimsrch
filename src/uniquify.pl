@@ -73,7 +73,7 @@ my %repid_clusterids = (); # keys: ids of cluster representatives; values: array
 
 while (my $line = <$fh_clusters>) { # each line is one cluster
   next if($line =~ /^\s*#/);
-  my @cols = split(" ", $line);
+  my @cols = split("\t", $line);
   next if(scalar @cols  < 11); # cluster line should have 9 quality params plus at least 2 cluster ids.
   my $cluster_size = shift @cols;
   my $min_d = shift @cols;
@@ -143,7 +143,7 @@ if (defined $pedigrees_input_filename) {
     next if($line =~ /^\s*#/);
     $pedigrees_in_count++;
     $line =~ s/\s+$//;	# remove newline, any other whitespace at end.
-    my @cols = split(" ", $line);
+    my @cols = split("\t", $line);
     my $progeny_id = $cols[$progeny_col];
 
     if ($progeny_id ne 'NA') { # output, replacing ids by ids of the cluster representatives if in a cluster
@@ -184,7 +184,7 @@ while (my $line = <$fh_dosages>) {
     print $fhout $line;
     next;
   }
-  my @cols = split(" ", $line);
+  my @cols = split("\t", $line);
   my $id = shift @cols;
   if (exists $clusterid_repid{$id}) { # this accession belongs to a cluster
     $id_gts{$id} = \@cols; # value is array ref with gts as in dosage file 
@@ -203,7 +203,7 @@ my @duplicate_lines = ();
 ###############################################################################
 my @sorted_repids = sort keys %repid_clusterids;
 if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then output just representative id with 'elected' dosages.
-  print STDERR "duplicate group genotypes determined by voting.\n";
+  print STDERR "# duplicate group genotypes determined by voting.\n";
   # while (my($representative_id, $cluster_accids) = each %repid_clusterids) {
     for my $representative_id (@sorted_repids){
       my $cluster_accids = $repid_clusterids{$representative_id};
@@ -211,7 +211,7 @@ if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then outpu
     print $fhout "$representative_id\t", join("\t", @$elected_gts), "\n";
   }
 } else {
-  print STDERR "duplicate group representative accessions are those  with least missing data.\n";
+  print STDERR "# duplicate group representative accessions are those  with least missing data.\n";
   # while (my($representative_id, $cluster_accids) = each %repid_clusterids) {
       for my $representative_id (@sorted_repids){
       my $cluster_accids = $repid_clusterids{$representative_id};
@@ -236,12 +236,13 @@ close $fhout;
 sub vote{ # for clusters with several members, determine 
   my $cluster_ids = shift; # array ref holding the ids of the accessions in the cluster.
   my $id_dosages = shift; # hash ref. key: id, value: array ref of dosages for this id.
+  my $beta = 0.5;
   my $first_id = $cluster_ids->[0];
   my $first_dosages = $id_dosages->{$first_id};
   my $n_markers = scalar @$first_dosages;
   my @elected_dosages = (0) x $n_markers;
   my $cluster_size = scalar @$cluster_ids;
-
+  # my ($zero_w_votes, $zero_l_votes) = (0, 0);
   if ($cluster_size > 2) {
     my @marker_votes = ();;
     for (1..$n_markers) {
@@ -256,15 +257,19 @@ sub vote{ # for clusters with several members, determine
 	$marker_votes[$i]->[$d]++;
       }
     }
+  
     while (my($i, $mv) = each @marker_votes) {
       my $e = $missing_str;
+        print STDERR "$cluster_size  ";
       for my $j (0..2) {
 	my $votes = $mv->[$j]; # the number of votes for dosage = $j for marker $i
-	if (2*$votes > $cluster_size) { # must have > 50% for one dosage, or $missing_str
+	print STDERR "$votes ";
+	if ($votes > $beta*$cluster_size) { # must have > 50% for one dosage, or $missing_str
 	  $e = $j;
-	  last;
+	  # last;
 	}
-      }
+	
+      }print STDERR $mv->[3], "  $e \n";
       $elected_dosages[$i] = $e;
     }
      my $X_count = sum(map( (($_ eq 'X')? 1 : 0), @elected_dosages)); #  =~ tr/X/X/;

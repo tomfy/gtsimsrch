@@ -312,11 +312,11 @@ int main(int argc, char *argv[]){
     if(token[0] == '#'){ // this the line with accession ids
       for(long ii = 1; ii <= 8; ii++){ // read in cols 1 through 8 "POS ID REF ..." but don't store them.
 	token = strtok_r(NULL, split_str, &saveptr);
-	  fprintf(stderr, "token: %s\n", token);
+	// fprintf(stderr, "token: %s\n", token);
       }
       while(1){
 	token = strtok_r(NULL, split_str, &saveptr);
-	  fprintf(stderr, "token: %s\n", token);
+	// fprintf(stderr, "token: %s\n", token);
 	if(token == NULL) break;
 	long tkn_length = strlen(token);
 	/* for(long i=0; i< tkn_length; i++){ // replace spaces in acc id with underscores */

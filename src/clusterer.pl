@@ -114,6 +114,9 @@ use Cluster1d;
     #print STDERR "#### [$a]|[$b]\n";
     $edge_weight->{$a} <=> $edge_weight->{$b} } keys %$edge_weight;
   print "# Number of distances stored ", scalar @sorted_edges, "\n";
+  # for my $se (@sorted_edges){
+  #   print STDERR "XXX: $se  ", $edge_weight->{$se}, "\n";
+  # }
 
   #######################################################################################################
   # if $edge_max_distance not specified, attempt to find a reasonable value by looking at the distances
@@ -290,9 +293,13 @@ sub store_distances{
       print "id2: ", (defined $id2)? $id2 : 'undef', "\n";
       $n_undef++;
     }else{
+      my $wold = $edge_weight{$edge_verts} // undef;
+      if (!defined $wold  or  $distance < $wold) { 	
         $edge_weight{$edge_verts} = $distance;
+      }
       $n_def++;
     }
+
     if (!exists $id_closeidds{$id1}) {
       $id_closeidds{$id1} = [[$id2, $distance]];
     } else {
@@ -305,6 +312,12 @@ sub store_distances{
     }
   
   }
+  
+  # my $tmeb419neighbors = $id_closeidds{'TMEB419'};
+  # while(my ($i, $idd) = each @$tmeb419neighbors){
+  #   print STDERR $idd->[0], "  ", $idd->[1], "\n";
+  # }print STDERR "\n";
+  
   close $fhin;
   print "n def, undef: $n_def $n_undef\n";
   return (\%edge_weight, \%id_closeidds, \%id_mdc);
@@ -337,8 +350,10 @@ sub construct_graph{
   my $the_graph = Graph::Undirected->new;
     for my $e (@$sorted_edges){
       my $w = $edge_weight->{$e};
+      # print STDERR "$e  $w  edge added to graph\n";
       if ($w <= $max_link_distance) {
-      my ($id1, $id2) = split("\t", $e);
+	my ($id1, $id2) = split("\t", $e);
+	
       $the_graph->add_weighted_edge($id1, $id2, $w);
       } else {
       last; 
@@ -358,8 +373,12 @@ sub prune_graph{
     $vert_deg->{$v} = $the_graph->degree($v);
   }
   my @clusters = $the_graph->connected_components;
-  for my $clstr (@clusters) {
-    $prune_count += prune_cluster($the_graph, $clstr, $vert_deg, $prune_factor);
+  while (my ($iclust, $clstr) = each @clusters) {
+    my $cluster_size = scalar @$clstr;
+    my $cluster_prune_count = prune_cluster($the_graph, $clstr, $vert_deg, $prune_factor);
+    $cluster_size -= $cluster_prune_count;
+    print "# Pruned $cluster_prune_count accessions from cluster; now cluster size is $cluster_size \n" if($cluster_prune_count > 0);
+    $prune_count += $cluster_prune_count;
   }
   return $prune_count;
 }
@@ -376,6 +395,8 @@ sub prune_cluster{
     my $u = $cluster->[$i];
     my $u_dubious = ($vertex_degree->{$u} < $min_degree);
     if ($u_dubious) {
+      $cluster_size--;
+      print "#     accession $u  has degree ", $vertex_degree->{$u}, " ; pruning it from cluster\n";
       $graph->delete_vertex($u); # also deletes associated edges
       $prune_count++;
     }
