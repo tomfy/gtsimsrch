@@ -13,7 +13,7 @@
 #define GENOTYPES 1
 #define MAX_PLOIDY 2
 #define MAX_PATTERNS 10000
-#define MISSING_DATA_CHAR 'X'   // 126 // value which will be stored in char for missing data; bigger than ploidy likely to be.
+#define MISSING_DATA_CHAR 'X'   // value which will be stored in char for missing data; 
 #define INIT_VACC_CAPACITY 4000
 #define STRTOL_FAIL 1  // set errno to this in str_to_long if strtol fails (in some other way besides out of range)
 
@@ -28,6 +28,7 @@ typedef struct{
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
   Vlong* alt_homozygs; //
+  long* dosage_counts; // dosage_counts[0] is number of markers with dosage 0 in this accession;
   Vull* Abits; // Abit and Bbist encode the gts, 64 gts to each pair of unsigned long longs
   Vull* Bbits; //
   double agmr0;
@@ -81,6 +82,7 @@ typedef struct{
   double mean_R;
   double mean_d;
   double mean_z;
+  double mean_ftc;
 }GenotypesSet;
 
 typedef struct{
@@ -130,7 +132,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
 void threaded_input(FILE* in_stream, long n_lines_in_chunk, double max_acc_md_fraction, long Nthreads, Vstr* marker_ids, GenotypesSet* the_genotypes_set);
 void* input_lines_1thread(void* x); // for threaded processing of input lines.
 void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
-
+void populate_dosage_counts(GenotypesSet* the_gtsset); // accession dosage counts
 void print_genotypesset_stats(GenotypesSet* gtss);
 void check_genotypesset(GenotypesSet* gtss);
 void filter_genotypesset(GenotypesSet* the_genotypes_set);
