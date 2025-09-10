@@ -37,8 +37,11 @@ Accession* construct_accession(char* id, long idx, char* genotypes, char* phases
   the_accession->Mpar_idx = ID_NA_INDEX;
   the_accession->has_pedigree = false;
   the_accession->search_done = false;
+  the_accession->dosage_counts = (long*)calloc(3, sizeof(long));
   return the_accession;
 }
+
+
 
 
 // for one accession's set of genotypes, loop over chunks and find the gt patterns. Store in the_gts->chunk_patterns
@@ -174,6 +177,22 @@ GenotypesSet* construct_empty_genotypesset(double max_marker_md_fraction, double
   the_gtsset->acc_filter_info = construct_vchar(2000);
   the_gtsset->marker_filter_info = construct_vchar(2000);
   return the_gtsset;
+}
+
+void populate_dosage_counts(GenotypesSet* the_gtsset){
+  for(long i = 0; i<the_gtsset->accessions->size; i++){
+    Accession* acc = the_gtsset->accessions->a[i];
+    Vchar* gts = acc->genotypes;
+    for(long j = 0; j<gts->length; j++){
+      if(gts->a[j] == '0'){
+	acc->dosage_counts[0]++;
+      }else if(gts->a[j] == '1'){
+	acc->dosage_counts[1]++;
+      }else if(gts->a[j] == '2'){
+	acc->dosage_counts[2]++;
+      }
+    }
+  }
 }
 
 void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet* the_genotypes_set, double max_acc_missing_data_fraction, long Nthreads){
@@ -534,6 +553,13 @@ void populate_marker_dosage_counts(GenotypesSet* the_gtsset){
      }
    }
    the_gtsset->dosage_counts->a[3] += nX;
+
+   /* for(long j=0; j<100; j++){ */
+   /*   fprintf(stderr, "marker: %ld ", j); */
+   /*   for(long i=0; i<3; i++){ */
+   /*     fprintf(stderr, " %ld %ld ", i, the_gtsset->marker_dosage_counts[i]->a[j]); */
+   /*   } fprintf(stderr, "\n"); */
+   /* } */
 }
 
 
