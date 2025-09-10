@@ -46,6 +46,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   double R2_n;
   double d_n;
   double z_n;
+  double ftc_n;
 
   double hgmr1;
   double hgmr2;
@@ -100,6 +101,8 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
 Pedigree_stats* construct_pedigree_stats(void); // just initializing to 0's
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog);
 Vpedigree* calculate_triples_for_one_accession(Accession* prog, const GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents);
+double calculate_xFTR(Pedigree* the_pedigree, const GenotypesSet* the_gtsset);
+double calculate_xxFTR(Pedigree* the_pedigree, const GenotypesSet* the_gtsset, double alpha);
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const GenotypesSet* the_gtsset);
 
 // long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d);
