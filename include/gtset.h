@@ -21,7 +21,8 @@ typedef struct{
   Vchar* id;
   long index; // the index in the accessions array of GenotypesSet
   Vchar* genotypes;
-  Vchar* phases; // 'p' or 'm' for +, -, 
+  Vchar* phases; // 'p' or 'm' for +, -,
+  // Vchar* corrected_phases; // 
   Vlong* chunk_patterns;
   //  long md_chunk_count; // the number of chunks with missing data
   long ok_chunk_count; // the number of chunks with no missing data = n_chunks - md_chunk_count
@@ -173,6 +174,9 @@ long check_idxid_map(Vidxid* vidxid, const Vaccession* accessions);
 
 ND phase_switches_one_chrom(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start);
 ND phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms);
+
+ND relative_phase_switches_1_chromosome(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start);
+ND relative_phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms);
 
 three_longs heterozyg_ratios(Accession* acc1, Accession* acc2);
 void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char* acc_id, long markerid_count, char* saveptr, double max_acc_missing_data_fraction);
