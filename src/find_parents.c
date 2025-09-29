@@ -115,7 +115,8 @@ main(int argc, char *argv[])
   bool quick_xhgmr = true;
   long max_solns_out = DEFAULT_MAX_SOLNS_OUT; // in addition to pedigree
   bool multiple_solns_on_one_line = true;
-  
+
+  bool normalize_by_means = false;
   // the following used in categorizing pedigrees from file as good or bad:
   double max_self_agmr = 0.03;
   double max_ok_hgmr = 0.16;
@@ -375,9 +376,11 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time for other initial processing of genotype data: %6.3f sec.\n", t_d - t_c);
 
   long sample_size = DEFAULT_RANDOM_SAMPLE_SIZE;
+  if(normalize_by_means){
   random_set_means(the_genotypes_set, sample_size); // get and store mean hgmr, R, etc.
   fprintf(stderr, "# mean hgmr, R, d, z: %8.5f  %8.5f  %8.5f  %8.5f\n",
 	  the_genotypes_set->mean_hgmr, the_genotypes_set->mean_R, the_genotypes_set->mean_d, the_genotypes_set->mean_z);
+  };
   fflush(stdout);
 
   double t_e = hi_res_time();
@@ -441,6 +444,9 @@ main(int argc, char *argv[])
 	fprintf(o_stream, "%s\tP\t", A->id->a); // progeny accession and 'P' to indicate these are parents from the pedigree file.
 	//print_pedigree_stats(o_stream, the_pedigree->pedigree_stats, true);
 	print_pedigree_normalized(o_stream, the_pedigree); //, the_genotypes_set);
+
+	//print_d_r(o_stream, the_pedigree->pedigree_stats->d);
+	//	fprintf(o_stream, " %ld %ld ", the_pedigree->pedigree_stats->d.n,   the_pedigree->pedigree_stats->d.d);
 	// two_doubles hratios = heterozyg_ratios(A, F);
 	if(the_genotypes_set->phased && do_phased){
 	  Xcounts_3 X3 = count_crossovers(the_genotypes_set, F, M, A);
