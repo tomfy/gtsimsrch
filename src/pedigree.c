@@ -29,7 +29,7 @@ Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, A
     }else if(Mparent == NULL){ // only have female parent in pedigree
       X3 = (Xcounts_3){count_crossovers_one_parent(the_gtsset, Fparent, offspring), (Xcounts_2mmn){0, 0, 0}, 0, 0, 0, 0};
     }else{ // both F and M are non-NULL
-      X3 = count_crossovers_two_parents(the_gtsset, Fparent, Mparent, offspring);
+      X3 = count_XF_two_parents(the_gtsset, Fparent, Mparent, offspring);
     }
   return X3;
 }
@@ -98,93 +98,227 @@ Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accessi
   return (Xcounts_2mmn){Xmin, Xmax, Nhet};
 } // end of count_crossovers
 
-Xcounts_2 count_crossovers_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long next){
+
+XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent,
+				 Accession* offspring, long first, long next){
   // Assuming that parent is indeed a parent of offspring,
-  // count the min number of crossovers needed to reconcile them
+  // and calling the two homologous chromosomes in the offspring a and b
+  // count the number of crossovers:
+  //    for a to be derived from the parent, and
+  //    for b to be derived from the parent,
+  // and count the number of forbidden combinations:
+  //    if a is derived from the parent, and
+  //    if b is derived from the parent
+  // i.e. if parent is actually the parent of offspring then
+  // either a or b is derived from the parent, i.e. from the
+  // some combination of the pair of homologous chromosomes in the parent
+  // For each of the hypotheses 1):'a is derived from parent', and 2):'b is derived from parent'
+  // we want to count both the number of crossovers required, and the number of
+  // forbidden combinations
+  // e.g. if the parent has dosage 0 (i.e. homozyg, ref allele) and  a = ref, b = alt
+  // then this counts as a forbidden combination under hypothesis 1), but is allowed under 2)
 
   if(parent == NULL  ||  offspring == NULL) {
-    return (Xcounts_2){-1, -1, -1};
+    return (XFcounts){-1, -1, -1, -1, -1, -1};
   }
+
+  //bool corrected = false;
+  //Vchar* ophases = (corrected)? offspring->corrected_phases : offspring->phases;
+  Vchar* ophases = offspring->phases;  //  offspring->corrected_phases;
  
   long Xa = 0, Xb = 0, Nhet = 0;
   long prev_chrom_number = -1, chrom_number;
   long prev_phase_a = -1, prev_phase_b = -1, phase_a = -1, phase_b = -1;
- 
+  long Fa = 0, Fb = 0, Nhom = 0; // counts of forbidden combinations
+  long Faa = 0, Fbb = 0;
+
+  // e.g. Fa count markers with o_gt = 0 (ref,ref) and a has alt allele, and o_gt = 2(alt,alt) and a has ref allele. 
   for(long i=first; i < next; i++){
+    //long j = i-first
+    chrom_number = the_gtsset->chromosomes->a[i];
+    char p_gt = parent->genotypes->a[i];
+    if(p_gt == MISSING_DATA_CHAR) continue;
+    char p_phase = parent->phases->a[i];
+  
+    // do next two lines to only use markers with ok gts in all three.
+    char other_parent_gt = other_parent->genotypes->a[i];
+    if(other_parent_gt == MISSING_DATA_CHAR) continue;
 
     char o_gt = offspring->genotypes->a[i]; 
     if(o_gt == MISSING_DATA_CHAR) continue;
-    char o_phase = offspring->phases->a[i];
-
+    char o_phase = ophases->a[i];
+    long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    
     // ########################################
-    char p_gt = parent->genotypes->a[i];
-    char p_phase = parent->phases->a[i];
+  
+    // we need to know the convention: 1+ means a is ref, and b is alt.
 
     if(p_gt == '1'){
-      Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
+      if(o_gt == '1') continue; // skip these as there errors in phases to make these introduce many spurious crossovers
+      Nhet++; // counts the number of markers which are heterozyg in the parent, and homozyg in the offspring
       two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
       phase_a = phases_ab.l1;
       phase_b = phases_ab.l2;
-    }
-    // ######################################
 
-    // compare current phases with previous values, update crossover counts, 
-    // and  update prev_phase_a, prev_phase_b
-    if(prev_phase_a >= 0  &&  phase_a != prev_phase_a) Xa++; // phase has changed - crossover
-    prev_phase_a = phase_a;
-    if(prev_phase_b >= 0  &&  phase_b != prev_phase_b) Xb++; // phase has changed - crossover
-    prev_phase_b = phase_b;
+      // compare current phases with previous values, update crossover counts, 
+      // and  update prev_phase_a, prev_phase_b
+      if(prev_phase_a >= 0  &&  phase_a != prev_phase_a) Xa++; // phase has changed - crossover
+      prev_phase_a = phase_a;
+      if(prev_phase_b >= 0  &&  phase_b != prev_phase_b) Xb++; // phase has changed - crossover
+      prev_phase_b = phase_b;
     
+    }else if(p_gt == '0'){
+      Nhom++;
+      if(o_gt == '1'  &&  (other_parent_gt == '1'  ||  other_parent_gt == '2') ){ // i.e. 01_1 or 02_1
+	Faa += (offA == 1)? 1 : 0;
+	Fbb += (offB == 1)? 1 : 0;
+	//fprintf(stderr, "chrom,i,Faa,Fbb: %ld  %ld  %ld  %ld\n", chrom_number, i, Faa, Fbb);
+      }else {
+	Fa += (offA == 1)? 1 : 0;
+	Fb += (offB == 1)? 1 : 0;
+      }
+    }else if(p_gt == '2'){
+      Nhom++;
+      if(o_gt == '1'  &&  (other_parent_gt == '1'  ||  other_parent_gt == '0') ){ // i.e. 21_1 or 20_1
+	Faa += (offA == 1)? 0 : 1;
+	Fbb += (offB == 1)? 0 : 1;
+	//fprintf(stderr, "chrom,i,Faa,Fbb: %ld  %ld  %ld  %ld\n", chrom_number, i, Faa, Fbb);
+      }else{
+	Fa += (offA == 1)? 0 : 1;
+	Fb += (offB == 1)? 0 : 1;
+      }
+    } // else p_gt == 'X' skip this marker
+      // ######################################   
   } // end loop over markers
-  return (Xcounts_2){Xa, Xb, Nhet};
-} // end of count_crossovers_one_chromosome
+  fprintf(stderr, "chrom: %ld  %ld %ld %ld  %ld %ld %ld  %ld   %ld %ld   %7.4f %7.5f %7.5f \n",
+	  the_gtsset->chromosomes->a[first], Xa, Xb, Nhet, Fa, Fb, Nhom, Nhet + Nhom, Faa, Fbb,
+	  (Xa+Xb > 0)? Xa/(double)(Xa+Xb) : -0.1, Fa/(double)(Nhom), (Faa+Fbb > 0)? Faa/(double)(Faa+Fbb) : -0.1);
+  
+  return (XFcounts){Xa, Xb, Nhet, Fa, Fb, Nhom};
+} // end of count_XF_one_chromosome
 
-Xcounts_3 count_crossovers_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
+Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
   long NhetF = 0, XFmin_2 = 0, XFmax_2 = 0, XFmin_3 = 0, XFmax_3 = 0;
   long NhetM = 0, XMmin_2 = 0, XMmax_2 = 0, XMmin_3 = 0, XMmax_3 = 0;
   long n_chroms = the_gtsset->chromosome_start_indices->size - 1;
 
+  // XFcounts xf_counts = {0, 0, 0, 0, 0, 0};
+  // three_longs FT2_counts = {0, 0, 0};
   for(long i=0; i < n_chroms; i++){
     long start_index = the_gtsset->chromosome_start_indices->a[i];
-    long next_start_index = the_gtsset->chromosome_start_indices->a[i+1];
+    long next_chromosome_start_index = the_gtsset->chromosome_start_indices->a[i+1];
+    long next_arm_start_index = (start_index + next_chromosome_start_index)/2;
+    fprintf(stderr, "chrom start: %ld, next arm start: %ld, next chrom start: %ld\n", start_index, next_arm_start_index, next_chromosome_start_index);
 
-    Xcounts_2 FX = count_crossovers_one_chromosome(the_gtsset, Fparent, offspring, start_index, next_start_index);
-    NhetF += FX.Nhet;
+    // the following is experimental  correction of offspring phases
+    // get 'corrected' phases for offspring
+    //  FT2_phase_correction(the_gtsset, Fparent, Mparent, offspring, start_index, next_chromosome_start_index);
+    /* three_longs FT2_counts_one_chrom =      */
+    //   count_FT2_one_chromosome(the_gtsset, Fparent, Mparent, offspring, start_index, next_chromosome_start_index); /* */
+   /* fprintf(stderr, "AZAZA: %ld %ld  %ld\n", FT2_counts_one_chrom.l1, FT2_counts_one_chrom.l2, FT2_counts_one_chrom.l3); */
+   /*  FT2_counts.l1 += FT2_counts_one_chrom.l1; */
+   /*  FT2_counts.l2 += FT2_counts_one_chrom.l2; */
+   /*  FT2_counts.l3 += FT2_counts_one_chrom.l3; */
+    
+    
+      XFcounts FX = count_XF_one_chromosome(the_gtsset, Fparent, Mparent,
+					    offspring,
+					    start_index,
+					    // next_arm_start_index
+					    next_chromosome_start_index
+					    );
+      NhetF += FX.Nhet;
    
-    if(FX.Xa < FX.Xb){
-      XFmin_2 += FX.Xa; XFmax_2 += FX.Xb;
-    }else{
-      XFmin_2 += FX.Xb; XFmax_2 += FX.Xa;
-    }
+      if(FX.Xa < FX.Xb){
+	XFmin_2 += FX.Xa; XFmax_2 += FX.Xb;
+      }else{
+	XFmin_2 += FX.Xb; XFmax_2 += FX.Xa;
+      }
 
-    Xcounts_2 MX = count_crossovers_one_chromosome(the_gtsset, Mparent, offspring, start_index, next_start_index);
-    NhetM += MX.Nhet;
-    if(MX.Xa < MX.Xb){
-      XMmin_2 += MX.Xa; XMmax_2 += MX.Xb;
-    }else{
-      XMmin_2 += MX.Xb; XMmax_2 += MX.Xa;
-    }
+      XFcounts MX = count_XF_one_chromosome(the_gtsset, Mparent, Fparent,
+					    offspring,
+					    start_index,
+					    // next_arm_start_index
+					    next_chromosome_start_index
+					    );
+      NhetM += MX.Nhet;
+      if(MX.Xa < MX.Xb){
+	XMmin_2 += MX.Xa; XMmax_2 += MX.Xb;
+      }else{
+	XMmin_2 += MX.Xb; XMmax_2 += MX.Xa;
+      }
 
-    long X_Fa_Mb = FX.Xa + MX.Xb; // crossovers if F is parent of a, M is parent of b
-    long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
-    if(X_Fa_Mb < X_Fb_Ma){
-      XFmin_3 += FX.Xa;
-      XFmax_3 += FX.Xb;
-      XMmin_3 += MX.Xb;
-      XMmax_3 += MX.Xa;
-    }else{
-      XFmin_3 += FX.Xb;
-      XFmax_3 += FX.Xa;
-      XMmin_3 += MX.Xa;
-      XMmax_3 += MX.Xb;
-    }
+      long X_Fa_Mb = FX.Xa + MX.Xb; // crossovers if F is parent of a, M is parent of b
+      long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
+      if(X_Fa_Mb < X_Fb_Ma){
+	XFmin_3 += FX.Xa;
+	XFmax_3 += FX.Xb;
+	XMmin_3 += MX.Xb;
+	XMmax_3 += MX.Xa;
+      }else{
+	XFmin_3 += FX.Xb;
+	XFmax_3 += FX.Xa;
+	XMmin_3 += MX.Xa;
+	XMmax_3 += MX.Xb;
+      }
+    
   } // end loop over chromosomes
+   /* fprintf(stderr, "offp1p2 %s %s %s  %ld %ld %ld  %ld %ld %ld  %ld %ld %ld\n", */
+   /* 	   offspring->id->a, Fparent->id->a, Mparent->id->a, */
+   /* 	   xf_counts.Xa, xf_counts.Xb, xf_counts.Nhet, */
+   /* 	   xf_counts.Fa, xf_counts.Fb, xf_counts.Nhom, */
+   /* 	   FT2_counts.l1, FT2_counts.l2, FT2_counts.l3); */
   Xcounts_3 X3 = {(Xcounts_2mmn){XFmin_2, XFmax_2, NhetF}, (Xcounts_2mmn){XMmin_2, XMmax_2, NhetM}, XFmin_3, XFmax_3, XMmin_3, XMmax_3};
   return X3;
 }
 
+XFcounts choose_P1aP2b_or_P1bP2a(XFcounts* P1ab, XFcounts* P2ab){
+  double alpha = 0; // 1->use crossover rate, 0->use forbidden rate
+  /* double P1aXr = (P1ab->Xa > 0)? P1ab->Xa/(double)(P1ab->Nhet-1) : 0; */
+  /* double P1bXr = (P1ab->Xb > 0)? P1ab->Xb/(double)(P1ab->Nhet-1) : 0; */
+  /* double P1aFr = (P1ab->Fa > 0)? P1ab->Fa/(double)(P1ab->Nhom) : 0; */
+  /* double P1bFr = (P1ab->Fb > 0)? P1ab->Fb/(double)(P1ab->Nhom) : 0; */
+
+  /* double P2aXr = (P2ab->Xa > 0)? P2ab->Xa/(double)(P2ab->Nhet-1) : 0; */
+  /* double P2bXr = (P2ab->Xb > 0)? P2ab->Xb/(double)(P2ab->Nhet-1) : 0; */
+  /* double P2aFr = (P2ab->Fa > 0)? P2ab->Fa/(double)(P2ab->Nhom) : 0; */
+  /* double P2bFr = (P2ab->Fb > 0)? P2ab->Fb/(double)(P2ab->Nhom) : 0; */
+
+  double P1aP2b_Xr = ((P1ab->Xa + P2ab->Xb) > 0)? (P1ab->Xa + P2ab->Xb)/(double)(P1ab->Nhet-1 + P2ab->Nhet-1) : 0;
+  double P1bP2a_Xr = ((P1ab->Xb + P2ab->Xa) > 0)? (P1ab->Xb + P2ab->Xa)/(double)(P1ab->Nhet-1 + P2ab->Nhet-1) : 0;
+
+  double P1aP2b_Fr = ((P1ab->Fa + P2ab->Fb) > 0)? (P1ab->Fa + P2ab->Fb)/(double)(P1ab->Nhom + P2ab->Nhom) : 0;
+  double P1bP2a_Fr = ((P1ab->Fb + P2ab->Fa) > 0)? (P1ab->Fb + P2ab->Fa)/(double)(P1ab->Nhom + P2ab->Nhom) : 0;
+
+  double P1aP2b_fom = alpha*P1aP2b_Xr + (1.0-alpha)*P1aP2b_Fr;
+  double P1bP2a_fom = alpha*P1bP2a_Xr + (1.0-alpha)*P1bP2a_Fr;
+
+  if(P1aP2b_fom < P1bP2a_fom){ //  P1->a,P2->b  is better
+    return (XFcounts){
+      P1ab->Xa + P2ab->Xb, P1ab->Xb + P2ab->Xa, P1ab->Nhet + P2ab->Nhet,
+      P1ab->Fa + P2ab->Fb, P1ab->Fb + P2ab->Fa, P1ab->Nhom + P2ab->Nhom
+    };
+  }else{
+    return (XFcounts){ //  P1->b,P2->a  is better
+      P1ab->Xb + P2ab->Xa, P1ab->Xa + P2ab->Xb, P1ab->Nhet + P2ab->Nhet,
+      P1ab->Fb + P2ab->Fa, P1ab->Fa + P2ab->Fb, P1ab->Nhom + P2ab->Nhom
+    };
+  } 
+}
+
+void add_to_XFcounts(XFcounts* T, XFcounts I){
+  T->Xa += I.Xa;
+  T->Xb += I.Xb;
+  T->Nhet += I.Nhet;
+  T->Fa += I.Fa;
+  T->Fb += I.Fb;
+  T->Nhom += I.Nhom;
+}
+
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
   long phase_a, phase_b;
+  // get 
   long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
   long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
 
@@ -553,6 +687,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
     n_00_2 += __builtin_popcountll(is2_00);
     n_22_0 += __builtin_popcountll(is0_22);
     n_00_2_22_0 = n_00_2 + n_22_0;
+    //fprintf(stderr, "AAAAAAAAA: %ld  %ld \n", n_00_2, n_22_0);
 
     n_00_22 += __builtin_popcountll(is00_22);
     
@@ -585,8 +720,11 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
 
   long F = 1;
   pedigree_stats->d = (ND) { n_0xorx0_2_nomd + n_2xorx2_0_nomd
-			     + F*n_00_1_22_1
-			     , n_total_no_md    - n_total_x_11 };
+			     + n_00_2_22_0 // to double count 00_2 and 22_0
+			     + F*n_00_1_22_1,
+			     n_total_no_md 
+			     //  - n_total_x_11   // count these in denominator ??
+  };
   pedigree_stats->z = (ND) {n_00_1_22_1, n_00_22};
   pedigree_stats->par1_hgmr = (ND) {hgmr1_numerator, hgmr1_denominator};
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numerator, hgmr2_denominator};
@@ -1282,6 +1420,407 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
 } /* */
 
 
+/* 
+three_longs count_FT2_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
+				  Accession* offspring, long first, long next){
+  // count FT2 triples, i.e. those  have dosage 1 in the offspring
+  // and may be forbidden, depending on the phase of the offspring (e.g. 01_1, 21_1, 02_1)
+  // these are very sensitive to mistakes in the phase in the offspring
+  // if there is a switch of phase somewhere in the middle of the offspring
+  // (e.g. phase should be + everywhere but is + for first half, and - for second half)
+  // then instead of comparing parent 1 with the two chromosomes (call them a and b) of each homologous pair
+  // (and similarly for parent 2), we are, in effect, comparing parent 1 with something that is
+  // partially a and partially b. I suspect this often happens because the two chromosome arms
+  // (separated by centromeric region with low density of markers) do not have the correct
+  // relative phase. It would probably be good to analyze the chromosome arms separately
+  // As an alternative to that this function counts FT2 for 1->a,2->b  and 1->b,2->a as a function of
+  // the index of the triples being considered, and assumes a rel phase switch position in the offspring
+  // and minimizes FT2 over possible phase switch positions, and over 1->a,2->b,  1->b,2->a.
 
 
+  if(parent1 == NULL  ||  parent2 == NULL  ||  offspring == NULL) {
+    return (three_longs){-1, -1, -1};
+  }
 
+  Vlong* p1ap2b_FT2_counts = construct_vlong(1000);
+  Vlong* FT2_indices = construct_vlong(1000);
+  push_to_vlong(p1ap2b_FT2_counts, 0);
+  push_to_vlong(FT2_indices, -1);
+  Vlong* p1bp2a_FT2_counts = construct_vlong(1000);
+  Vlong* p1bp2a_FT2_indices = construct_vlong(1000);
+  push_to_vlong(p1bp2a_FT2_counts, 0);
+  // push_to_vlong(p1bp2a_FT2_indices, -1);
+  long FT2_index = 0;
+  long nophase_count = 0;
+   
+  long chrom_number = the_gtsset->chromosomes->a[first];
+  // e.g. Fa count markers with o_gt = 0 (ref,ref) and a has alt allele, and o_gt = 2(alt,alt) and a has ref allele. 
+  for(long i=first; i < next; i++){
+   
+
+    char o_gt = offspring->genotypes->a[i]; 
+    if(o_gt != '1') continue;
+    char o_phase = offspring->phases->a[i];
+    
+    char p1_gt = parent1->genotypes->a[i];
+    if(p1_gt == MISSING_DATA_CHAR) continue;
+    //char p_phase = parent1->phases->a[i];
+  
+    char p2_gt = parent2->genotypes->a[i];
+    if(p2_gt == MISSING_DATA_CHAR) continue; 
+
+    char offA = 'x', offB = 'x';
+    if(o_phase == 'p'){ // p -> a has ref allele, b has alt allele.
+      offA = 'r'; offB = 'a';
+    }else if(o_phase == 'm'){
+      offA = 'a'; offB = 'r';
+    }else{
+      nophase_count++;
+      continue;
+    }
+    long ab = 0, ba = 0;
+    if(p1_gt == '0'){
+      if(p2_gt == '0'){ // 00_1
+	continue;
+      }else if(p2_gt == '1'){ // 01_1
+	if(offA == 'r'){ // and offB == 'a'
+	  ab = 0; // p1->a: 0, p2->b: 0
+	  ba = 1; // p1->b: 1, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  ab = 1; // p1->a: 1, p2->b: 0
+	  ba = 0; // p1->b: 0, p2->a: 0
+	}
+      }else{ // p2_gt == '2'   02_1
+	if(offA == 'r'){ // and offB == 'a'
+	  ab = 0; // p1->a: 0, p2->b: 0
+	  ba = 2; // p1->b: 1, p2->a: 1
+	}else{ // offA == 'a', offB = 'r'
+	  ab = 2; // p1->a: 1, p2->b: 1
+	  ba = 0; // p1->b: 0, p2->a: 0
+	}
+      }
+    }else if(p1_gt == '1'){
+      if(p2_gt == '0'){ // 10_1
+	if(offA == 'r'){ // and offB == 'a'
+	  ab = 1; // p1->a: 0, p2->b: 1
+	  ba = 0; // p1->b: 0, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  ab = 0; // p1->a: 0, p2->b: 0
+	  ba = 1; // p1->b: 0, p2->a: 1
+	}
+      }else if(p2_gt == '2'){ // 12_1
+	if(offA == 'r'){ // and offB == 'a'
+	  ab = 0; // p1->a: 0, p2->b: 0
+	  ba = 1; // p1->b: 0, p2->a: 1
+	}else{ // offA == 'a', offB = 'r'
+	  ab = 1; // p1->a: 0, p2->b: 1
+	  ba = 0; // p1->b: 0, p2->a: 0
+	}
+      }else{ // 11_1
+	continue; 
+      }
+    }else if(p1_gt == '2'){
+      if(p2_gt == '1'){ // 21_1
+	if(offA == 'r'){ // and offB == 'a'
+	  ab = 1; // p1->a: 1, p2->b: 0
+	  ba = 0; // p1->b: 0, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  ab = 0; // p1->a: 0, p2->b: 0
+	  ba = 1; // p1->b: 1, p2->a: 0
+	}
+      }else if(p2_gt == '0'){ // 20_1
+	if(offA == 'r'){ // and offB == 'a'
+	  ab = 2; // p1->a: 1, p2->b: 1
+	  ba = 0; // p1->b: 0, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  ab = 0; // p1->a: 0, p2->b: 0
+	  ba = 2; // p1->b: 1, p2->a: 1
+	}
+      }else{ // 22_1
+	continue;
+      }
+    }
+           
+    push_to_vlong(p1ap2b_FT2_counts, p1ap2b_FT2_counts->a[FT2_index] + ab);
+    push_to_vlong(FT2_indices, i);
+    push_to_vlong(p1bp2a_FT2_counts, p1bp2a_FT2_counts->a[FT2_index] + ba);
+    // push_to_vlong(p1bp2a_FT2_indices, i);
+    FT2_index++;
+  } // end of loop over markers on chromosome
+
+
+   long ab_ba_min_FT2 = 10000000; // will be best (min) FT2 when switching from p1bp2a to p1ap2b
+  long ab_ba_min_idx = 0; // range: 0 to number of FT2 markers; best place to switch from p1bp2a to p1ap2b
+  long ba_ab_min_FT2 = 10000000; // will be best (min) FT2 when switching from p1bp2a to p1ap2b
+  long ba_ab_min_idx = 0; // range: 0 to number of FT2 markers; best place to switch from p1bp2a to p1ap2b
+  long N_FT2_markers = p1ap2b_FT2_counts->size-1; // number of FT2 ('type 2' forbidden triples) markers on chromosome
+  long N_markers = next - first; // number of markers on chromosome
+  long ab_total = p1ap2b_FT2_counts->a[N_FT2_markers]; // FT2 count when p1ap2b for whole chromosome
+  long ba_total = p1bp2a_FT2_counts->a[N_FT2_markers]; // FT2 count when p1bp2a for whole chromosome
+  fprintf(stderr, "sizes: %ld  %ld  %ld\n", FT2_index, N_FT2_markers, N_markers);
+  fprintf(stderr, "ab, ba FT2 totals: %ld %ld \n", ab_total, ba_total);
+
+  long Gab_ba, Gba_ab;
+  for(long i=0; i<p1ap2b_FT2_counts->size; i++){
+    // fprintf(stderr, "chrom: %ld  k, Gab(k), Gba(k): %ld %ld %ld \n",
+    //   chrom_number, i, p1ap2b_FT2_counts->a[i], p1bp2a_FT2_counts->a[i]); 
+    Gab_ba = p1ap2b_FT2_counts->a[i] + (ba_total - p1bp2a_FT2_counts->a[i]); // first part 1a2b, 2nd part 1b2a
+    if(Gab_ba < ab_ba_min_FT2){
+      ab_ba_min_FT2 = Gab_ba; ab_ba_min_idx = i;
+    }
+    Gba_ab = p1bp2a_FT2_counts->a[i] + (ab_total - p1ap2b_FT2_counts->a[i]); // first part 1b2a, 2nd part 1a2b
+    if(Gba_ab < ba_ab_min_FT2){
+      ba_ab_min_FT2 = Gba_ab; ba_ab_min_idx = i;
+    }
+    // fprintf(stderr, "ABVF: chrom: %ld   %ld   %ld %ld \n", chrom_number, Gab_ba, Gba_ab, ab_total+ba_total - Gab_ba); 
+  }
+  fprintf(stderr, "ZBAVL chrom: %ld   %ld %ld  FT2s un:  %ld %ld  %ld corrected: %ld %ld   FT2s  %ld %ld  %ld  1st,nxt: %ld %ld    %ld  %ld \n", //  %s %s %s\n",
+	  chrom_number,
+	  N_markers, FT2_index,
+
+	  ab_total, ba_total,
+	  (ab_total < ba_total)? ab_total : ba_total,
+	  
+	  ab_ba_min_idx, ba_ab_min_idx,
+	  ab_ba_min_FT2, ba_ab_min_FT2,
+	  (ab_ba_min_FT2 < ba_ab_min_FT2)? ab_ba_min_FT2 : ba_ab_min_FT2,
+	  
+	  first, next, 
+	  FT2_indices->a[ab_ba_min_idx], FT2_indices->a[ba_ab_min_idx]
+	
+	  // parent1->id->a, parent2->id->a, offspring->id->a
+	  );
+
+  long FT2_count_uncorrected = (ab_total < ba_total)? ab_total : ba_total;
+  long FT2_count_corrected = (ab_ba_min_FT2 < ba_ab_min_FT2)? ab_ba_min_FT2 : ba_ab_min_FT2;
+  long jlo, max_min_idx;
+  if(ab_ba_min_FT2 < ba_ab_min_FT2){
+    fprintf(stderr, "ab_ba < ba_ab: %ld %ld \n", ab_ba_min_FT2, ba_ab_min_FT2);
+    jlo = FT2_indices->a[ab_ba_min_idx];
+    fprintf(stderr, "ab_ba < ba_ab: %ld %ld  %ld\n", ab_ba_min_FT2, ba_ab_min_FT2, jlo);
+  }else if(ba_ab_min_FT2 < ab_ba_min_FT2){
+    fprintf(stderr, "ab_ba > ba_ab: %ld %ld \n", ab_ba_min_FT2, ba_ab_min_FT2);
+    jlo = FT2_indices->a[ba_ab_min_idx];
+    fprintf(stderr, "ab_ba > ba_ab: %ld %ld  %ld\n", ab_ba_min_FT2, ba_ab_min_FT2, jlo);
+  }else{ // equal
+    long jlo_abba = FT2_indices->a[ab_ba_min_idx];
+    long jlo_baab = FT2_indices->a[ba_ab_min_idx];
+    if(ab_ba_min_idx >= ba_ab_min_idx){
+      jlo = jlo_abba; max_min_idx = ab_ba_min_idx;
+    }else{
+      jlo = jlo_baab; max_min_idx = ba_ab_min_idx;
+    }
+    fprintf(stderr, "jlo_abba, jlo_baab, jlo: %ld %ld %ld   %ld %ld\n",
+	    jlo_abba, jlo_baab, jlo, 
+	    max_min_idx, FT2_indices->size);
+  }
+  fprintf(stderr, "max_min_idx, FT2_indices->size: %ld %ld \n", max_min_idx, FT2_indices->size);
+  if(max_min_idx == FT2_indices->size - 1){ // no correction needed
+    for(long ii = first; ii < next; ii++){
+      offspring->corrected_phases->a[ii] = offspring->phases->a[ii];
+      // fprintf(stderr, "Aph, corrph: %c  %c \n", offspring->phases->a[ii], offspring->corrected_phases->a[ii]);
+    }
+  }else{ // flip the phases for later part of chromosome
+    long jhi = FT2_indices->a[max_min_idx + 1];
+
+    long switch_index = (long)(0.5*(jlo + jhi)); // half way between
+    fprintf(stderr, "switch_index: %ld\n", switch_index);
+    for(long ii = first; ii < next; ii++){
+      char ph = offspring->phases->a[ii];
+      if(ii >= switch_index){
+	offspring->corrected_phases->a[ii] = (ph == 'p')? 'm' : ((ph == 'm')? 'p' : ph); // p<->m, x unchanged
+      }else{
+	offspring->corrected_phases->a[ii] = offspring->phases->a[ii];
+      }
+      // fprintf(stderr, "Bph, corrph: %c  %c \n", ph, offspring->corrected_phases->a[ii]);
+    }
+  }
+  fprintf(stderr, "end of count_FT2_one_chrom\n");
+  return (three_longs){FT2_count_uncorrected, FT2_count_corrected, N_FT2_markers};
+  } // end of count_FT2_one_chromosome  /* */
+
+void FT2_phase_correction(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
+				  Accession* offspring, long first, long next){
+
+  // do error correction on the phases of the offspring accession
+  // by considering 'type 2' forbidden triples
+  // these are those which are forbidden or not depending on the phase of the offspring
+  // i.e.: 01_1, 10_1, 21_1, 12_1, 02_1, 20_1
+  // the idea is to see if reversing the phase of one end of the chromosome
+  // (i.e. beyond some point to be determined)
+  // will reduce the number of these type 2 forbidden triples (FT2's)
+  // to a small value.
+  // k indexes the FT2 markers
+  // i indexes all the markers
+  
+  if(parent1 == NULL  ||  parent2 == NULL  ||  offspring == NULL) {
+    return; //  (three_longs){-1, -1, -1};
+  }
+ 
+  Vlong* ft2_p1a_k = construct_vlong(1000); // count of p1->a forbidden ft2 markers 1 through k
+  Vlong* ft2_p1b_k = construct_vlong(1000);
+  Vlong* ft2_p2a_k = construct_vlong(1000);
+  Vlong* ft2_p2b_k = construct_vlong(1000);
+  push_to_vlong(ft2_p1a_k, 0);
+  push_to_vlong(ft2_p1b_k, 0);
+  push_to_vlong(ft2_p2a_k, 0);
+  push_to_vlong(ft2_p2b_k, 0);
+  Vlong* marker_index_of_ft2_k = construct_vlong(1000);  
+  push_to_vlong(marker_index_of_ft2_k, -1);
+
+  long nophase_count = 0;
+
+  long chrom_number = the_gtsset->chromosomes->a[first];
+  // e.g. Fa count markers with o_gt = 0 (ref,ref) and a has alt allele, and o_gt = 2(alt,alt) and a has ref allele.
+  long k = 0; // index of ft2 markers on chromosome
+  for(long i=first; i < next; i++){
+    char o_gt = offspring->genotypes->a[i]; 
+    if(o_gt != '1') continue;
+    char o_phase = offspring->phases->a[i];
+    
+    char p1_gt = parent1->genotypes->a[i];
+    if(p1_gt == MISSING_DATA_CHAR) continue;
+    //char p_phase = parent1->phases->a[i];
+  
+    char p2_gt = parent2->genotypes->a[i];
+    if(p2_gt == MISSING_DATA_CHAR) continue; 
+
+    char offA = 'x', offB = 'x';
+    if(o_phase == 'p'){ // a has ref allele, b has alt allele.
+      offA = 'r'; offB = 'a';
+    }else if(o_phase == 'm'){
+      offA = 'a'; offB = 'r';
+    }else{ // no phase for offspring 
+      nophase_count++;
+      continue;
+    }
+
+    long p1a = 0, p1b = 0, p2a = 0, p2b = 0;
+    if(p1_gt == '0'){
+      if(p2_gt == '0'){ // 00_1
+	continue;
+      }else if(p2_gt == '1'){ // 01_1
+	if(offA == 'r'){ // and offB == 'a'
+	  p1a = 0; p2b = 0;  // p1->a: 0, p2->b: 0
+	  p1b = 1; p2a = 0; // p1->b: 1, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  p1a = 1; p2b = 0; // p1->a: 1, p2->b: 0
+	  p1b = 0; p2a = 0;  // p1->b: 0, p2->a: 0
+	}
+      }else{ // p2_gt == '2'   02_1
+	if(offA == 'r'){ // and offB == 'a'
+	  p1a = 0; p2b = 0; // p1->a: 0, p2->b: 0
+	  p1b = 1; p2a = 1; // p1->b: 1, p2->a: 1
+	}else{ // offA == 'a', offB = 'r'
+	  p1a = 1; p2b = 1; // p1->a: 1, p2->b: 1
+	  p1b = 0; p2a = 0; // p1->b: 0, p2->a: 0
+	}
+      }
+    }else if(p1_gt == '1'){
+      if(p2_gt == '0'){ // 10_1
+	if(offA == 'r'){ // and offB == 'a'
+	  p1a = 0; p2b = 1; // p1->a: 0, p2->b: 1
+	  p1b = 0; p2a = 0; // p1->b: 0, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  p1a = 0; p2b = 0; // p1->a: 0, p2->b: 0
+	  p1b = 0; p2a = 1; // p1->b: 0, p2->a: 1
+	}
+      }else if(p2_gt == '2'){ // 12_1
+	if(offA == 'r'){ // and offB == 'a'
+	  p1a = 0; p2b = 0; // ab = 0; // p1->a: 0, p2->b: 0
+	  p1b = 0; p2a = 1; // ba = 1; // p1->b: 0, p2->a: 1
+	}else{ // offA == 'a', offB = 'r'
+	  p1a = 0; p2b = 1; // ab = 1; // p1->a: 0, p2->b: 1
+	  p1b = 0; p2a = 0; // ba = 0; // p1->b: 0, p2->a: 0
+	}
+      }else{ // 11_1
+	continue; 
+      }
+    }else if(p1_gt == '2'){
+      if(p2_gt == '1'){ // 21_1
+	if(offA == 'r'){ // and offB == 'a'
+	  p1a = 1; p2b = 0; // ab = 1; // p1->a: 1, p2->b: 0
+	  p1b = 0; p2a = 0; // ba = 0; // p1->b: 0, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  p1a = 0; p2b = 0; // ab = 0; // p1->a: 0, p2->b: 0
+	  p1b = 1; p2a = 0; // ba = 1; // p1->b: 1, p2->a: 0
+	}
+      }else if(p2_gt == '0'){ // 20_1
+	if(offA == 'r'){ // and offB == 'a'
+	  p1a = 1; p2b = 1; // ab = 2; // p1->a: 1, p2->b: 1
+	  p1b = 0; p2a = 0; // ba = 0; // p1->b: 0, p2->a: 0
+	}else{ // offA == 'a', offB = 'r'
+	  p1a = 0; p2b = 0; // ab = 0; // p1->a: 0, p2->b: 0
+	  p1b = 1; p2a = 1; // ba = 2; // p1->b: 1, p2->a: 1
+	}
+      }else{ // 22_1
+	continue;
+      }
+    }
+
+    push_to_vlong(ft2_p1a_k, ft2_p1a_k->a[k] + p1a);
+    push_to_vlong(ft2_p1b_k, ft2_p1b_k->a[k] + p1b);
+    push_to_vlong(ft2_p2a_k, ft2_p2a_k->a[k] + p2a);
+    push_to_vlong(ft2_p2b_k, ft2_p2b_k->a[k] + p2b);
+    push_to_vlong(marker_index_of_ft2_k, i);
+    k++;
+  } // end of loop over markers on chromosome.
+
+    long p1ab_min_ft2 = 10000000; // will be best (min) FT2 when switching from p1a to p1b
+    long p1ab_min_k = 0; // range: 0 to number of ft2 markers; best place to switch from p1a to p1b
+    long p1ba_min_ft2 = 10000000; // will be best (min) FT2 when switching from p1a to p1b
+    long p1ba_min_k = 0; // range: 0 to number of ft2 markers; best place to switch from p1a to p1b
+    long p2ab_min_ft2 = 10000000; // will be best (min) FT2 when switching from p1a to p1b
+    long p2ab_min_k = 0; // range: 0 to number of ft2 markers; best place to switch from p1a to p1b
+    long p2ba_min_ft2 = 10000000; // will be best (min) FT2 when switching from p1a to p1b
+    long p2ba_min_k = 0; // range: 0 to number of ft2 markers; best place to switch from p1a to p1b
+
+  long K = ft2_p1a_k->size-1; // number of FT2 ('type 2' forbidden triples) markers on chromosome
+  long N_markers = next - first; // number of markers on chromosome
+  long ft2_p1a_K = ft2_p1a_k->a[K]; // FT2 count when p1a for whole chromosome
+  long ft2_p1b_K = ft2_p1b_k->a[K]; // FT2 count when p1b for whole chromosome
+  long ft2_p2a_K = ft2_p2a_k->a[K]; // FT2 count when p2a for whole chromosome
+  long ft2_p2b_K = ft2_p2b_k->a[K]; // FT2 count when p2b for whole chromosome
+  
+  fprintf(stderr, "sizes: %ld  %ld  %ld\n", k, K, N_markers);
+  fprintf(stderr, "total ft2s. p1a, p1b: %ld %ld   p2a, p2b: %ld %ld   %ld %ld\n",
+	  ft2_p1a_K, ft2_p1b_K, ft2_p2a_K, ft2_p2b_K,
+	  ft2_p1a_K + ft2_p2b_K,  ft2_p1b_K + ft2_p2a_K);
+
+  long p1ab_k, p1ba_k, p2ab_k, p2ba_k;
+  
+  for(long k=0; k<ft2_p1a_k->size; k++){
+   
+    p1ab_k = ft2_p1a_k->a[k] + (ft2_p1b_K - ft2_p1b_k->a[k]);
+    p1ba_k = ft2_p1b_k->a[k] + (ft2_p1a_K - ft2_p1a_k->a[k]);
+    p2ab_k = ft2_p2a_k->a[k] + (ft2_p2b_K - ft2_p2b_k->a[k]);
+    p2ba_k = ft2_p2b_k->a[k] + (ft2_p2a_K - ft2_p2a_k->a[k]);
+     fprintf(stderr, "xchrom: %ld  k:  %ld     %ld %ld     %ld %ld   %ld %ld   %ld %ld  %ld %ld\n",
+	    chrom_number, k, ft2_p1a_k->a[k], ft2_p1b_k->a[k], ft2_p2a_k->a[k], ft2_p2b_k->a[k],
+	     ft2_p1a_k->a[k] + ft2_p2b_k->a[k], ft2_p1b_k->a[k] + ft2_p2a_k->a[k],
+	     p1ab_k, p1ba_k, p2ab_k, p2ba_k
+	     );
+    if(p1ab_k < p1ab_min_ft2){
+      p1ab_min_ft2 = p1ab_k;
+      p1ab_min_k = k;
+    }
+    if(p1ba_k < p1ba_min_ft2){
+      p1ba_min_ft2 = p1ba_k;
+      p1ba_min_k = k;
+    }
+    if(p2ab_k < p2ab_min_ft2){
+      p2ab_min_ft2 = p2ab_k;
+      p2ab_min_k = k;
+    }
+    if(p2ba_k < p2ba_min_ft2){
+      p2ba_min_ft2 = p2ba_k;
+      p2ba_min_k = k;
+    }
+  }
+    fprintf(stderr, "ABVF: %s   chrom: %ld    %ld %ld   %ld %ld    %ld %ld   %ld %ld \n",
+	    offspring->id->a, chrom_number,
+	    ft2_p1a_K, ft2_p1b_K, ft2_p2a_K, ft2_p2b_K, 
+	    p1ab_min_ft2, p1ba_min_ft2, p2ab_min_ft2, p2ba_min_ft2); 
+  return;
+} // end of FT2_phase_correction
+// **********************************************************************************************************

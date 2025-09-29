@@ -124,7 +124,8 @@ long* find_chunk_match_counts(const Accession* the_gts, const Chunk_pattern_idxs
 Vmci** find_matches(const GenotypesSet* the_genotypes_set,
 		    const Chunk_pattern_idxs* the_cpi, long Nthreads, double max_est_dist, long* distance_calculations_performed);
 
-long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format);
+long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long out_format,
+		   GenotypesSet* the_gtsset);
 void print_command_line(FILE* ostream, int argc, char** argv);
 void print_matrix_line_txt(FILE* fh, long size, unsigned char* values, long n_distinct_values);
 // *****  functions to pass to pthread_create  ********
@@ -451,6 +452,8 @@ main(int argc, char *argv[])
   double t_after_input = clock_time(clock1);
   fprintf(stdout, "# Time to load & filter dosage data: %6.3lf sec.\n", t_after_input - t_start);
   // *****  done reading, filtering, and storing input  **********
+
+  set_chromosome_start_indices(the_genotypes_set);
   
   check_genotypesset(the_genotypes_set);
 
@@ -548,7 +551,8 @@ main(int argc, char *argv[])
   t_distances = t_after_find_matches - t_after_cpi;
   fprintf(stdout, "# Time to find %ld candidate matches and distances: %6.3f\n",
 	  distance_calculations_performed, t_after_find_matches - t_after_cpi);
-  long output_pairs_count = print_results(the_accessions, query_vmcis, out_stream, output_format);
+  long output_pairs_count = print_results(the_accessions, query_vmcis, out_stream, output_format,
+					  the_genotypes_set);
   fprintf(stdout, "# Number of accession pairs output: %ld\n", output_pairs_count);
   fclose(out_stream);
   if(get_all_est_agmrs){
@@ -1048,7 +1052,8 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
   td->agmr_time = true_distance_time;
 } // end  check_est_distances_1thread
 
-long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format){
+long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream, long output_format,
+		   GenotypesSet* the_gtsset){
   long distance_count = 0;
 
   fprintf(ostream, "#\tid1\tmd1\tid2\tmd2\tagmr\thgmr");
@@ -1070,6 +1075,16 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       fprintf(ostream, "%s\t%ld\t%s\t%ld\t%8.6f\t%8.6f", // %8.6f",
 	      q_acc->id->a, q_acc->missing_data_count, m_acc->id->a, m_acc->missing_data_count,
 	      the_mci->agmr, the_mci->hgmr); //, the_mci->psr);
+      if(1){
+      /* 		fprintf(stderr, "%s %s \n", q_acc->id->a, m_acc->id->a); */
+      /* 		for(long iii=0; iii < the_gtsset->chromosome_start_indices->size; iii++){ */
+      /* 		  fprintf(stderr, "%ld ", the_gtsset->chromosome_start_indices->a[iii]); */
+      /* 		}fprintf(stderr, "\n"); */
+	ND phsws1 = phase_switches(q_acc, m_acc, the_gtsset->chromosomes);
+	fprintf(ostream, "\t%ld\t%ld", phsws1.n, phsws1.d);
+	// ND phsws2 = relative_phase_switches(q_acc, m_acc, the_gtsset->chromosomes);
+	// fprintf(ostream, "\t%ld\t%ld", phsws2.n, phsws2.d);
+      }
       //  fprintf(ostream, " %7.5f %7.5f ", hetrats.x1, hetrats.x2);
       /*  three_longs  hetinfo = heterozyg_ratios(q_acc, m_acc);
        fprintf(ostream, " %ld %ld %ld ", hetinfo.l1, hetinfo.l2, hetinfo.l3); /* */

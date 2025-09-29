@@ -612,7 +612,7 @@ ND phase_switches_one_chrom(Vchar* p1s, Vchar* p2s, Vlong* chroms, long* start){
   } // end loop over markers on chrom
   *start = i;
   
-  fprintf(stderr, "1 chrom: %ld   %ld %ld  %ld   %ld %ld\n", the_chrom, n_switches, n_het, i, n_agree, n_disagree);
+  // fprintf(stderr, "1 chrom: %ld   %ld %ld  %ld   %ld %ld\n", the_chrom, n_switches, n_het, i, n_agree, n_disagree);
   return (ND){n_switches, n_het};
 }
 
