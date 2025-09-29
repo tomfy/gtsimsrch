@@ -21,6 +21,15 @@ typedef struct{
   long XMmax_3;
 }Xcounts_3;
 
+typedef struct{
+  long Xa;
+  long Xb;
+  long Nhet;
+  long Fa;
+  long Fb;
+  long Nhom;
+}XFcounts;
+
 typedef struct{ // 0: progeny, 1, 2: parents
   ND agmr01;
   ND agmr02;
@@ -130,11 +139,19 @@ void free_vpedigree(const Vpedigree* the_vped);
 
 Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
 Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
-Xcounts_2 count_crossovers_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring, long first, long last);
-Xcounts_3 count_crossovers_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
+XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent, Accession* offspring, long first, long last);
+void FT2_phase_correction(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
+			  Accession* offspring, long first, long next);
+three_longs count_FT2_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
+				  Accession* offspring, long first, long next);
+XFcounts choose_P1aP2b_or_P1bP2a(XFcounts* P1ab, XFcounts* P2ab);
+Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase);
+void add_to_XFcounts(XFcounts* T, XFcounts I);
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose);
 void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree);
 void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
 void print_double_nan_as_hyphen(FILE* fh, double x);
+
+
