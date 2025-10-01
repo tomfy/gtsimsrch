@@ -721,6 +721,26 @@ void print_X3_info(FILE* o_stream, Xcounts_3 X3){
 void print_crossover_info(FILE* fh, Xcounts_3 X3){
   long Fnhet = X3.XFA.Nhet;
   long Mnhet = X3.XMA.Nhet;
+  if(Fnhet > 0){
+    fprintf(fh, "%ld\t%ld\t", X3.XFA.Xmin, Fnhet);
+  }else{
+    fprintf(fh, "-\t-\t");
+  }
+  if(Mnhet > 0){
+    fprintf(fh, "%ld\t%ld\t", X3.XMA.Xmin, Mnhet);
+  }else{
+      fprintf(fh, "-\t-\t");
+  }
+  if(Fnhet > 0  ||  Mnhet > 0){ // if either parent is known, one of these will be > 0.
+    print_double_nan_as_hyphen(fh, (double)(X3.XFA.Xmin + X3.XMA.Xmin)/(Fnhet+Mnhet));
+  }else{
+    fprintf(fh, "-\t");
+  } 
+}
+
+void print_crossover_info_old(FILE* fh, Xcounts_3 X3){
+  long Fnhet = X3.XFA.Nhet;
+  long Mnhet = X3.XMA.Nhet;
   double XFA_rate = X3.XFA.Xmin/Fnhet; // N crossovers implied if F is parent of A
   double XMA_rate = X3.XMA.Xmin/Mnhet; // N crossovers implied if M is parent of A
   // fprintf(fh, " %ld %ld %ld ", X3.XFA.Xmin, X3.XF);
@@ -737,7 +757,7 @@ void print_crossover_info(FILE* fh, Xcounts_3 X3){
   //print_double_nan_as_hyphen(fh, XMA_rate);
 
   // now output numbers of crossovers implied by F and M being the parents of A, and
-  // each pair of chromosomes in A much derive, one from F and the other from M.
+  // each pair of chromosomes in A must derive, one from F and the other from M.
   if(Fnhet == 0  ||  Mnhet == 0){ // if either parent is unknown, one of these will be nan.
     fprintf(fh, "\t- ");
   }else{
