@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include "pedigree.h"
 
+#define ANALYZE_CHROMOSOME_ARMS  false 
+
 // extern int do_checks; // option -c sets this to 1 to do some checks.
 
 // *****  Pedigree  *****
@@ -115,8 +117,8 @@ XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* pare
   // For each of the hypotheses 1):'a is derived from parent', and 2):'b is derived from parent'
   // we want to count both the number of crossovers required, and the number of
   // forbidden combinations
-  // e.g. if the parent has dosage 0 (i.e. homozyg, ref allele) and  a = ref, b = alt
-  // then this counts as a forbidden combination under hypothesis 1), but is allowed under 2)
+  // e.g. if the parent has dosage 0 (i.e. homozyg, ref allele) and  a = ref, b = alt (dosage +1)
+  // then this counts as a forbidden combination under hypothesis 2), but is allowed under 1)
 
   if(parent == NULL  ||  offspring == NULL) {
     return (XFcounts){-1, -1, -1, -1, -1, -1};
@@ -191,77 +193,63 @@ XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* pare
     } // else p_gt == 'X' skip this marker
       // ######################################   
   } // end loop over markers
-  fprintf(stderr, "chrom: %ld  %ld %ld %ld  %ld %ld %ld  %ld   %ld %ld   %7.4f %7.5f %7.5f \n",
+  /* fprintf(stderr, "chrom: %ld  %ld %ld %ld  %ld %ld %ld  %ld   %ld %ld   %7.4f %7.5f %7.5f \n",
 	  the_gtsset->chromosomes->a[first], Xa, Xb, Nhet, Fa, Fb, Nhom, Nhet + Nhom, Faa, Fbb,
-	  (Xa+Xb > 0)? Xa/(double)(Xa+Xb) : -0.1, Fa/(double)(Nhom), (Faa+Fbb > 0)? Faa/(double)(Faa+Fbb) : -0.1);
+	  (Xa+Xb > 0)? Xa/(double)(Xa+Xb) : -0.1, Fa/(double)(Nhom), (Faa+Fbb > 0)? Faa/(double)(Faa+Fbb) : -0.1); /* */
   
   return (XFcounts){Xa, Xb, Nhet, Fa, Fb, Nhom};
 } // end of count_XF_one_chromosome
 
 Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
+  bool arms = true;
   long NhetF = 0, XFmin_2 = 0, XFmax_2 = 0, XFmin_3 = 0, XFmax_3 = 0;
   long NhetM = 0, XMmin_2 = 0, XMmax_2 = 0, XMmin_3 = 0, XMmax_3 = 0;
   long n_chroms = the_gtsset->chromosome_start_indices->size - 1;
 
-  // XFcounts xf_counts = {0, 0, 0, 0, 0, 0};
-  // three_longs FT2_counts = {0, 0, 0};
+  four_longs XFM_3 = {0, 0, 0, 0};
   for(long i=0; i < n_chroms; i++){
     long start_index = the_gtsset->chromosome_start_indices->a[i];
     long next_chromosome_start_index = the_gtsset->chromosome_start_indices->a[i+1];
-    long next_arm_start_index = (start_index + next_chromosome_start_index)/2;
-    fprintf(stderr, "chrom start: %ld, next arm start: %ld, next chrom start: %ld\n", start_index, next_arm_start_index, next_chromosome_start_index);
 
     // the following is experimental  correction of offspring phases
     // get 'corrected' phases for offspring
     //  FT2_phase_correction(the_gtsset, Fparent, Mparent, offspring, start_index, next_chromosome_start_index);
     /* three_longs FT2_counts_one_chrom =      */
     //   count_FT2_one_chromosome(the_gtsset, Fparent, Mparent, offspring, start_index, next_chromosome_start_index); /* */
-   /* fprintf(stderr, "AZAZA: %ld %ld  %ld\n", FT2_counts_one_chrom.l1, FT2_counts_one_chrom.l2, FT2_counts_one_chrom.l3); */
-   /*  FT2_counts.l1 += FT2_counts_one_chrom.l1; */
-   /*  FT2_counts.l2 += FT2_counts_one_chrom.l2; */
-   /*  FT2_counts.l3 += FT2_counts_one_chrom.l3; */
-    
-    
-      XFcounts FX = count_XF_one_chromosome(the_gtsset, Fparent, Mparent,
-					    offspring,
-					    start_index,
-					    // next_arm_start_index
-					    next_chromosome_start_index
-					    );
-      NhetF += FX.Nhet;
-   
-      if(FX.Xa < FX.Xb){
-	XFmin_2 += FX.Xa; XFmax_2 += FX.Xb;
-      }else{
-	XFmin_2 += FX.Xb; XFmax_2 += FX.Xa;
-      }
 
-      XFcounts MX = count_XF_one_chromosome(the_gtsset, Mparent, Fparent,
-					    offspring,
-					    start_index,
-					    // next_arm_start_index
-					    next_chromosome_start_index
-					    );
-      NhetM += MX.Nhet;
-      if(MX.Xa < MX.Xb){
-	XMmin_2 += MX.Xa; XMmax_2 += MX.Xb;
-      }else{
-	XMmin_2 += MX.Xb; XMmax_2 += MX.Xa;
-      }
+    if(ANALYZE_CHROMOSOME_ARMS){ // analyze chromosome 'arms' separately
+        long next_arm_start_index = (start_index + next_chromosome_start_index)/2; // simplistic assumption: centeromere is in middle (in terms of numbers of markers)
+       XFM_3 = count_XF_F_and_M_one_chromosome( the_gtsset,
+					   Fparent, Mparent, offspring,
+					   start_index, next_arm_start_index,
+					   &XFmin_2, &XFmax_2, &NhetF,
+					   &XMmin_2, &XMmax_2, &NhetM,
+					   XFM_3);
+       
+        XFM_3 = count_XF_F_and_M_one_chromosome( the_gtsset,
+					   Fparent, Mparent, offspring,
+					   next_arm_start_index, next_chromosome_start_index,
+					   &XFmin_2, &XFmax_2, &NhetF,
+					   &XMmin_2, &XMmax_2, &NhetM,
+					   XFM_3);
+      XFmin_3 = XFM_3.l1;
+      XFmax_3 = XFM_3.l2;
+      XMmin_3 = XFM_3.l3;
+      XMmax_3 = XFM_3.l4;
 
-      long X_Fa_Mb = FX.Xa + MX.Xb; // crossovers if F is parent of a, M is parent of b
-      long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
-      if(X_Fa_Mb < X_Fb_Ma){
-	XFmin_3 += FX.Xa;
-	XFmax_3 += FX.Xb;
-	XMmin_3 += MX.Xb;
-	XMmax_3 += MX.Xa;
-      }else{
-	XFmin_3 += FX.Xb;
-	XFmax_3 += FX.Xa;
-	XMmin_3 += MX.Xa;
-	XMmax_3 += MX.Xb;
-      }
+    }else{ // 
+    
+      XFM_3 = count_XF_F_and_M_one_chromosome( the_gtsset,
+					   Fparent, Mparent, offspring,
+					   start_index, next_chromosome_start_index,
+					   &XFmin_2, &XFmax_2, &NhetF,
+					   &XMmin_2, &XMmax_2, &NhetM,
+					   XFM_3);
+      XFmin_3 = XFM_3.l1;
+      XFmax_3 = XFM_3.l2;
+      XMmin_3 = XFM_3.l3;
+      XMmax_3 = XFM_3.l4;
+    }
     
   } // end loop over chromosomes
    /* fprintf(stderr, "offp1p2 %s %s %s  %ld %ld %ld  %ld %ld %ld  %ld %ld %ld\n", */
@@ -272,6 +260,58 @@ Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparen
   Xcounts_3 X3 = {(Xcounts_2mmn){XFmin_2, XFmax_2, NhetF}, (Xcounts_2mmn){XMmin_2, XMmax_2, NhetM}, XFmin_3, XFmax_3, XMmin_3, XMmax_3};
   return X3;
 }
+
+// *********************************************************************************
+four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
+					   Accession* Fparent, Accession* Mparent, Accession* offspring,
+					   long start_index, long next_start_index,
+					   long* XFmin_2, long* XFmax_2, long* NhetF,
+					   long* XMmin_2, long* XMmax_2, long* NhetM,
+					   four_longs XFM_3){
+  long XFmin_3 = XFM_3.l1;
+  long XFmax_3 = XFM_3.l2;
+  long XMmin_3 = XFM_3.l3;
+  long XMmax_3 = XFM_3.l4;
+  
+  XFcounts FX = count_XF_one_chromosome(the_gtsset,
+					Fparent, Mparent, offspring,
+					start_index, next_start_index);
+  *NhetF += FX.Nhet;
+   
+  if(FX.Xa < FX.Xb){
+    *XFmin_2 += FX.Xa; *XFmax_2 += FX.Xb;
+  }else{
+    *XFmin_2 += FX.Xb; *XFmax_2 += FX.Xa;
+  }
+
+  XFcounts MX = count_XF_one_chromosome(the_gtsset,
+					Mparent, Fparent, offspring,
+					start_index, next_start_index);
+  *NhetM += MX.Nhet;
+  if(MX.Xa < MX.Xb){
+    *XMmin_2 += MX.Xa; *XMmax_2 += MX.Xb;
+  }else{
+    *XMmin_2 += MX.Xb; *XMmax_2 += MX.Xa;
+  }
+
+  long X_Fa_Mb = FX.Xa + MX.Xb; // crossovers if F is parent of a, M is parent of b
+  long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
+  if(X_Fa_Mb < X_Fb_Ma){
+    XFmin_3 += FX.Xa;
+    XFmax_3 += FX.Xb;
+    XMmin_3 += MX.Xb;
+    XMmax_3 += MX.Xa;
+  }else{
+    XFmin_3 += FX.Xb;
+    XFmax_3 += FX.Xa;
+    XMmin_3 += MX.Xa;
+    XMmax_3 += MX.Xb;
+  }
+  return (four_longs){XFmin_3, XFmax_3, XMmin_3, XMmax_3};
+}
+
+
+// *********************************************************************************
 
 XFcounts choose_P1aP2b_or_P1bP2a(XFcounts* P1ab, XFcounts* P2ab){
   double alpha = 0; // 1->use crossover rate, 0->use forbidden rate
@@ -1420,7 +1460,7 @@ Vpedigree* pedigree_alternatives(const Pedigree* the_pedigree, const GenotypesSe
 } /* */
 
 
-/* 
+/*
 three_longs count_FT2_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
 				  Accession* offspring, long first, long next){
   // count FT2 triples, i.e. those  have dosage 1 in the offspring

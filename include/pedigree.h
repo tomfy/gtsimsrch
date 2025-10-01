@@ -140,6 +140,13 @@ void free_vpedigree(const Vpedigree* the_vped);
 Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
 Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent, Accession* offspring, long first, long last);
+four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
+					   Accession* Fparent, Accession* Mparent, Accession* offspring,
+					   long start_index, long next_start_index,
+					   long* XFmin_2, long* XFmax_2, long* NhetF,
+					   long* NhetM, long* XMmin_2, long* XMmax_2,
+					   four_longs XFM_3);
+
 void FT2_phase_correction(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
 			  Accession* offspring, long first, long next);
 three_longs count_FT2_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
