@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include "pedigree.h"
 
-#define ANALYZE_CHROMOSOME_ARMS  false 
-
 // extern int do_checks; // option -c sets this to 1 to do some checks.
 
 // *****  Pedigree  *****
@@ -20,52 +18,50 @@ Pedigree* construct_pedigree(Accession* Acc, Accession* Fparent, Accession* Mpar
   return the_pedigree;
 }
 
-Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
+four_longs count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
   if(offspring == NULL){
     fprintf(stderr, "# in count_crossovers offspring Accession* is NULL. Bye.\n");
     exit(EXIT_FAILURE);
   }
-  Xcounts_2mmn FXcounts = {0, 0, 0};
-  Xcounts_2mmn MXcounts = {0, 0, 0};
+  /* Xcounts_2mmn FXcounts = {0, 0, 0}; */
+  /* Xcounts_2mmn MXcounts = {0, 0, 0}; */
+  /* if(Fparent != NULL) FXcounts = count_crossovers_one_parent(the_gtsset, Fparent, offspring); */
+  /* if(Mparent != NULL) MXcounts = count_crossovers_one_parent(the_gtsset, Mparent, offspring); */
+  /* Xcounts_3 X3 = (Xcounts_3){FXcounts, MXcounts, 0, 0, 0, 0}; */
+
+  ND FXcounts = {0, 0};
+  ND MXcounts = {0, 0};
   if(Fparent != NULL) FXcounts = count_crossovers_one_parent(the_gtsset, Fparent, offspring);
   if(Mparent != NULL) MXcounts = count_crossovers_one_parent(the_gtsset, Mparent, offspring);
-  Xcounts_3 X3 = (Xcounts_3){FXcounts, MXcounts, 0, 0, 0, 0};
-  return X3;
+  four_longs XX = (four_longs){FXcounts.n, FXcounts.d, MXcounts.n, MXcounts.d};
+  
+  return XX;
 }
 
-Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
+
+ND count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
   // Assuming that parent is indeed a parent of offspring,
   // count the min number of crossovers needed to reconcile them
 
   if(parent == NULL  ||  offspring == NULL) {
-    return (Xcounts_2mmn){-1, -1, -1};
+    return (ND){-1, -1};
   }
-  long Xmin = 0, Xmax = 0, Nhet = 0; // Nhet = number of heterozyg gts in parent
-  long Xa = 0, Xb = 0;
-  long prev_chrom_number = -1, prev_phase_a = -1, prev_phase_b = -1;
-  long phase_a = -1, phase_b = -1, chrom_number;
+  long NX = 0, Nhet = 0;
+  long prev_chrom_number = -1, chrom_number;
+  long prev_phase = -1, phase = -1;
  
   for(long i=0; i < parent->genotypes->length; i++){
 
     char o_gt = offspring->genotypes->a[i]; 
     if(o_gt == MISSING_DATA_CHAR) continue;
-    if(o_gt == '1') continue;
+    if(o_gt == '1') continue; // don't use markers heterozygous in offspring
     char o_phase = offspring->phases->a[i];
-
        chrom_number = the_gtsset->chromosomes->a[i];
     if(chrom_number != prev_chrom_number){ // now on next chromosome
-      if(Xa < Xb){ // add chromosome Xmin, Xmax to totals
-	Xmin += Xa; Xmax += Xb;
-      }else{
-	Xmin += Xb; Xmax += Xa;
-      }
       // reset for new chromosome:
-      Xa = 0; Xb = 0;
       prev_chrom_number = chrom_number;
-      phase_a = -1;
-      phase_b = -1;
-      prev_phase_a = -1; // needed
-      prev_phase_b = -1;
+      phase = -1;
+      prev_phase = -1; // needed
     }
 
     // ########################################
@@ -73,29 +69,20 @@ Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accessi
     char p_phase = parent->phases->a[i];
 
     if(p_gt == '1'){
-      Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
-
+      Nhet++; // counts the number of markers which are heterozyg in the parent, and homozygous in the offspring
       two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
-      phase_a = phases_ab.l1;
-      phase_b = phases_ab.l2;
+      phase = phases_ab.l1;
     }
     // ######################################
 
     // compare current phases with previous values,
-    // update crossover counts, and  update prev_phase_a, prev_phase_b
-    if(prev_phase_a >= 0  &&  phase_a != prev_phase_a) Xa++; // phase has changed - crossover
-    prev_phase_a = phase_a;
-    if(prev_phase_b >= 0  &&  phase_b != prev_phase_b) Xb++; // phase has changed - crossover
-    prev_phase_b = phase_b;
+    // update crossover counts, and  update prev_phase
+    if(prev_phase >= 0  &&  phase != prev_phase) NX++; // phase has changed - crossover
+    prev_phase = phase;
     
   } // end loop over markers
-  if(Xa < Xb){ // add the crossovers from the last chromosome.
-    Xmin += Xa; Xmax += Xb;
-  }else{
-    Xmin += Xb; Xmax += Xa;
-  }
- 
-  return (Xcounts_2mmn){Xmin, Xmax, Nhet};
+
+  return (ND){NX, Nhet};
 } // end of count_crossovers
 
 
@@ -120,279 +107,6 @@ two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
   return (two_longs){phase_a, phase_b};
 }
 
-/*
-Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy){ // 
-
-  char c1, c2, c3;
-  char alt_char =(char)(ploidy + 48); // character corresponding to alt allele homozygous
-  // distinguish 46 types of triples:
-  // here 0 means homozygous (ref allele)
-  // 2 means homozygous (alt allele) i.e. dosage == ploidy
-  // 1 means heterozygous, i.e. any dosage from 1 to ploidy-1
-  // 3 in, e.g. n_03_1 means missing data
-  long n_00_0 = 0, n_00_1 = 0, n_00_2 = 0; // n_01_0 <-> parent1 has 0, parent2 has 1, and progeny has 0
-  long n_01_0 = 0, n_01_1 = 0, n_01_2 = 0;
-  long n_02_0 = 0, n_02_1 = 0, n_02_2 = 0;
-  long n_03_0 = 0, n_03_1 = 0, n_03_2 = 0; // n_03_0 <-> parent 1 has 0, parent 2 has missing data, progeny has 0
-  
-  long n_10_0 = 0, n_10_1 = 0, n_10_2 = 0;
-  long n_11_0 = 0, n_11_1 = 0, n_11_2 = 0;
-  long n_12_0 = 0, n_12_1 = 0, n_12_2 = 0;
-  long n_13_0 = 0, n_13_1 = 0, n_13_2 = 0;
-  
-  long n_20_0 = 0, n_20_1 = 0, n_20_2 = 0;
-  long n_21_0 = 0, n_21_1 = 0, n_21_2 = 0;
-  long n_22_0 = 0, n_22_1 = 0, n_22_2 = 0;
-  long n_23_0 = 0, n_23_1 = 0, n_23_2 = 0;
-
-  long n_30_0 = 0, n_30_1 = 0, n_30_2 = 0;
-  long n_31_0 = 0, n_31_1 = 0, n_31_2 = 0;
-  long n_32_0 = 0, n_32_1 = 0, n_32_2 = 0;
-
-  long n_33_x = 0; // both parents have md, progeny anything except md.
-  long n_xy_3 = 0; // progeny md, parents anything.
-  
-  long i=0;
-  while((c3 = proggts[i]) != '\0'){ // go until hit null termination of proggts
-    if(c3 != MISSING_DATA_CHAR){
-      c1 = gts1[i];
-      c2 = gts2[i];
-      if(c1 == '0'){ // 0xy
-	if(c2 == '0'){ // 00y
-	  if(c3 == '0'){ 
-	    n_00_0++; //d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_00_1++; //d1counts[i]++;
-	  }else if(c3 == '2'){
-	    n_00_2++; //d2counts[i]++;
-	  }
-	}else if(c2 == '1'){ // 01y
-	  if(c3 == '0'){ 
-	    n_01_0++; //d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_01_1++; //d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_01_2++; //d1counts[i]++;
-	  }
-	}else if(c2 == '2'){ // 02y
-	  if(c3 == '0'){
-	    n_02_0++; //d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_02_1++; //d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_02_2++; //d1counts[i]++;
-	  }
-	}
-	else if(c2 == MISSING_DATA_CHAR){ // 03y
-	  if(c3 == '0'){
-	    n_03_0++;
-	  }else if(c3 == '1'){
-	    n_03_1++;
-	  }else if(c3 == '2'){
-	    n_03_2++;
-	  }
-	}
-      }else if(c1 == '1'){ // 1xy
-	if(c2 == '0'){ // 10y
-	  if(c3 == '0'){
-	    n_10_0++; //d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_10_1++; //d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_10_2++; //d1counts[i]++;
-	  }
-	}else if(c2 == '1'){ // 11y
-	  if(c3 == '0'){
-	    n_11_0++; //d0counts[i]++;
-	  }else if(c3 == '1'){
-	    n_11_1++; //d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_11_2++; //d0counts[i]++;
-	  }
-	}else if(c2 == '2'){ // 12y
-	  if(c3 == '0'){
-	    n_12_0++; //d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_12_1++; //d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_12_2++; //d0counts[i]++;
-	  }
-	}else if(c2 == MISSING_DATA_CHAR){ // 13y
-	  if(c3 == '0'){
-	    n_13_0++;
-	  }else if(c3 == '1'){
-	    n_13_1++;
-	  }else if(c3 == '2'){
-	    n_13_2++;
-	  }
-	}
-      }else if(c1 == '2'){ // 2xy
-	if(c2 == '0'){ // 20y
-	  if(c3 == '0'){
-	    n_20_0++; //d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_20_1++; //d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_20_2++; //d1counts[i]++;
-	  }
-	}else if(c2 == '1'){ // 21y
-	  if(c3 == '0'){
-	    n_21_0++; //d1counts[i]++;
-	  }else if(c3 == '1'){
-	    n_21_1++; //d0counts[i]++;
-	  }else if(c3 == '2'){
-	    n_21_2++; //d0counts[i]++;
-	  }
-	}else if(c2 == '2'){ // 22y
-	  if(c3 == '0'){
-	    n_22_0++; //d2counts[i]++;
-	  }else if(c3 == '1'){
-	    n_22_1++; //d1counts[i]++;
-	  }else if(c3 == '2'){
-	    n_22_2++; //d0counts[i]++;
-	  }
-	}else if(c2 == MISSING_DATA_CHAR){ // 23y
-	  if(c3 == '0'){
-	    n_23_0++;
-	  }else if(c3 == '1'){
-	    n_23_1++;
-	  }else if(c3 == '2'){
-	    n_23_2++;
-	  }
-	}
-      }else if(c1 == MISSING_DATA_CHAR){ // 3xy
-	if(c2 == '0'){ // 30y
-	  if(c3 == '0'){
-	    n_30_0++;
-	  }else if(c3 == '1'){
-	    n_30_1++;
-	  }else if(c3 == '2'){
-	    n_30_2++;
-	  }
-	}else if(c2 == '1'){ // 31y
-	  if(c3 == '0'){
-	    n_31_0++;
-	  }else if(c3 == '1'){
-	    n_31_1++;
-	  }else if(c3 == '2'){
-	    n_31_2++;
-	  }
-	}else if(c2 == '2'){ // 32y
-	  if(c3 == '0'){
-	    n_32_0++;
-	  }else if(c3 == '1'){
-	    n_32_1++;
-	  }else if(c3 == '2'){
-	    n_32_2++;
-	  }
-	}else{ // 33y
-	  n_33_x++;
-	}
-      }
-    }else{ // c3 == MISSING_DATA_CHAR
-      n_xy_3++;
-    }
-    i++;
-  }
-  Pedigree_stats* pedigree_stats = construct_pedigree_stats(); // (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
-  long n_0 = // 15 triples consistent with true parents-offspring relationship,
-    // with no genotyping errors
-    n_00_0 + n_01_0 + n_01_1 + n_02_1 +
-    n_10_0 + n_10_1 +
-    n_11_0 + n_11_1 + n_11_2 + // include these in denom of d or not?
-    n_12_1 + n_12_2 +
-    n_20_1 + n_21_1 + n_21_2 + n_22_2; // can happen in no-error case
-  long n_1 = // 10 triples requiring one (0<->1 or 1<->2) error for consistency 
-    n_00_1 + n_01_2 + n_02_0 + n_02_2 +
-    n_10_2 + n_12_0 +
-    n_20_0 + n_20_2 + n_21_0 + n_22_1;  // these 10 can happen if just one error of 0<->1 or 1<->2 type.
-  long n_2 = n_00_2 + n_22_0; // these 2 can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
- 
-  long n_11_x =  n_11_0 + n_11_1 + n_11_2;
-  // ************************************
-  long n_a2 = n_00_2 + n_22_0; // delta = 2 triples
-  long n_a1 =   n_00_1 + n_02_0 + n_02_2 +
-    n_20_0 + n_20_2 + n_22_1; // delta = 1 triples used by apparent
-  long n_o1 =   n_01_2 + n_10_2 + n_12_0 + n_21_0; // other delta = 1 triples.
-
-  long n_00 = n_00_0 + n_00_1 + n_00_2;
-  long n_22 = n_22_0 + n_22_1 + n_22_2;
-
-  long n_02 = n_02_0 + n_02_1 + n_02_2;
-  long n_20 = n_20_0 + n_20_1 + n_20_2;
-
-  long n_01 = n_01_0 + n_01_1 + n_01_2;
-  long n_10 = n_10_0 + n_10_1 + n_10_2;
-	
-  long n_12 = n_12_0 + n_12_1 + n_12_2;
-  long n_21 = n_21_0 + n_21_1 + n_21_2;
-
-  // ************************************
-  
-  long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0; // par2 gt can be missing
-  long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1; // par2 gt can be missing
-  long n_0x_2 = n_00_2 + n_01_2 + n_02_2 + n_03_2; // par2 gt can be missing
-  
-  
-  long n_2x_0 = n_20_0 + n_21_0 + n_22_0 + n_23_0; // par2 gt can be missing
-  long n_2x_1 = n_20_1 + n_21_1 + n_22_1 + n_23_1; // par2 gt can be missing
-  long n_2x_2 = n_20_2 + n_21_2 + n_22_2 + n_23_2; // par2 gt can be missing
-
-  long n_3x_0 = n_30_0 + n_31_0 + n_32_0; // + n_03_0;
-  long n_3x_1 = n_30_1 + n_31_1 + n_32_1; // + n_03_1;
-  long n_3x_2 = n_30_2 + n_31_2 + n_32_2; // + n_03_2;
-
-  long z_numer = n_00_1 + n_22_1;
-  long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0; // = n_00_x + n_22_x
-
-  long n_x0_0 = n_00_0 + n_10_0 + n_20_0 + n_30_0; // par1 gt can be missing
-  long n_x0_1 = n_00_1 + n_10_1 + n_20_1 + n_30_1; // par1 gt can be missing
-  long n_x0_2 = n_00_2 + n_10_2 + n_20_2 + n_30_2; // par1 gt can be missing
-  
-  long n_x2_0 = n_02_0 + n_12_0 + n_22_0 + n_32_0; // par1 gt can be missing
-  long n_x2_1 = n_02_1 + n_12_1 + n_22_1 + n_32_1; // par1 gt can be missing
-  long n_x2_2 = n_02_2 + n_12_2 + n_22_2 + n_32_2; // par1 gt can be missing
-
-  long hgmr1_numer = n_0x_2 + n_2x_0;
-  long hgmr2_numer = n_x0_2 + n_x2_0;
-  long hgmr1_denom = n_0x_0 + n_2x_2 + hgmr1_numer;
-  long hgmr2_denom = n_x0_0 + n_x2_2 + hgmr2_numer;
-
-  long r1_numer = n_0x_1 + n_2x_1; // + n_0x_2 + n_2x_1 + n_2x_0;
-  long r1_denom = r1_numer + n_0x_0 + n_2x_2;
-  long r2_numer = n_x0_1 + n_x2_1; // n_x0_2 + n_x2_1 + n_x2_0;
-  long r2_denom = r2_numer + n_x0_0 + n_x2_2;
- 
-  long agmr12_numer =
-    n_01_0 + n_01_1 + n_01_2 + //n_01_3 +
-    n_02_0 + n_02_1 + n_02_2 + //n_02_3 +
-    n_10_0 + n_10_1 + n_10_2 + //n_10_3 +
-    n_12_0 + n_12_1 + n_12_2 + //n_12_3 +
-    n_20_0 + n_20_1 + n_20_2 + //n_20_3 +
-    n_21_0 + n_21_1 + n_21_2; //n_21_3;
-  
-  long agmr12_denom = agmr12_numer +
-    n_00_0 + n_00_1 + n_00_2 + //n_00_3 +
-    n_11_0 + n_11_1 + n_11_2 + //n_11_3 +
-    n_22_0 + n_22_1 + n_22_2; //n_22_3;
-  
-  pedigree_stats->agmr12 = (ND) {agmr12_numer, agmr12_denom};
-
-  pedigree_stats->par1_hgmr = (ND) {hgmr1_numer, hgmr1_denom};
-  pedigree_stats->par1_R = (ND) {r1_numer, r1_denom};
- 
-  pedigree_stats->par2_hgmr = (ND) {hgmr2_numer, hgmr2_denom};
-  pedigree_stats->par2_R = (ND)  {r2_numer, r2_denom};
-
-  pedigree_stats->d = (ND){n_1 + n_2, n_0 + n_1 + n_2};
-
-  pedigree_stats->z = (ND) {z_numer, z_denom};
-
-  pedigree_stats->all_good_count = n_0 + n_1 + n_2;
-
-  return pedigree_stats;
-} // end of triple_counts
-/* */
 
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){ //, GenotypesSet* the_gtset){
   
@@ -526,33 +240,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   return pedigree_stats;
 } // end of bitwise_triple_counts
 
-/* Vpedigree*  calculate_triples_for_one_accession_x(Accession* prog, const GenotypesSet* the_genotypes_set, Vlong* parent_idxs, long max_candidate_parents){
 
-  // sort the parent candidates and keep the best ones
-  long limited_n_candpairs = cppps->size;
-  if(cppps->size == 0){ 
-  }else if(cppps->size > max_candidate_parents){ // if too many parent candidates, just take the max_candidate_parents best ones
-    sort_viaxh_by_xhgmr(cppps);
-    limited_n_candpairs = max_candidate_parents; // limit candidate to max_candidate_parents
-  }
- 
-  Vpedigree* alt_pedigrees = construct_vpedigree(1000);
-  for(long ii=0; ii<limited_n_candpairs; ii++){
-    long par1idx = cppps->a[ii]->idx;
-    Accession* par1 = the_genotypes_set->accessions->a[par1idx];
-    for(long jj=ii; jj<limited_n_candpairs; jj++){	
-      long par2idx = cppps->a[jj]->idx;
-      Accession* par2 = the_genotypes_set->accessions->a[par2idx];
-      Pedigree_stats* the_ps;
-      Pedigree* the_pedigree = construct_pedigree(prog, par1, par2);
-      the_ps = calculate_pedigree_stats(the_pedigree, the_genotypes_set);
-      the_pedigree->pedigree_stats = the_ps;
-      push_to_vpedigree(alt_pedigrees, the_pedigree);
-    
-    } // end loop over parent 2
-  } // end loop over parent 1
-  return alt_pedigrees;
-} /* */
 
 Vpedigree*  calculate_triples_for_one_accession(Accession* prog, const GenotypesSet* the_genotypes_set, Viaxh* cppps, long max_candidate_parents){
 
@@ -874,7 +562,7 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
     //  print_n_over_d(fh, the_pedigree_stats->par2_xhgmr);
     print_n_over_d(fh, the_pedigree_stats->par2_R);
     print_n_over_d(fh, the_pedigree_stats->d);
-    print_n_over_d(fh, the_pedigree_stats->z);
+    // print_n_over_d(fh, the_pedigree_stats->z);
     // print_n_over_d(fh, the_pedigree_stats->d_old);
   }	     	   
 }
@@ -896,6 +584,7 @@ void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stat
   print_double_nan_as_hyphen(fh, the_pedigree_stats->hgmr2_n);
   print_double_nan_as_hyphen(fh, the_pedigree_stats->R2_n);
   print_double_nan_as_hyphen(fh, the_pedigree_stats->d_n);
+  // print_double_nan_as_hyphen(fh, the_pedigree_stats->z_n);
 }
 
 void print_double_nan_as_hyphen(FILE* fh, double x){
@@ -905,8 +594,6 @@ void print_double_nan_as_hyphen(FILE* fh, double x){
     fprintf(fh, "\t%7.5lf", x);
   }
 }
-
-
 
 bool d_ok(Pedigree_stats* p, double max_ok_d){ // true: d looks good; false: d too large.
   double d = n_over_d(p->d);
@@ -1024,7 +711,7 @@ void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped){
   the_vped->size++;
 }
 
-void sort_vpedigree_by_d(Vpedigree* the_vped){ // sort by max(scaled_d, z) (increasing) 
+void sort_vpedigree_by_d(Vpedigree* the_vped){ 
   qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigree_d);
 }
 
@@ -1044,8 +731,6 @@ int compare_pedigree_d(const void* a, const void* b){
   }
 }
 
-
-
 void free_vpedigree(const Vpedigree* the_vped){
   if(the_vped == NULL) return;
   for(long i=0; i<the_vped->size; i++){
@@ -1054,6 +739,8 @@ void free_vpedigree(const Vpedigree* the_vped){
   free(the_vped->a);
   free((Vpedigree*)the_vped);
 }
+
+//  ************ unused *************************
 
 /* // *****  sorting an array of Idxhgmr  ***** 
 int cmpidxhgmr(const void* v1, const void* v2){
@@ -1064,9 +751,8 @@ int cmpidxhgmr(const void* v1, const void* v2){
 
 void sort_idxhgmr_by_hgmr(long size, Idxhgmr* array){ // sort in place
   qsort(array, size, sizeof(Idxhgmr), cmpidxhgmr);
-} ?* */
+} /* */
 
-//  ************ unused *************************
 
 /*
 void print_pedigree_alternatives(FILE* fh, const Vpedigree* alt_pedigrees, long max_to_print, bool verbose){
@@ -1849,3 +1535,376 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
   T->Fb += I.Fb;
   T->Nhom += I.Nhom;
 } /* */
+
+
+/*
+Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy){ // 
+
+  char c1, c2, c3;
+  char alt_char =(char)(ploidy + 48); // character corresponding to alt allele homozygous
+  // distinguish 46 types of triples:
+  // here 0 means homozygous (ref allele)
+  // 2 means homozygous (alt allele) i.e. dosage == ploidy
+  // 1 means heterozygous, i.e. any dosage from 1 to ploidy-1
+  // 3 in, e.g. n_03_1 means missing data
+  long n_00_0 = 0, n_00_1 = 0, n_00_2 = 0; // n_01_0 <-> parent1 has 0, parent2 has 1, and progeny has 0
+  long n_01_0 = 0, n_01_1 = 0, n_01_2 = 0;
+  long n_02_0 = 0, n_02_1 = 0, n_02_2 = 0;
+  long n_03_0 = 0, n_03_1 = 0, n_03_2 = 0; // n_03_0 <-> parent 1 has 0, parent 2 has missing data, progeny has 0
+  
+  long n_10_0 = 0, n_10_1 = 0, n_10_2 = 0;
+  long n_11_0 = 0, n_11_1 = 0, n_11_2 = 0;
+  long n_12_0 = 0, n_12_1 = 0, n_12_2 = 0;
+  long n_13_0 = 0, n_13_1 = 0, n_13_2 = 0;
+  
+  long n_20_0 = 0, n_20_1 = 0, n_20_2 = 0;
+  long n_21_0 = 0, n_21_1 = 0, n_21_2 = 0;
+  long n_22_0 = 0, n_22_1 = 0, n_22_2 = 0;
+  long n_23_0 = 0, n_23_1 = 0, n_23_2 = 0;
+
+  long n_30_0 = 0, n_30_1 = 0, n_30_2 = 0;
+  long n_31_0 = 0, n_31_1 = 0, n_31_2 = 0;
+  long n_32_0 = 0, n_32_1 = 0, n_32_2 = 0;
+
+  long n_33_x = 0; // both parents have md, progeny anything except md.
+  long n_xy_3 = 0; // progeny md, parents anything.
+  
+  long i=0;
+  while((c3 = proggts[i]) != '\0'){ // go until hit null termination of proggts
+    if(c3 != MISSING_DATA_CHAR){
+      c1 = gts1[i];
+      c2 = gts2[i];
+      if(c1 == '0'){ // 0xy
+	if(c2 == '0'){ // 00y
+	  if(c3 == '0'){ 
+	    n_00_0++; //d0counts[i]++;
+	  }else if(c3 == '1'){
+	    n_00_1++; //d1counts[i]++;
+	  }else if(c3 == '2'){
+	    n_00_2++; //d2counts[i]++;
+	  }
+	}else if(c2 == '1'){ // 01y
+	  if(c3 == '0'){ 
+	    n_01_0++; //d0counts[i]++;
+	  }else if(c3 == '1'){
+	    n_01_1++; //d0counts[i]++;
+	  }else if(c3 == '2'){
+	    n_01_2++; //d1counts[i]++;
+	  }
+	}else if(c2 == '2'){ // 02y
+	  if(c3 == '0'){
+	    n_02_0++; //d1counts[i]++;
+	  }else if(c3 == '1'){
+	    n_02_1++; //d0counts[i]++;
+	  }else if(c3 == '2'){
+	    n_02_2++; //d1counts[i]++;
+	  }
+	}
+	else if(c2 == MISSING_DATA_CHAR){ // 03y
+	  if(c3 == '0'){
+	    n_03_0++;
+	  }else if(c3 == '1'){
+	    n_03_1++;
+	  }else if(c3 == '2'){
+	    n_03_2++;
+	  }
+	}
+      }else if(c1 == '1'){ // 1xy
+	if(c2 == '0'){ // 10y
+	  if(c3 == '0'){
+	    n_10_0++; //d0counts[i]++;
+	  }else if(c3 == '1'){
+	    n_10_1++; //d0counts[i]++;
+	  }else if(c3 == '2'){
+	    n_10_2++; //d1counts[i]++;
+	  }
+	}else if(c2 == '1'){ // 11y
+	  if(c3 == '0'){
+	    n_11_0++; //d0counts[i]++;
+	  }else if(c3 == '1'){
+	    n_11_1++; //d0counts[i]++;
+	  }else if(c3 == '2'){
+	    n_11_2++; //d0counts[i]++;
+	  }
+	}else if(c2 == '2'){ // 12y
+	  if(c3 == '0'){
+	    n_12_0++; //d1counts[i]++;
+	  }else if(c3 == '1'){
+	    n_12_1++; //d0counts[i]++;
+	  }else if(c3 == '2'){
+	    n_12_2++; //d0counts[i]++;
+	  }
+	}else if(c2 == MISSING_DATA_CHAR){ // 13y
+	  if(c3 == '0'){
+	    n_13_0++;
+	  }else if(c3 == '1'){
+	    n_13_1++;
+	  }else if(c3 == '2'){
+	    n_13_2++;
+	  }
+	}
+      }else if(c1 == '2'){ // 2xy
+	if(c2 == '0'){ // 20y
+	  if(c3 == '0'){
+	    n_20_0++; //d1counts[i]++;
+	  }else if(c3 == '1'){
+	    n_20_1++; //d0counts[i]++;
+	  }else if(c3 == '2'){
+	    n_20_2++; //d1counts[i]++;
+	  }
+	}else if(c2 == '1'){ // 21y
+	  if(c3 == '0'){
+	    n_21_0++; //d1counts[i]++;
+	  }else if(c3 == '1'){
+	    n_21_1++; //d0counts[i]++;
+	  }else if(c3 == '2'){
+	    n_21_2++; //d0counts[i]++;
+	  }
+	}else if(c2 == '2'){ // 22y
+	  if(c3 == '0'){
+	    n_22_0++; //d2counts[i]++;
+	  }else if(c3 == '1'){
+	    n_22_1++; //d1counts[i]++;
+	  }else if(c3 == '2'){
+	    n_22_2++; //d0counts[i]++;
+	  }
+	}else if(c2 == MISSING_DATA_CHAR){ // 23y
+	  if(c3 == '0'){
+	    n_23_0++;
+	  }else if(c3 == '1'){
+	    n_23_1++;
+	  }else if(c3 == '2'){
+	    n_23_2++;
+	  }
+	}
+      }else if(c1 == MISSING_DATA_CHAR){ // 3xy
+	if(c2 == '0'){ // 30y
+	  if(c3 == '0'){
+	    n_30_0++;
+	  }else if(c3 == '1'){
+	    n_30_1++;
+	  }else if(c3 == '2'){
+	    n_30_2++;
+	  }
+	}else if(c2 == '1'){ // 31y
+	  if(c3 == '0'){
+	    n_31_0++;
+	  }else if(c3 == '1'){
+	    n_31_1++;
+	  }else if(c3 == '2'){
+	    n_31_2++;
+	  }
+	}else if(c2 == '2'){ // 32y
+	  if(c3 == '0'){
+	    n_32_0++;
+	  }else if(c3 == '1'){
+	    n_32_1++;
+	  }else if(c3 == '2'){
+	    n_32_2++;
+	  }
+	}else{ // 33y
+	  n_33_x++;
+	}
+      }
+    }else{ // c3 == MISSING_DATA_CHAR
+      n_xy_3++;
+    }
+    i++;
+  }
+  Pedigree_stats* pedigree_stats = construct_pedigree_stats(); // (Pedigree_stats*)malloc(sizeof(Pedigree_stats));
+  long n_0 = // 15 triples consistent with true parents-offspring relationship,
+    // with no genotyping errors
+    n_00_0 + n_01_0 + n_01_1 + n_02_1 +
+    n_10_0 + n_10_1 +
+    n_11_0 + n_11_1 + n_11_2 + // include these in denom of d or not?
+    n_12_1 + n_12_2 +
+    n_20_1 + n_21_1 + n_21_2 + n_22_2; // can happen in no-error case
+  long n_1 = // 10 triples requiring one (0<->1 or 1<->2) error for consistency 
+    n_00_1 + n_01_2 + n_02_0 + n_02_2 +
+    n_10_2 + n_12_0 +
+    n_20_0 + n_20_2 + n_21_0 + n_22_1;  // these 10 can happen if just one error of 0<->1 or 1<->2 type.
+  long n_2 = n_00_2 + n_22_0; // these 2 can happen if one 0<->2 error, or two errors of 0<->1 or 1<->2 type.
+ 
+  long n_11_x =  n_11_0 + n_11_1 + n_11_2;
+  // ************************************
+  long n_a2 = n_00_2 + n_22_0; // delta = 2 triples
+  long n_a1 =   n_00_1 + n_02_0 + n_02_2 +
+    n_20_0 + n_20_2 + n_22_1; // delta = 1 triples used by apparent
+  long n_o1 =   n_01_2 + n_10_2 + n_12_0 + n_21_0; // other delta = 1 triples.
+
+  long n_00 = n_00_0 + n_00_1 + n_00_2;
+  long n_22 = n_22_0 + n_22_1 + n_22_2;
+
+  long n_02 = n_02_0 + n_02_1 + n_02_2;
+  long n_20 = n_20_0 + n_20_1 + n_20_2;
+
+  long n_01 = n_01_0 + n_01_1 + n_01_2;
+  long n_10 = n_10_0 + n_10_1 + n_10_2;
+	
+  long n_12 = n_12_0 + n_12_1 + n_12_2;
+  long n_21 = n_21_0 + n_21_1 + n_21_2;
+
+  // ************************************
+  
+  long n_0x_0 = n_00_0 + n_01_0 + n_02_0 + n_03_0; // par2 gt can be missing
+  long n_0x_1 = n_00_1 + n_01_1 + n_02_1 + n_03_1; // par2 gt can be missing
+  long n_0x_2 = n_00_2 + n_01_2 + n_02_2 + n_03_2; // par2 gt can be missing
+  
+  
+  long n_2x_0 = n_20_0 + n_21_0 + n_22_0 + n_23_0; // par2 gt can be missing
+  long n_2x_1 = n_20_1 + n_21_1 + n_22_1 + n_23_1; // par2 gt can be missing
+  long n_2x_2 = n_20_2 + n_21_2 + n_22_2 + n_23_2; // par2 gt can be missing
+
+  long n_3x_0 = n_30_0 + n_31_0 + n_32_0; // + n_03_0;
+  long n_3x_1 = n_30_1 + n_31_1 + n_32_1; // + n_03_1;
+  long n_3x_2 = n_30_2 + n_31_2 + n_32_2; // + n_03_2;
+
+  long z_numer = n_00_1 + n_22_1;
+  long z_denom = z_numer + n_00_0 + n_22_2 + n_00_2 + n_22_0; // = n_00_x + n_22_x
+
+  long n_x0_0 = n_00_0 + n_10_0 + n_20_0 + n_30_0; // par1 gt can be missing
+  long n_x0_1 = n_00_1 + n_10_1 + n_20_1 + n_30_1; // par1 gt can be missing
+  long n_x0_2 = n_00_2 + n_10_2 + n_20_2 + n_30_2; // par1 gt can be missing
+  
+  long n_x2_0 = n_02_0 + n_12_0 + n_22_0 + n_32_0; // par1 gt can be missing
+  long n_x2_1 = n_02_1 + n_12_1 + n_22_1 + n_32_1; // par1 gt can be missing
+  long n_x2_2 = n_02_2 + n_12_2 + n_22_2 + n_32_2; // par1 gt can be missing
+
+  long hgmr1_numer = n_0x_2 + n_2x_0;
+  long hgmr2_numer = n_x0_2 + n_x2_0;
+  long hgmr1_denom = n_0x_0 + n_2x_2 + hgmr1_numer;
+  long hgmr2_denom = n_x0_0 + n_x2_2 + hgmr2_numer;
+
+  long r1_numer = n_0x_1 + n_2x_1; // + n_0x_2 + n_2x_1 + n_2x_0;
+  long r1_denom = r1_numer + n_0x_0 + n_2x_2;
+  long r2_numer = n_x0_1 + n_x2_1; // n_x0_2 + n_x2_1 + n_x2_0;
+  long r2_denom = r2_numer + n_x0_0 + n_x2_2;
+ 
+  long agmr12_numer =
+    n_01_0 + n_01_1 + n_01_2 + //n_01_3 +
+    n_02_0 + n_02_1 + n_02_2 + //n_02_3 +
+    n_10_0 + n_10_1 + n_10_2 + //n_10_3 +
+    n_12_0 + n_12_1 + n_12_2 + //n_12_3 +
+    n_20_0 + n_20_1 + n_20_2 + //n_20_3 +
+    n_21_0 + n_21_1 + n_21_2; //n_21_3;
+  
+  long agmr12_denom = agmr12_numer +
+    n_00_0 + n_00_1 + n_00_2 + //n_00_3 +
+    n_11_0 + n_11_1 + n_11_2 + //n_11_3 +
+    n_22_0 + n_22_1 + n_22_2; //n_22_3;
+  
+  pedigree_stats->agmr12 = (ND) {agmr12_numer, agmr12_denom};
+
+  pedigree_stats->par1_hgmr = (ND) {hgmr1_numer, hgmr1_denom};
+  pedigree_stats->par1_R = (ND) {r1_numer, r1_denom};
+ 
+  pedigree_stats->par2_hgmr = (ND) {hgmr2_numer, hgmr2_denom};
+  pedigree_stats->par2_R = (ND)  {r2_numer, r2_denom};
+
+  pedigree_stats->d = (ND){n_1 + n_2, n_0 + n_1 + n_2};
+
+  pedigree_stats->z = (ND) {z_numer, z_denom};
+
+  pedigree_stats->all_good_count = n_0 + n_1 + n_2;
+
+  return pedigree_stats;
+} // end of triple_counts
+/* */
+
+
+/* Vpedigree*  calculate_triples_for_one_accession_x(Accession* prog, const GenotypesSet* the_genotypes_set, Vlong* parent_idxs, long max_candidate_parents){
+
+  // sort the parent candidates and keep the best ones
+  long limited_n_candpairs = cppps->size;
+  if(cppps->size == 0){ 
+  }else if(cppps->size > max_candidate_parents){ // if too many parent candidates, just take the max_candidate_parents best ones
+    sort_viaxh_by_xhgmr(cppps);
+    limited_n_candpairs = max_candidate_parents; // limit candidate to max_candidate_parents
+  }
+ 
+  Vpedigree* alt_pedigrees = construct_vpedigree(1000);
+  for(long ii=0; ii<limited_n_candpairs; ii++){
+    long par1idx = cppps->a[ii]->idx;
+    Accession* par1 = the_genotypes_set->accessions->a[par1idx];
+    for(long jj=ii; jj<limited_n_candpairs; jj++){	
+      long par2idx = cppps->a[jj]->idx;
+      Accession* par2 = the_genotypes_set->accessions->a[par2idx];
+      Pedigree_stats* the_ps;
+      Pedigree* the_pedigree = construct_pedigree(prog, par1, par2);
+      the_ps = calculate_pedigree_stats(the_pedigree, the_genotypes_set);
+      the_pedigree->pedigree_stats = the_ps;
+      push_to_vpedigree(alt_pedigrees, the_pedigree);
+    
+    } // end loop over parent 2
+  } // end loop over parent 1
+  return alt_pedigrees;
+} /* */
+
+/* // this version keeps track of crossover required to get a or b separately, and chooses min for each chromosome
+   // needed if want to use markers heterozygous in offspring
+Xcounts_2mmn count_crossovers_one_parent_old(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
+  // Assuming that parent is indeed a parent of offspring,
+  // count the min number of crossovers needed to reconcile them
+
+  if(parent == NULL  ||  offspring == NULL) {
+    return (Xcounts_2mmn){-1, -1, -1};
+  }
+  long Xmin = 0, Xmax = 0, Nhet = 0; // Nhet = number of heterozyg gts in parent
+  long Xa = 0, Xb = 0;
+  long prev_chrom_number = -1, prev_phase_a = -1, prev_phase_b = -1;
+  long phase_a = -1, phase_b = -1, chrom_number;
+ 
+  for(long i=0; i < parent->genotypes->length; i++){
+
+    char o_gt = offspring->genotypes->a[i]; 
+    if(o_gt == MISSING_DATA_CHAR) continue;
+    if(o_gt == '1') continue;
+    char o_phase = offspring->phases->a[i];
+
+       chrom_number = the_gtsset->chromosomes->a[i];
+    if(chrom_number != prev_chrom_number){ // now on next chromosome
+      if(Xa < Xb){ // add chromosome Xmin, Xmax to totals
+	Xmin += Xa; Xmax += Xb;
+      }else{
+	Xmin += Xb; Xmax += Xa;
+      }
+      // reset for new chromosome:
+      Xa = 0; Xb = 0;
+      prev_chrom_number = chrom_number;
+      phase_a = -1;
+      phase_b = -1;
+      prev_phase_a = -1; // needed
+      prev_phase_b = -1;
+    }
+
+    // ########################################
+    char p_gt = parent->genotypes->a[i];
+    char p_phase = parent->phases->a[i];
+
+    if(p_gt == '1'){
+      Nhet++; // counts the number of markers which are heterozyg in the parent, and non-missing in the offspring
+
+      two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
+      phase_a = phases_ab.l1;
+      phase_b = phases_ab.l2;
+    }
+    // ######################################
+
+    // compare current phases with previous values,
+    // update crossover counts, and  update prev_phase_a, prev_phase_b
+    if(prev_phase_a >= 0  &&  phase_a != prev_phase_a) Xa++; // phase has changed - crossover
+    prev_phase_a = phase_a;
+    if(prev_phase_b >= 0  &&  phase_b != prev_phase_b) Xb++; // phase has changed - crossover
+    prev_phase_b = phase_b;
+    
+  } // end loop over markers
+  if(Xa < Xb){ // add the crossovers from the last chromosome.
+    Xmin += Xa; Xmax += Xb;
+  }else{
+    Xmin += Xb; Xmax += Xa;
+  }
+  fprintf(stderr, "AAAAAAABBBBBBB: %ld %ld %ld\n", Xmin, Xmax, Nhet);
+  return (Xcounts_2mmn){Xmin, Xmax, Nhet};
+ 
+} // end of count_crossovers_old 
+/* */

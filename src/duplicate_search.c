@@ -24,7 +24,7 @@
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  1.0
 #define DEFAULT_MIN_MAF  0.05
 #define BITWISE true
-#define DO_EXACT_AGMR  true // make this 0 to only do the estimated agmrs.
+#define DO_EXACT_AGMR  true // make this false to only do the estimated agmrs.
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -998,6 +998,9 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	  four_longs bfcs = bitwise_agmr_hgmr(q_gts, the_accessions->a[i_match]);  // bfcs: {count_02, count_00_22, count_01_12, count_11}
 	  long b_agmr_num = bfcs.l1 + bfcs.l3;
 	  long b_agmr_denom = b_agmr_num + bfcs.l2 + bfcs.l4;
+	  /*  fprintf(stderr, "%ld %ld %ld %ld   %ld %ld  %g\n",
+		  bfcs.l1, bfcs.l2, bfcs.l3, bfcs.l4,
+		  b_agmr_num, b_agmr_denom, (double)b_agmr_num/(double)b_agmr_denom); /* */
 	  long b_hgmr_num = bfcs.l1;
 	  long b_hgmr_denom = bfcs.l1 + bfcs.l2;
 	  agmr = (b_agmr_denom > 0)? (double)b_agmr_num / (double)b_agmr_denom : -1;

@@ -62,7 +62,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   double xhgmr1;
   double xhgmr2;
 
-  Xcounts_3 X3;
+  four_longs Xinfo;
 
   long all_good_count; // number of markers with genotypes for all 3 (or both in case of only one parent) genotypes known (i.e. no missing gts)
   long n_01or10_1; // alternative denom for z
@@ -137,8 +137,8 @@ void free_vpedigree(const Vpedigree* the_vped);
 
 //Pedigree_stats* triple_counts(char* gts1, char* gts2, char* proggts, long ploidy);
 
-Xcounts_3 count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
-Xcounts_2mmn count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
+four_longs count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
+ND count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent, Accession* offspring, long first, long last);
 four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
 					   Accession* Fparent, Accession* Mparent, Accession* offspring,
