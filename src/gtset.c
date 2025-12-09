@@ -1209,28 +1209,30 @@ four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hg
 void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){ 
   fprintf(fh, "# max_marker_missing_data_fraction: %8.4lf \n", the_gtsset->max_marker_missing_data_fraction);
   fprintf(fh, "# min_minor_allele_frequency: %8.4lf \n", the_gtsset->min_minor_allele_frequency);
-  fprintf(fh, "MARKER  ");
+  fprintf(fh, "# number of accessions: %ld , markers: %ld\n", the_gtsset->n_accessions, the_gtsset->n_markers);
+  fprintf(fh, "MARKER");
   for(long i=0; i<the_gtsset->n_markers; i++){
-    fprintf(fh, "%s ", the_gtsset->marker_ids->a[i]);
+    fprintf(fh, "\t%s", the_gtsset->marker_ids->a[i]);
   }fprintf(fh, "\n");
-  fprintf(fh, "CHROMOSOME  ");
+  fprintf(fh, "CHROMOSOME");
   for(long i=0; i<the_gtsset->n_markers; i++){
-    fprintf(fh, "%ld ", the_gtsset->chromosomes->a[i]);
+    fprintf(fh, "\t%ld", the_gtsset->chromosomes->a[i]);
   }fprintf(fh, "\n");
   
   for(long i=0; i<the_gtsset->n_accessions; i++){
     Accession* acc = the_gtsset->accessions->a[i];
-    fprintf(fh, "%s  ", acc->id->a);
+    fprintf(fh, "%s", acc->id->a);
     for(long j=0; j < acc->genotypes->length; j++){
       char gt = acc->genotypes->a[j];
       char phase = acc->phases->a[j];
+       fprintf(fh, "\t"); // acc->genotypes->a[j]);
       if(gt == '~') gt = 'X';
       if(phase == 'p'){
 	fprintf(fh, "+");
       }else if(phase == 'm'){
 	fprintf(fh, "-");
       }
-      fprintf(fh, "%c ", gt); // acc->genotypes->a[j]);
+      fprintf(fh, "%c", gt); // acc->genotypes->a[j]);
     }
     fprintf(fh, "\n");
   }
@@ -1334,6 +1336,7 @@ void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char*
   }else{
     fprintf(stderr, "# Accession: %s rejected due to missing data at %ld out of %ld markers.\n",
 	    acc_id, accession_missing_data_count, the_genotypes_set->marker_ids->size);
+    
     the_genotypes_set->n_bad_accessions++;
   }
   free(acc_id); // or cut out the middleman (acc_id)?
