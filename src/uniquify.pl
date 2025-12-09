@@ -70,9 +70,15 @@ if (!defined $dosages_output_filename) {
 open my $fh_clusters, "<", "$cluster_filename";
 my %clusterid_repid = (); # keys: all ids of accessions in clusters; values: ids of corresponding representative accessions.
 my %repid_clusterids = (); # keys: ids of cluster representatives; values: array refs with corresponding cluster ids.
-
+my ($clusterfile_cluster_count, $clusterfile_cluster_member_count) = (undef, undef);
+my $cluster_member_count_2 = 0;
 while (my $line = <$fh_clusters>) { # each line is one cluster
-  next if($line =~ /^\s*#/);
+  if($line =~ /^\s*#/){
+    if($line =~ /^\s*#\s+Found\s+(\S+)\s+acceptable\s+clusters, containing\s+(\S+)/){
+      $clusterfile_cluster_count = $1; $clusterfile_cluster_member_count = $2;
+    }
+    next;
+  }
   my @cols = split("\t", $line);
   next if(scalar @cols  < 11); # cluster line should have 9 quality params plus at least 2 cluster ids.
   my $cluster_size = shift @cols;
@@ -84,7 +90,7 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
   my $n_near2 = shift @cols;
   my $n_big_intra_d = shift @cols;
   my $min_cluster_member_degree = shift @cols; # min degree of cluster members
-
+ 
   my @cluster_accids = ();
   if (scalar @cols == $cluster_size) { # short format: just cluster ids
     @cluster_accids = @cols;
@@ -92,20 +98,22 @@ while (my $line = <$fh_clusters>) { # each line is one cluster
     for (my $i = 0; $i < scalar @cols; $i += 3) {
       push @cluster_accids, $cols[$i];
     }
+    
   } else {
     die "cluster size inconsistent. $cluster_size ", scalar @cols;
   }
+  chomp $cluster_accids[-1]; # REMOVE newline after the last cluster member id !!
   die "cluster size inconsistent. $cluster_size ", scalar @cluster_accids if($cluster_size != scalar @cluster_accids);
 
   my $rep_id = $cluster_accids[0];     # id of the representative of the cluster
-  # print STDERR "repid $rep_id \n"; # sleep(1);
+  $cluster_member_count_2 += scalar @cluster_accids;
   $repid_clusterids{$rep_id} = \@cluster_accids;
   for my $a_cluster_id (@cluster_accids) {
-    $clusterid_repid{$a_cluster_id} = $rep_id; # all accessions in clusters get stored
+    $clusterid_repid{$a_cluster_id} = $rep_id; # ids of all accessions in clusters get stored
   }
 }
 close $fh_clusters;
-
+print STDERR "cluster member count:  ", scalar keys %clusterid_repid, " $cluster_member_count_2  ", scalar keys %repid_clusterids, "\n";
 ###############################################################################
 ####   read in pedigree file, if specified.    ################################
 ###############################################################################
@@ -161,16 +169,18 @@ if (defined $pedigrees_input_filename) {
       $progeny_NA_count++;
     }
   }
+  print STDERR "pedigrees out count: $pedigrees_out_count   duplicate progeny count: $duplicate_progeny_count  progeny_NA_count: $progeny_NA_count\n";
   close $fhpedin;
-}			    # end if defined $pedigrees_input_filename
+}    # end if defined $pedigrees_input_filename
 
 ################################################################################
 ####   read in dosages  ########################################################
 ####   store id and dosages of cluster members    ##############################
 ####   output id and dosages of others       ###################################
 ################################################################################
-#print STDERR "before storing dosages\n";
-
+my $singleton_count = 0;
+my $cluster_member_count = 0;
+my $dosages_acc_count = 0;
 # store individual lines of dosage file in hash
 open my $fh_dosages, "<", "$dosages_input_filename";
 open my $fhout, ">", "$dosages_output_filename" or die "Couldn't open $dosages_output_filename for writing.\n";
@@ -180,20 +190,24 @@ my %id_gts  = ();  # key: ids; value: array ref of dosages (0,1,2,NA)
 my $first_line = <$fh_dosages>;
 print $fhout $first_line;
 while (my $line = <$fh_dosages>) {
+  chomp $line; 
   if ($line =~ /^\s*(#|MARKER|CHROMOSOME)/) {
-    print $fhout $line;
+    print $fhout "$line\n";
     next;
   }
   my @cols = split("\t", $line);
   my $id = shift @cols;
+
+  $dosages_acc_count++;
   if (exists $clusterid_repid{$id}) { # this accession belongs to a cluster
     $id_gts{$id} = \@cols; # value is array ref with gts as in dosage file 
+    $cluster_member_count++;
   } else { # accession not in a cluster, just output the line just read in.
-    print $fhout $line;
+    print $fhout "$line\n"; # not a cluster member, just print it out.
+    $singleton_count++;
   }
 }
 close($fh_dosages);
-# print STDERR "after storing dosages\n";
 ###############################################################################
 
 my @duplicate_lines = ();
@@ -202,9 +216,10 @@ my @duplicate_lines = ();
 ####   output uniquified dosage matrix              ###########################
 ###############################################################################
 my @sorted_repids = sort keys %repid_clusterids;
+print STDERR "number of repids: ", scalar @sorted_repids, "  singleton_count: $singleton_count cluster_member_count:  $cluster_member_count   $dosages_acc_count \n";
+
 if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then output just representative id with 'elected' dosages.
   print STDERR "# duplicate group genotypes determined by voting.\n";
-  # while (my($representative_id, $cluster_accids) = each %repid_clusterids) {
     for my $representative_id (@sorted_repids){
       my $cluster_accids = $repid_clusterids{$representative_id};
     my $elected_gts = vote($cluster_accids, \%id_gts);
@@ -212,11 +227,10 @@ if ($vote  and  $cluster_fraction == 0) { # cluster members vote, and then outpu
   }
 } else {
   print STDERR "# duplicate group representative accessions are those  with least missing data.\n";
-  # while (my($representative_id, $cluster_accids) = each %repid_clusterids) {
-      for my $representative_id (@sorted_repids){
-      my $cluster_accids = $repid_clusterids{$representative_id};
-    print $fhout "$representative_id\t", join("\t", @{$id_gts{$representative_id}}), "\n"; # output representative and its dosages.
-  }
+  for my $representative_id (@sorted_repids){
+	my $cluster_accids = $repid_clusterids{$representative_id};
+	print $fhout "$representative_id\t", join("\t", @{$id_gts{$representative_id}}), "\n"; # output representative and its dosages.
+      }
 }
 
 ###############################################################################
