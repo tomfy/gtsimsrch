@@ -31,7 +31,8 @@ while (<>) {
   my @cols = split(" ", $_);
   my $xvalue = $cols[$xcol];
   my $yvalue = $cols[$ycol];
-  if ($xvalue =~ /\d+[.]\d+/  and $yvalue =~ /\d+[.]\d+/) {
+  # print stderr "$xvalue $yvalue   $xthresh $ythresh\n";
+  if ($xvalue =~ /\d+[.]?\d+/  and $yvalue =~ /\d+[.]?\d+/) {
     chomp;
     if ($xvalue < $xthresh) {
       if ($yvalue < $ythresh) {
