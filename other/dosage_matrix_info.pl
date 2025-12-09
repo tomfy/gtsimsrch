@@ -17,7 +17,7 @@ print "# acc_no                        acc_id        n0      n1      n2      nX 
 while (<>) {
   next if(/^\s*#/);
   if (/^MARKER/) {
-    my @cols = split(" ", $_);
+    my @cols = split("\t", $_);
     # while(my($ii, $xx) = each @cols){
     #   print STDERR "###   $xx  $ii  $ii \n";
     # }
@@ -26,6 +26,7 @@ while (<>) {
   }elsif(/^CHROMOSOME/) { # ignore this line
     
   } else {
+    # print;
     s/^\s*(\S+)//; # delete first field (accession id)
    my $acc_id = $1;
  #  while (/\s+\S/g) { $marker_count++ } # slow compared to using tr as in following 4 lines.
@@ -38,7 +39,11 @@ while (<>) {
     #my $acc_heterozygosity = $one_count/($zero_count + $one_count + $two_count);
     # print STDERR "$acc_id   $zero_count  $one_count ($minus_count, $plus_count)  $two_count  $X_count  $acc_heterozygosity\n";
     my $marker_count =  $zero_count+$one_count+$two_count+$X_count;
-    die "# Marker count discrepancy: n_marker_ids $n_marker_ids  n_markers: $marker_count\n" if($marker_count != $n_marker_ids);
+    if($marker_count != $n_marker_ids){
+      # print "[$acc_id]  [$_]";
+      print STDERR "$zero_count  $one_count  $two_count  $X_count \n";
+      die "# Marker count discrepancy: n_marker_ids $n_marker_ids  n_markers: $marker_count  accession: $acc_id\n";
+    }
     $cume_zero_count += $zero_count;
     $cume_one_count += $one_count;
     $cume_two_count += $two_count;
