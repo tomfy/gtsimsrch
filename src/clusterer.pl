@@ -88,7 +88,7 @@ use Cluster1d;
   if (!defined $distances_filename) {
     print STDERR "Input file must be specified.\n";
     print STDERR "Basic usage example: \n", "  clusterer -in duplicate_search.out  -out cluster.out  -dcluster 0.03\n";
-    print STDERR "This would do single-linkage clustering with max edge length (max agmr) of 0.03.\n";
+    print STDERR "This would do single-linkage clustering with max edge length (max agmr) of $default_edge_max_distance.\n";
     print STDERR "If -dcluster is omitted the default value $default_edge_max_distance  is used.\n";
     # print STDERR "If -dcluster 'auto' is specified an attempt is made to choose it automatically, but this is not very reliable.\n";
     print STDERR "It is recommended to choose the max edge length by inspecting a histogram of the agmrs (col 5 of duplicate_search output)\n";
