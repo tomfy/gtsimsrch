@@ -65,7 +65,7 @@ containing quantities calculated using phased genotype information. The most int
 
 These should both be small if the parents are correct. 
 
-![alt text](FTR\_vs\_ACR\_480x360.png "title")
+![FTR_vs_ACR](./for_readme/FTR\_vs\_ACR\.png "title")
 
 finding likely parents if pedigrees are not available:
 
