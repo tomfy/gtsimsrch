@@ -55,7 +55,7 @@ void output_run_parameters(FILE* o_stream, Vchar* input_filename, Vchar* output_
 			   double minGP, double delta, double max_acc_md, bool use_alt_marker_id, long Nthreads);
 void print_marker_ids(FILE* ostream, Vstr* used_marker_ids);
 void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers);
-void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases, double max_acc_md_fraction, FILE* reject_stream);
+long print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases, double max_acc_md_fraction, FILE* reject_stream);
 
 double clock_time(clockid_t the_clock){
   struct timespec tspec;
@@ -68,7 +68,7 @@ extern int errno;
 
 #define DEFAULT_MIN_GP  0.9
 #define DEFAULT_DELTA  0.1
-#define DEFAULT_MAX_ACC_MISSING_DATA_FRACTION 0.5  //
+#define DEFAULT_MAX_ACC_MISSING_DATA_FRACTION 1.0  //
 #define DEFAULT_MIN_MAF 0.0  // KEEP ALL
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION 1.0  // KEEP ALL
 
@@ -251,7 +251,13 @@ int main(int argc, char *argv[]){
     exit(EXIT_FAILURE);
   }
   reject_stream = fopen("rejected_accessions.dsgm", "w");
+  
+  fprintf(out_stream, "# "); // output command line 
+  for(long i=0; i<argc; i++){
+    fprintf(out_stream, "%s ", argv[i]);
+  }fprintf(out_stream, "\n");
 
+  
   clockid_t the_clock = CLOCK_MONOTONIC;
   struct timespec tspec;
   if(clock_getres(the_clock, &tspec) == 0){
@@ -272,23 +278,6 @@ int main(int argc, char *argv[]){
   // ****************************************************
   // *****  Output run parameters  **********************
   // ****************************************************
-  /* fprintf(stdout, "# vcf file: %s \n# vcf_to_gts output file: %s \n", input_filename, output_filename->a); */
-  /* // fprintf(stdout, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta); */
-  /* // fprintf(stdout, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md); */
-  /* fprintf(stdout, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false"); */
-  /* fprintf(stdout, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed); */
-  /* fprintf(stdout, "# number of threads: %ld \n", Nthreads); */
-  
-  /* fprintf(out_stream, "###############################################################\n"); */
-  /* fprintf(out_stream, "# vcf_to_gts  run parameters: \n"); */
-  /* fprintf(out_stream, "# vcf file: %s \n# vcf_to_gt output file: %s \n", input_filename, output_filename->a); */
-  /* fprintf(out_stream, "# min genotype prob: %6.4f ; delta: %6.4f \n", minGP, delta); */
-  /* //  fprintf(out_stream, "# min maf: %6.4f ; max marker missing data: %6.4f \n", min_maf, max_marker_md); */
-  /* fprintf(out_stream, "# use alt marker ids: %s \n", (use_alt_marker_id)? "true" : "false"); */
-  /* fprintf(out_stream, "# shuffle accession order: %s ; rng seed: %ld \n", (shuffle_accessions)? "true" : "false", rand_seed); */
-  /* fprintf(out_stream, "# number of threads: %ld \n", Nthreads); */
-  /* fprintf(out_stream, "###############################################################\n"); */
-  
   output_run_parameters(stdout, input_filename, output_filename, minGP, delta, max_acc_md, use_alt_marker_id, Nthreads);
   output_run_parameters(out_stream, input_filename, output_filename, minGP, delta, max_acc_md, use_alt_marker_id, Nthreads);
   output_run_parameters(reject_stream, input_filename, output_filename, minGP, delta, max_acc_md, use_alt_marker_id, Nthreads);
@@ -335,8 +324,8 @@ int main(int argc, char *argv[]){
   }
   chomp(accession_ids->a[accession_ids->size-1]); // chomp off any trailing newline(s) from the last acc_id 
   long n_accessions = accid_count;
-  fprintf(stdout, "# number of accession ids: %ld\n", accession_ids->size);
-  fprintf(out_stream, "# number of accession ids: %ld\n", accession_ids->size);
+  fprintf(stdout, "# number of accession ids in input: %ld\n", accession_ids->size);
+  fprintf(out_stream, "# number of accession ids in input: %ld\n", accession_ids->size);
   
   // *********************************************************
   // *****   Read the rest of the lines, one per marker  *****
@@ -471,13 +460,13 @@ int main(int argc, char *argv[]){
   fprintf(stderr, "# Begin output.\n");
   Vlong* accession_indices = construct_vlong_whole_numbers(accession_ids->size);
   if(shuffle_accessions) shuffle_vlong(accession_indices); 
-
+  fprintf(out_stream, "# number of markers in input: %ld\n", all_used_markerids->size);
   print_marker_ids(out_stream, all_used_markerids);
   print_chromosome_numbers(out_stream, all_used_chrom_numbers);
   print_marker_ids(reject_stream, all_used_markerids);
   print_chromosome_numbers(reject_stream, all_used_chrom_numbers);
-  print_accessions_genotypes(out_stream, accession_indices, accession_ids, all_used_genos, all_used_phases,
-			     max_acc_md, reject_stream);
+  long n_rejected_accessions = print_accessions_genotypes(out_stream, accession_indices, accession_ids,
+					 all_used_genos, all_used_phases, max_acc_md, reject_stream);
   fclose(out_stream);
 
   double t3 = clock_time(the_clock);
@@ -860,7 +849,8 @@ void print_chromosome_numbers(FILE* ostream, Vlong* used_chrom_numbers){
   }fprintf(ostream, "\n");
 }
 
-void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases, double max_acc_md_fraction, FILE* reject_stream){
+long print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* accession_ids, Vstr* used_genos, Vstr* used_phases, double max_acc_md_fraction, FILE* reject_stream){
+  long n_rejected = 0;
   for(long iacc=0; iacc< accession_indices->size; iacc++){
     long i_accession = accession_indices->a[iacc];
     //  fprintf(ostream, "%s", accession_ids->a[i_accession]);
@@ -893,12 +883,15 @@ void print_accessions_genotypes(FILE* ostream, Vlong* accession_indices, Vstr* a
 	append_char_to_vchar(acc_gts, used_genos->a[im][i_accession]);
       }
     }
+   
     if((double)missing_data_count/(double)used_genos->size <= max_acc_md_fraction){
       fprintf(ostream, "%s%s\n", accession_ids->a[i_accession], acc_gts->a);
     }else{ // accession has too much missing data, rejected
       fprintf(reject_stream, "%s%s\n", accession_ids->a[i_accession], acc_gts->a);
+      n_rejected++;
     }
   }
+  return n_rejected;
 }
 
 void output_run_parameters(FILE* o_stream, Vchar* input_filename, Vchar* output_filename,
