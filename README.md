@@ -34,7 +34,7 @@ If we have a record of the parents of accessions we can also supply the name of 
 
 	uniquify  -dosages_in  cassava.dsgm  -pedigrees_in ptable  -cluster cassava.clustout
 
-Here ptable has the offspring id, followed by the two parents’ ids in the first 3 whitespace-separated columns. The files with duplicate accessions removed will then be  u\_cassava.dsgm  and  u\_ptable.
+Here ptable has the offspring id, followed by the two parents’ ids in the first 3 tab-separated columns. The files with duplicate accessions removed will then be  u\_cassava.dsgm  and  u\_ptable.
 
 Checking pedigrees in a file. 
 We can check whether the pedigrees in u\_ptable are correct as follows:
@@ -53,16 +53,19 @@ This is followed by:
 | 2 | the letter 'P' to indicate a pedigree read from a file. |
 | 3 | id of the first parent.  |
 | 4 | id of the second parent. |
+| 7 | hgmr w.r.t. first parent. |
+| 9 | hgmr w.r.t. second parent. | 
 | 11 | forbidden triple rate (FTR) |
-| 18 | apparent crossover rate (ACR) [phased data only]|
+| 16 | apparent crossover max (ACC) [phased data only]|
 
 Columns 5-11 contain quantities calculated using unphased genotype information.   
 	
-If the genotype data is phased there are an additional 7 columns, columns 12-18,  
-containing quantities calculated using phased genotype information.  
-	The most interesting of these is usually column 18, the 'apparent crossover rate' (ACR)  
+If the genotype data is phased there are an additional 5 columns, columns 12-16,  
+containing quantities calculated using phased genotype information. The most interesting of these is usually column 16, the 'apparent crossover count' (ACC)  
 
-These should both be small if the parents are correct.
+These should both be small if the parents are correct. 
+
+![alt text](FTR\_vs\_ACR\_480x360.png "title")
 
 finding likely parents if pedigrees are not available:
 
