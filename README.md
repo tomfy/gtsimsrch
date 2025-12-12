@@ -68,7 +68,8 @@ These should both be small if the parents are correct.
 ![FTR_vs_ACR](./for_readme/FTR\_vs\_ACC\.png "title")
 
 In this case, out of 7066 pedigrees with both parents given, we find 5244 pedigrees with FTR < 0.1, and of these 4745 have ACC < 100. 
-finding likely parents if pedigrees are not available:
+
+Finding likely parents if pedigrees are not available:
 
 	find_parents  -in u_cassava.dsgm  -out cassava_noped.fpout 
 
