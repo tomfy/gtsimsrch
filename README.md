@@ -77,7 +77,8 @@ Even if pedigrees are available we can expect some of them to be wrong, so we ca
 
 Now in addition to testing the pedigrees, as described above, find_parents will, for each accession, A, try to find a likely pair of parents by considering all the other accessions as possible parents. For speed, a first cut is made using hgmr. Given a pair of accessions, A and B, hgmr(A,B) will be small if one is the parent of the other, and in this way we can rule out most of the other accessions. However hgmr can't tell us whether B is the parent of A or vice versa. For that we need to consider a pair of accessions, B and C, and calculate FTR(A,B,C). Find_parents will sort any alternative pedigrees it finds and output those with the smallest FTR. We can compare the FTR's of the input pedigree and the best alternative pedigree:
 
-![compare pedigree, best alternative[(
+
+![compare pedigree, best alternative](ftr\_best\_alt\_vs\_pedigree.png "title")
 
 Finding likely parents if pedigrees are not available:
 
