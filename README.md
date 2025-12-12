@@ -67,19 +67,23 @@ These should both be small if the parents are correct.
 
 ![FTR_vs_ACR](./for_readme/FTR\_vs\_ACC\.png "title")
 
-In this case, out of 7066 pedigrees with both parents given, we find 5244 pedigrees with FTR < 0.1, and of these 4745 have ACC < 100. 
+In this case, out of 7066 pedigrees specifying both parents, we find 5244 pedigrees with FTR < 0.1, and of these 4745 have ACC < 100. 
 
-Finding likely parents if pedigrees appear to wrong or are not available:
+Searching for likely parents:
+
+Even if pedigrees are available we can expect some of them to be wrong, so we can both test the pedigrees we are given, and search for alternatives like this:
 
 	find_parents  -in u_cassava.dsgm  -ped u_ptable  -out cassava_with_alternatives.fpout -alt 1
 
-Now in addition to testing the pedigrees, as described above, find_parents will, for each accession, A, try to find a likely pair of parents by considering all the other accessions as possible parents. For speed, a first cut is made using hgmr. Given a pair of accessions, A and B, hgmr(A,B) will be small if one is the parent of the other, and in this way we can rule out most of the other accessions. However hgmr can't tell us whether B is the parent of A or vice versa. For that we need to consider a pair of accessions, B and C, and calculate FTR(A,B,C).  
+Now in addition to testing the pedigrees, as described above, find_parents will, for each accession, A, try to find a likely pair of parents by considering all the other accessions as possible parents. For speed, a first cut is made using hgmr. Given a pair of accessions, A and B, hgmr(A,B) will be small if one is the parent of the other, and in this way we can rule out most of the other accessions. However hgmr can't tell us whether B is the parent of A or vice versa. For that we need to consider a pair of accessions, B and C, and calculate FTR(A,B,C). Find_parents will sort any alternative pedigrees it finds and output those with the smallest FTR. We can compare the FTR's of the input pedigree and the best alternative pedigree:
+
+
 
 Finding likely parents if pedigrees are not available:
 
-	find_parents  -in u_cassava.dsgm  -out cassava_noped.fpout 
+	find_parents  -in u_cassava.dsgm  -out cassava_alternatives_only.fpout 
 
-Now the output has ‘-’ characters where the fields for the pedigree (cols 3-18) would be.
+Now the output has ‘-’ characters where the fields for the pedigree (cols 3-16) would be.
 
 **Converting from vcf to dosage matrix** (with each line being one accession)  
 vcf\_to\_dsgm     
