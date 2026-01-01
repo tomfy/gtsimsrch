@@ -33,6 +33,13 @@ typedef struct{
 }two_doubles;
 
 typedef struct{
+  double x1;
+  double x2;
+  double x3;
+  double x4;
+}four_doubles;
+
+typedef struct{
   char ch1;
   char ch2;
 }two_chars;
