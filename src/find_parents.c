@@ -19,8 +19,8 @@
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  1.0
 #define DEFAULT_MIN_MAF  0.05
-#define DEFAULT_MAX_NHGMR 0.2
-#define DEFAULT_MAX_CANDIDATE_PARENTS 1000
+#define DEFAULT_MAX_NHGMR 0.2  // max normalized hgmr, i.e. hgmr divided by mean hgmr for a set of random pairs
+#define DEFAULT_MAX_CANDIDATE_PARENTS 1000 // 
 #define DEFAULT_RANDOM_SAMPLE_SIZE 40000
 #define DEFAULT_MAX_SOLNS_OUT 3  // in addition to pedigree from file.
 #define ALL_ALTS 1 // search for alt. pedigrees for all accessions. all accessions are considered as parents.
@@ -438,6 +438,16 @@ main(int argc, char *argv[])
 	fprintf(o_stream, "%s\tP", A->id->a); // progeny accession and 'P' to indicate these are parents from the pedigree file.
 	print_pedigree_normalized(o_stream, the_pedigree); //, the_genotypes_set);
 
+	/*	four_doubles FAAF = AB_BA(the_genotypes_set, F, A);
+	four_doubles AFFA = AB_BA(the_genotypes_set, A, F); fprintf(stdout, "\n");
+	//four_doubles MAAM = AB_BA(the_genotypes_set, M, A); fprintf(stdout, "\n");
+	fprintf(stderr, "%s\tP", A->id->a); // progeny accession and 'P' to indicate these are parents from the pedigree file.
+	print_pedigree_normalized(stderr, the_pedigree); //, the_genotypes_set);
+	fprintf(stderr, " %6.3f %6.3f %6.3f %6.3f   %6.3f %6.3f %6.3f %6.3f \n",
+		FAAF.x1, FAAF.x2, FAAF.x3, FAAF.x4,
+		AFFA.x1, AFFA.x2, AFFA.x3, AFFA.x4);
+	//	MAAM.x1, MAAM.x2, MAAM.x3, MAAM.x4); /* */
+	
 	if(the_genotypes_set->phased && do_phased){
 	  four_longs Xinfo = count_crossovers(the_genotypes_set, F, M, A);
 	  print_crossover_info(o_stream, Xinfo);
