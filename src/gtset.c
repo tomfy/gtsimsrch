@@ -1428,7 +1428,6 @@ void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char*
   fprintf(stdout, "# n xhgmrs calculated: %ld ;  <= %8.5f :  %ld\n", n_xhgmrs_calculated, max_xhgmr, n_xhgmrs_le_max);
   } /* */
 
-
 two_doubles logPABlogPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B){ // 
   if(A == NULL  ||  B == NULL){
     two_doubles result = {0, 0};
@@ -1497,6 +1496,89 @@ two_doubles logPABlogPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B){ 
   denom += forbidden_count;
   
   two_doubles result = {logPAB, logPBA};
+  return result;
+} /* */
+
+
+four_doubles AB_BA(GenotypesSet* the_gtsset, Accession* A, Accession* B){ // 
+  if(A == NULL  ||  B == NULL){
+    four_doubles result = {0, 0, 0, 0};
+    return result;
+  }
+
+  long n01 = 0;
+  long n21 = 0;
+  long n10 = 0;
+  long n12 = 0;
+  long n0x = 0;
+  long n2x = 0;
+  long nx0 = 0;
+  long nx2 = 0;
+  long n1x = 0;
+  long nx1 = 0;
+  long n0or2_x = 0;
+  long nx_0or2 = 0;
+  //long n1_0or2 = 0;
+  //long n0or2_1 = 0;
+ 
+  for(long i=0; i<the_gtsset->n_markers; i++){
+   
+    long a_dosage = A->genotypes->a[i];
+    long b_dosage = B->genotypes->a[i];
+    if(a_dosage == MISSING_DATA_CHAR  ||  b_dosage == MISSING_DATA_CHAR) continue;
+    a_dosage -= 48; b_dosage -= 48;
+    
+    if(a_dosage == 0){
+      n0x++;
+      n0or2_x++;
+      if(b_dosage == 1){
+	nx1++;
+	n01++;
+      }else{ // b is 0 or 2
+	nx_0or2++;
+	if(b_dosage == 0){
+	  nx0++;
+	}else{ // b is 2
+	  nx2++;
+	}
+      }
+    }else if(a_dosage == 1){
+      n1x++;
+      if(b_dosage == 0){
+	n10++;
+	nx_0or2++;
+	nx0++;
+      }else if(b_dosage == 2){
+	n12++;
+	nx_0or2++;
+	nx2++;
+      }else{
+	nx1++;
+      }
+    }else if(a_dosage == 2){
+      n0or2_x++;
+      n2x++;
+      if(b_dosage == 1){
+	n21++;
+	nx1++;
+      }else{ // b is 0 or 2
+	nx_0or2;
+	if(b_dosage == 0){
+	  nx0++;
+	}else{ // b is 2
+	  nx2++;
+	}
+      }
+    }
+  }
+  double ABx = n01/(double)n0x + n21/(double)n2x;
+  double ABy = n10/(double)n1x + n12/(double)n1x;
+  
+  double BAx = n10/(double)nx0 + n12/(double)nx2;
+  double BAy = n01/(double)nx1 + n21/(double)nx1;
+  
+  four_doubles result = {ABx, ABy, BAx, BAy};
+  fprintf(stdout, "%ld %ld  %ld %ld  %ld %ld %ld  %ld %ld %ld  ", n01, n21, n10, n12, n0x, n2x, n1x, nx0, nx2, nx1);
   return result;
 } /* */
 

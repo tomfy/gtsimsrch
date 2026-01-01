@@ -189,3 +189,4 @@ double pair_agmr0(Accession* A, Accession* B);
 void n_00_1_22_1_accvsall(const GenotypesSet* the_gtsset, Accession* A );
 
 two_doubles logPABlogPBA(GenotypesSet* the_gtsset, Accession* A, Accession* B);
+four_doubles AB_BA(GenotypesSet* the_gtsset, Accession* A, Accession* B);
