@@ -21,7 +21,7 @@ Find clusters of duplicate accessions:
 
 Running this way using default parameters may be reasonable, but different genotyping error rates will give different observed agmrs between duplicate accessions. So it is a good idea to make a histogram of the agmr values (column 5\) of the output from duplicate\_search to decide how similar accessions should be (i.e. how small the agmr should be) to be considered duplicates. The default value of this parameter is 0.035 ; a different value can be specified when running clusterer with e.g.:   \-dcluster  0.04  . Let’s look at the histogram to see if this is reasonable. 
 
-![alt text](cassava\_dsout\_agmr\_histogram\_480x360.png "title")  
+![agmr_histogram](cassava\_dsout\_agmr\_histogram\_480x360.png "title")  
 
 There is a clear peak at about 0.014, and it extends up to about 0.03 . This suggests these are due to duplicates whose observed genotypes differ due to a genotyping error rate of \~0.7%. The default value looks quite reasonable.
 
@@ -34,7 +34,7 @@ If we have a record of the parents of accessions we can also supply the name of 
 
 	uniquify  -dosages_in  cassava.dsgm  -pedigrees_in ptable  -cluster cassava.clustout
 
-Here ptable has the offspring id, followed by the two parents’ ids in the first 3 whitespace-separated columns. The files with duplicate accessions removed will then be  u\_cassava.dsgm  and  u\_ptable.
+Here ptable has the offspring id, followed by the two parents’ ids in the first 3 tab-separated columns. The files with duplicate accessions removed will then be  u\_cassava.dsgm  and  u\_ptable.
 
 Checking pedigrees in a file. 
 We can check whether the pedigrees in u\_ptable are correct as follows:
@@ -43,9 +43,7 @@ We can check whether the pedigrees in u\_ptable are correct as follows:
 
 This will just check the pedigrees read from u\_ptable, without searching for alternative pedigrees.
 
-This generates output with one line for each accession. The most useful
-The first column contains the accession id.  
-This is followed by:
+This generates output with one line for each accession. The columns with the most useful information are as follows:
 
 | Column | content |
 | --- | --- |
@@ -53,22 +51,39 @@ This is followed by:
 | 2 | the letter 'P' to indicate a pedigree read from a file. |
 | 3 | id of the first parent.  |
 | 4 | id of the second parent. |
+| 7 | hgmr w.r.t. first parent. |
+| 9 | hgmr w.r.t. second parent. | 
 | 11 | forbidden triple rate (FTR) |
-| 18 | apparent crossover rate (ACR) [phased data only]|
+| 16 | max apparent crossover count (ACC) [phased data only]|
 
 Columns 5-11 contain quantities calculated using unphased genotype information.   
 	
-If the genotype data is phased there are an additional 7 columns, columns 12-18,  
-containing quantities calculated using phased genotype information.  
-	The most interesting of these is usually column 18, the 'apparent crossover rate' (ACR)  
+If the genotype data is phased columns 12-16 contain information on inferred numbers of crossovers. Columns 12 and 14 ,  
+containing quantities calculated using phased genotype information. The most interesting of these is usually column 16, the 'apparent crossover count' (ACC)  
 
-These should both be small if the parents are correct.
+These should both be small if the parents are correct. 
 
-finding likely parents if pedigrees are not available:
+![FTR_vs_ACC](./for_readme/FTR\_vs\_ACC\.png "title")
 
-	find_parents  -in u_cassava.dsgm  -out cassava_noped.fpout 
+In this case, out of 7066 pedigrees specifying both parents, we find 5244 pedigrees with FTR < 0.1, and of these only 3 have ACC > 100. 
 
-Now the output has ‘-’ characters where the fields for the pedigree (cols 3-18) would be.
+Searching for likely parents:
+
+Even if pedigrees are available we can expect some of them to be wrong, so we can both test the pedigrees we are given, and search for alternatives like this:
+
+	find_parents  -in u_cassava.dsgm  -ped u_ptable  -out cassava_with_alternatives.fpout -alt 1
+
+Now in addition to testing the pedigrees, as described above, find_parents will, for each accession, A, try to find a likely pair of parents by considering all the other accessions as possible parents. For speed, a first cut is made using hgmr. Given a pair of accessions, A and B, hgmr(A,B) will be small if one is the parent of the other, and in this way we can rule out most of the other accessions. However hgmr can't tell us whether B is the parent of A or vice versa. For that we need to consider a pair of accessions, B and C, and calculate FTR(A,B,C). Find_parents will sort any alternative pedigrees it finds by FTR and output the best ones it finds up to a maximum of 3. Columns 17-31 hold information about the best alternative pedigree, with the ids of the parents in cols 18 and 19, and FTR and ACC in columns 26 and 31 respectively. We can compare the FTR's of the input pedigree and the best alternative pedigree:
+
+![compare pedigree, best alternative](ftr\_best\_alt\_vs\_pedigree.png "title")
+
+Of the 7066 pedigrees specifying both parents, 4748 have the best alternative the same as the pedigree, and of these, only 3 have FTR > 0.1. 
+
+Finding likely parents if pedigrees are not available:
+
+	find_parents  -in u_cassava.dsgm  -out cassava_alternatives_only.fpout 
+
+Now the output has ‘-’ characters where the fields for the pedigree (cols 3-16) would be.
 
 **Converting from vcf to dosage matrix** (with each line being one accession)  
 vcf\_to\_dsgm     
