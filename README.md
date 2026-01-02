@@ -66,8 +66,6 @@ These should both be small if the parents are correct.
 
 In this case, out of 7066 pedigrees specifying both parents, we find 5315 (75%) with FTR <= 0.1, and of these 4818 have ACC <= 100. 
 
-[//]: # 5244 pedigrees with FTR < 0.1, and of these only 3 have ACC > 100. 
-
 Searching for likely parents:
 
 Even if pedigrees are available we can expect some of them to be wrong, so we can both test the pedigrees we are given, and search for alternatives like this:
@@ -80,12 +78,13 @@ Now in addition to testing the pedigrees, as described above, find_parents will,
 
 Of the 7066 pedigrees specifying both parents, 4748 have the best alternative the same as the pedigree, and of these, only 3 have FTR > 0.1. 
 
-Finding likely parents if pedigrees are not available:
+Finding likely parents if pedigrees are not available. In this case it is not necessary to specify  -alt 1  :
 
 	find_parents  -in u_cassava.dsgm  -out cassava_alternatives_only.fpout 
 
-Now the output has ‘-’ characters where the fields for the pedigree (cols 3-16) would be.
+Now the output has ‘-’ characters where the fields for the pedigree (cols 2-16) would be. 
 
+More detailed instructions:
 **Converting from vcf to dosage matrix** (with each line being one accession)  
 vcf\_to\_dsgm     
 e.g:    vcf\_to\_dsgm  \-in cassava\_maf010.vcf  \-out cassava\_maf010.dsgm   \-prob 0.85 
