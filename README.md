@@ -64,7 +64,9 @@ These should both be small if the parents are correct.
 
 ![FTR_vs_ACC](./for_readme/FTR\_vs\_ACC\.png "title")
 
-In this case, out of 7066 pedigrees specifying both parents, we find 5244 pedigrees with FTR < 0.1, and of these only 3 have ACC > 100. 
+In this case, out of 7066 pedigrees specifying both parents, we find 5315 (75%) with FTR <= 0.1, and of these 4818 have ACC <= 100. 
+
+[//]: # 5244 pedigrees with FTR < 0.1, and of these only 3 have ACC > 100. 
 
 Searching for likely parents:
 
