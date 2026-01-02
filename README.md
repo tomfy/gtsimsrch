@@ -58,8 +58,7 @@ This generates output with one line for each accession. The columns with the mos
 
 Columns 5-11 contain quantities calculated using unphased genotype information.   
 	
-If the genotype data is phased columns 12-16 contain information on inferred numbers of crossovers. Columns 12 and 14 ,  
-containing quantities calculated using phased genotype information. The most interesting of these is usually column 16, the 'apparent crossover count' (ACC)  
+If the genotype data is phased columns 12-16 contain information on inferred numbers of crossovers. The most interesting of these is usually column 16, the 'apparent crossover count' (ACC)  
 
 These should both be small if the parents are correct. 
 
