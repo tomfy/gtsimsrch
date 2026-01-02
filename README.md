@@ -76,7 +76,7 @@ Now in addition to testing the pedigrees, as described above, find_parents will,
 
 ![compare pedigree, best alternative](ftr\_best\_alt\_vs\_pedigree.png "title")
 
-Of the 7066 pedigrees specifying both parents, 4748 have the best alternative the same as the pedigree, and of these, only 3 have FTR > 0.1. 
+Of the 7066 pedigrees specifying both parents, 5315 have FTR <= 0.1. For all of these, the best alternative found by the search is at least as good (in terms of FTR) as the pedigree. For 4745 of these, the best alternative is the same, and for the other 570 it has a smaller FTR. Of the 1742 accessions whose pedigree has FTR > 0.1, there are 1309 with best alt. FTR <= 0.1, 433 with best alt. FTR > 0.1, and 9 with no alternative pedigree found (which happens if there are no sufficiently small hgmrs). Of the 6624 accessions with best alt. FTR <= 0.1, there are 1664 with at least one other alternative pedigree found with FTR <= 0.1. Of the 8105 accessions (after removing duplicates) there are 7066 with both parents specified in the pedigree file, and with genotypes for both of those parents. Of the 1039 other accessions (with one or both parents unspecified or lacking genotypes), there are 490 for which the search find a pair of parents with FTR <= 0.1.
 
 Finding likely parents if pedigrees are not available. In this case it is not necessary to specify  -alt 1  :
 
