@@ -31,8 +31,8 @@ typedef struct{
 }XFcounts;
 
 typedef struct{ // 0: progeny, 1, 2: parents
-  ND agmr01;
-  ND agmr02;
+  //ND agmr01;
+  //ND agmr02;
   ND agmr12;
   ND par1_hgmr;
   ND par1_xhgmr;
@@ -42,6 +42,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   ND par2_R;
   ND d; // (n1+n2)/(n0+n1+n2);
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
+  ND h; // n111/nx11
 
   // ND xz;
   // ND d_2; // 
@@ -128,6 +129,8 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_Vped, long n_accessi
 void push_to_vpedigree(Vpedigree* the_vped, Pedigree* the_ped);
 void sort_vpedigree_by_d(Vpedigree* the_vped);
 int compare_pedigree_d(const void* a, const void* b);
+void sort_vpedigree_by_maxhgmr(Vpedigree* the_vped); 
+int compare_pedigree_maxhgmr(const void* a, const void* b);
 
 void free_vpedigree(const Vpedigree* the_vped);
 
