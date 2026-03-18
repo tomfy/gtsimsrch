@@ -108,13 +108,13 @@ int main(int argc, char *argv[]){
         {"vcf_input",   required_argument, 0,  'i'}, // vcf filename
 	{"output",  required_argument, 0,  'o'}, // output filename
 	{"prob_min",  required_argument,  0,  'p'}, // min. 'estimated genotype probability'
+	{"marker_max_md", required_argument, 0, 'M'}, // filter out markers with missing data fraction > this.
 	{"acc_max_missing_data", required_argument, 0, 'm'}, 
 	{"threads", required_argument, 0,  't'}, // number of threads to use. Default: set automatically based on nprocs()
 	{"alternate_marker_ids",  no_argument, 0, 'a'}, // construct marker ids from cols 1 and 2 (in case garbage in col 3)
 	{"randomize",    no_argument, 0,  'r' }, // shuffle the order of the accessions in output
 	{"seed", required_argument, 0, 's'}, // rng seed. Only relevant if shuffling.
 	//	{"maf_min", required_argument, 0, 'f'}, // filter out markers with minor allele frequency less than this.
-	//	{"marker_max_md", required_argument, 0, 'm'}, // filter out markers with missing data fraction > this.
 	{"delta", required_argument, 0, 'd'},  // if using DS, the dosage will be considered to be missing data if > delta from an integer.
 	{"chunk_size", required_argument, 0, 'c'}, // number of lines (markers) to read and process at a time.
 	{"help", no_argument, 0, 'h'},
@@ -146,7 +146,7 @@ int main(int argc, char *argv[]){
       }
       fprintf(stdout, "# minGP set to: %8.5lf\n", minGP);
       break;
-        case 'm' :
+    case 'm' :
       if(sscanf(optarg, "%lf ", &max_acc_md) != 1  ||  errno != 0){
 	fprintf(stderr, "# max_acc_md; conversion of argument %s to double failed.\n", optarg);
 	exit(EXIT_FAILURE);
@@ -166,16 +166,16 @@ int main(int argc, char *argv[]){
     /*   } */
     /*   fprintf(stdout, "# min_maf set to: %8.5lf\n", min_maf); */
     /*   break; */
-    /* case 'm' : */
-    /*   if(sscanf(optarg, "%lf ", &max_marker_md) != 1  ||  errno != 0){ */
-    /* 	fprintf(stderr, "# max_marker_md; conversion of argument %s to double failed.\n", optarg); */
-    /* 	exit(EXIT_FAILURE); */
-    /*   }else if(max_marker_md > 1){ */
-    /* 	fprintf(stderr, "# max_marker_md was set to %8.4lf , must be > 0 and <= 1\n", max_marker_md); */
-    /* 	exit(EXIT_FAILURE); */
-    /*   } */
-    /*   fprintf(stdout, "# max_marker_md set to: %8.5lf\n", max_marker_md); */
-    /*   break; */
+    case 'M' :
+      if(sscanf(optarg, "%lf ", &max_marker_md) != 1  ||  errno != 0){
+	fprintf(stderr, "# max_marker_md; conversion of argument %s to double failed.\n", optarg);
+	exit(EXIT_FAILURE);
+      }else if(max_marker_md > 1){
+	fprintf(stderr, "# max_marker_md was set to %8.4lf , must be > 0 and <= 1\n", max_marker_md);
+	exit(EXIT_FAILURE);
+      }
+      fprintf(stdout, "# max_marker_md set to: %8.5lf\n", max_marker_md);
+      break;
     case 't' :
       if(sscanf(optarg, "%ld", &Nthreads) != 1  ||  errno != 0){
 	fprintf(stderr, "# Nthreads; conversion of argument %s to long failed.\n", optarg);
@@ -353,16 +353,19 @@ int main(int argc, char *argv[]){
       char* line_copy = strcpy( (char*)malloc((nread+1)*sizeof(char)), line);
       chomp(line_copy);
       push_to_vstr(marker_lines, line_copy);
+      // fprintf(stderr, "XXX: %s\n", line_copy);
       line_count++;
     }
     total_lines_read += line_count;
     fprintf(stdout, "lines read: %ld\n", total_lines_read);
+    //fprintf(stderr, "AAA:  %ld %ld\n", marker_lines->size, Nthreads);
     // ********************************************************
     // *****  Extract genotypes, and quality information  *****
     // *****  Filter if requested and store genotypes     *****
     // ********************************************************
     
     if(Nthreads == 0){ // process without creating any new threads
+      // fprintf(stderr, "CCC: Nthreads == 0\n");
       TD td;
       td.n_accessions = n_accessions;
       td.marker_lines = marker_lines;
@@ -378,12 +381,15 @@ int main(int argc, char *argv[]){
       td.marker_ids = construct_vstr(1000);
       td.gntps = construct_vstr(100); // chunk_genos;
       td.phases = construct_vstr(1000);
+      //fprintf(stderr, "DDD: before process_marker_range\n");
       process_marker_range((void*)(&td));
+      //fprintf(stderr, "DDD: after process_marker_range\n");
       for(long im=0; im<td.marker_ids->size; im++){ // loop over stored markers
 	push_to_vstr(all_used_genos, td.gntps->a[im]);
 	push_to_vstr(all_used_phases, td.phases->a[im]);
 	push_to_vstr(all_used_markerids, td.marker_ids->a[im]);
 	push_to_vlong(all_used_chrom_numbers, td.chrom_numbers->a[im]);
+	//fprintf(stderr, "BBB: %ld\n", im);
       }
       free(td.marker_ids); // but don't free the c strings containing the actual ids, which are stored in all_used_markerids.
       free(td.marker_ids->a);
@@ -544,9 +550,11 @@ void* process_marker_range(void* x){
     }
 
     token =  split_on_char(line, '\t', &tidx); // strtok_r(NULL, split_str, &saveptr);
+    //fprintf(stderr, "TOKEN: %s\n", token);
     char* format = strcpy((char*)malloc((strlen(token)+1)*sizeof(char)), token); // format string, e.g. GT:DS:GP
     long GTidx, GQidx, GPidx, DSidx;
     get_GT_GQ_GP_DS_indices(format, &GTidx, &GQidx, &GPidx, &DSidx);
+    //fprintf(stderr, "EEE: %ld %ld %ld %ld \n", GTidx, GQidx, GPidx, DSidx);
     free(format);
     long acc_index = 0;
     long md_count = 0;
@@ -554,13 +562,14 @@ void* process_marker_range(void* x){
     //if(1){
     if(GTidx >= 0){ // GT present, use it.
       while(1){ // read genotypes from one line, i.e. one marker
+	//fprintf(stderr, "LINE: %s\n", line);
 	token = split_on_char(line, '\t', &tidx);
 	if(token == NULL)	break; // end of line has been reached.
-	// fprintf(stderr, "token: [%s]     ", token);
+	//fprintf(stderr, "FFF token: [%s]     ", token);
 	two_chars gt_ph = token_to_genotype_GT(token, GTidx, GPidx, td->minGP);
 	char genotype = gt_ph.ch1;
 	//	fprintf(stderr, "[%s]     [%c]\n", token, genotype);
-	// fprintf(stderr, "Z: %c %c\n", gt_ph.ch1, gt_ph.ch2);
+	//fprintf(stderr, "Z: %c %c\n", gt_ph.ch1, gt_ph.ch2);
 	one_marker_gts[acc_index] = genotype;
 	one_marker_phases[acc_index] = gt_ph.ch2;
 	if(genotype == 'X') {
@@ -596,6 +605,7 @@ void* process_marker_range(void* x){
     if(maf > 0.5) maf = 1.0 - maf;
     // fprintf(stderr, "keep. marker: %s   max, actual mdf: %lf  %lf  min, actual maf: %lf %lf \n", marker_id->a, td->maxmd, mdf, td->minmaf, maf);
     if((mdf > td->maxmd) || (maf < td->minmaf)){ // this marker is not used
+      fprintf(stderr, "%5.3f %5.3f   %5.3f %5.3f\n", mdf, td->maxmd, maf, td->minmaf);
      free(one_marker_gts);
       free(one_marker_phases);
       free_vchar(marker_id);
@@ -615,25 +625,32 @@ void* process_marker_range(void* x){
 }
 
 two_chars token_to_genotype_GT(char* token, long gtidx, long gpidx, double minGP){
+  //fprintf(stderr, "XXXX: [%s] %ld %ld %lf\n", token, gtidx, gpidx, minGP);
   two_chars result;
   char* saveptr;
   bool quality_ok = true; // (gpidx >= 0  &&  minGP > 0)? false : true;
   long idx = 0;
+  //fprintf(stderr, "XXXtoken: %s\n", token);
   char* tkn = strtok_r(token, ":", &saveptr);
+  //fprintf(stderr, "XXXXXX: %s\n", tkn);
   if(idx == gtidx){ // tkn should be e.g. 0|1 or 0/1 or 1/1
+    //fprintf(stderr, "bXXX: [%c] [%c]  %ld %ld\n", result.ch1, result.ch2, idx, gtidx);
     result = GTstr_to_dosage(tkn); // return result;
-  }else if(idx == gpidx){
+    //fprintf(stderr, "aXXX: %c %c \n", result.ch1, result.ch2);
+  }else if(idx == gpidx  &&  minGP > 0.0){
     quality_ok =
       GP_to_quality_ok(tkn, minGP);
   }
   idx++;
   
   while(1){ // get more subtokens
+    //fprintf(stderr, "XYZ: %ld\n", idx);
     tkn = strtok_r(NULL, ":", &saveptr);
     if(tkn == NULL)	break; // end of line has been reached.
     if(idx == gtidx){ // tkn should be e.g. 0|1 or 0/1 or 1/1
       result = GTstr_to_dosage(tkn);
-    }else if(idx == gpidx){
+      //fprintf(stderr, "XXX: %c %c \n", result.ch1, result.ch2);
+    }else if(idx == gpidx  &&  minGP > 0.0){
       quality_ok =
 	GP_to_quality_ok(tkn, minGP);
     }
@@ -676,7 +693,8 @@ char token_to_genotype_DS(char* token, long dsidx, long gpidx, double minGP, dou
 }
 
 bool GP_to_quality_ok(char* token, double minGP){
-  if(minGP > 0.0){
+  //fprintf(stderr, "ZZZZ: %lf\n", minGP);
+  if(minGP > 0.0){ // so if minGP is set to < 0, skip probability check.
     bool quality_ok = false;
     double p0, p1, p2;
     if(sscanf(token, "%lf,%lf,%lf", &p0, &p1, &p2) == 3){
@@ -697,6 +715,7 @@ two_chars GTstr_to_dosage(char* tkn){
   char a2 = tkn[2];
   char phase; // 'u' if non-phased, otherwise 'p', 'm', or 'x' ('x' for homozygs and missing data)
   char dosage = 'X';
+  //fprintf(stderr, "abc:  %c %c %c \n", tkn[0], tkn[1], tkn[2]);
   if(tkn[1] == '|'){ // phased
     phase = 'x'; // phased undefined (dosage is 'X' or homozygous)
     if(a1 == '0'){

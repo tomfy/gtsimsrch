@@ -1078,7 +1078,7 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
       fprintf(ostream, "%s\t%ld\t%s\t%ld\t%8.6f\t%8.6f", // %8.6f",
 	      q_acc->id->a, q_acc->missing_data_count, m_acc->id->a, m_acc->missing_data_count,
 	      the_mci->agmr, the_mci->hgmr); //, the_mci->psr);
-      if(1){
+      if(0){
       /* 		fprintf(stderr, "%s %s \n", q_acc->id->a, m_acc->id->a); */
       /* 		for(long iii=0; iii < the_gtsset->chromosome_start_indices->size; iii++){ */
       /* 		  fprintf(stderr, "%ld ", the_gtsset->chromosome_start_indices->a[iii]); */
@@ -1093,8 +1093,8 @@ long print_results(Vaccession* the_accessions, Vmci** query_vmcis, FILE* ostream
        fprintf(ostream, " %ld %ld %ld ", hetinfo.l1, hetinfo.l2, hetinfo.l3); /* */
       if(output_format != 1){
 	// double agmr_norm = (the_mci->agmr0 > 0)? the_mci->agmr/the_mci->agmr0 : -1;
-	fprintf(ostream, "\t%6.2f\t%ld\t%7.5f ", // %7.5f ",
-		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist); //, agmr_norm); //the_mci->agmr0);
+	fprintf(ostream, "\t%6.2f\t%ld\t%7.5f ", 
+		the_mci->usable_chunks, the_mci->n_matching_chunks, the_mci->est_dist);
       }
       fprintf(ostream, "\n");
       distance_count++;

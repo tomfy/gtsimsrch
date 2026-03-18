@@ -219,7 +219,7 @@ void add_accessions_to_genotypesset_from_file(char* input_filename, GenotypesSet
   while((nread = getline(&line, &len, g_stream)) != -1){
     saveptr = line;
     char* token = strtok_r(line, "\t\n", &saveptr); // must be tab separated
-    
+    // fprintf(stderr, "token:  %s \n", token);
     if((token == NULL) || (token[0] == '#')) continue; // skip comments, empty lines
     if((strcmp(token, "MARKER") == 0)){
       while(1){
