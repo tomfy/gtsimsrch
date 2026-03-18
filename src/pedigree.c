@@ -110,14 +110,14 @@ two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
 
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){ //, GenotypesSet* the_gtset){
   
-  long n_00_1_22_1 = 0, n_total_no_md = 0, n_00_22 = 0, n_total_x_11 = 0;
+  long n_00_1_22_1 = 0, n_total_no_md = 0, n_00_22 = 0, n_total_x_11 = 0, n_total_1_11 = 0;
   long n_00_2_22_0 = 0, n_00_2 = 0, n_22_0 = 0;
   long n_0xorx0_2_nomd = 0; // prog is 2 and at least one parent is 0.
   long n_2xorx2_0_nomd = 0; // prog is 0 and at least one parent is 2.
   long n_01or10_1 = 0; // parents are 0 and 1, prog is 1;
   long n_0x_1_2x_1 = 0, n_x0_1_x2_1 = 0;
   long n_0x_0_2x_2 = 0, n_x0_0_x2_2 = 0;
-  long ndiff12 = 0, ndiff01 = 0, ndiff02 = 0;
+  long ndiff12 = 0; //, ndiff01 = 0, ndiff02 = 0;
   long hgmr1_numerator = 0, hgmr1_denominator = 0;
   long hgmr2_numerator = 0, hgmr2_denominator = 0;
   unsigned long long i0, j0, k0,  i1, j1, k1,  i2, j2, k2, missing;
@@ -163,6 +163,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
     //   unsigned long long is00_2_22_0 = (i0 & j0 & k2) | (i2 & j2 & k0) & ~missing;
     unsigned long long is1_00_1_22 = k1 & is00_22 & ~missing;
     unsigned long long isx_11 = i1 & j1 & ~missing; // both parents het, none missing
+    unsigned long long is1_11 = isx_11 & k1; // all 3 are het.
     
     unsigned long long is_i0or2_k1 = (i0 | i2) & k1; // & ~missing;    
     unsigned long long is0x_0_or_2x_2 = (i0 & k0) | (i2 & k2);
@@ -203,10 +204,11 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   
     n_total_no_md += 64 - __builtin_popcountll(missing);
     n_total_x_11 += __builtin_popcountll(isx_11); // both parents are het, none missing.
+    n_total_1_11 += __builtin_popcountll(is1_11);
 
     ndiff12 += __builtin_popcountll(i_ne_j);
-    ndiff01 += __builtin_popcountll(i_ne_k);
-    ndiff02 += __builtin_popcountll(j_ne_k);
+    //ndiff01 += __builtin_popcountll(i_ne_k);
+    //ndiff02 += __builtin_popcountll(j_ne_k);
 
   } // end of loop over 64 bit chunks
   
@@ -214,8 +216,8 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
 	
   Pedigree_stats* pedigree_stats = construct_pedigree_stats(); //(Pedigree_stats*)malloc(sizeof(Pedigree_stats));
   pedigree_stats->agmr12 = (ND) {ndiff12, n_total_no_md}; // agmr between parents 
-  pedigree_stats->agmr01 = (ND) {ndiff01, n_total_no_md}; 
-  pedigree_stats->agmr02 = (ND) {ndiff02, n_total_no_md};
+  //pedigree_stats->agmr01 = (ND) {ndiff01, n_total_no_md}; 
+  //pedigree_stats->agmr02 = (ND) {ndiff02, n_total_no_md};
 
   long F = 1;
   pedigree_stats->d = (ND) { n_0xorx0_2_nomd + n_2xorx2_0_nomd
@@ -225,6 +227,7 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
 			     //  - n_total_x_11   // count these in denominator ??
   };
   pedigree_stats->z = (ND) {n_00_1_22_1, n_00_22};
+  pedigree_stats->h = (ND) {n_total_1_11, n_total_x_11};
   pedigree_stats->par1_hgmr = (ND) {hgmr1_numerator, hgmr1_denominator};
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numerator, hgmr2_denominator};
   pedigree_stats->par1_R = (ND) {n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2};
@@ -251,7 +254,7 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, const Genotypes
     sort_viaxh_by_xhgmr(cppps);
     limited_n_candpairs = max_candidate_parents; // limit candidate to max_candidate_parents
   }
- 
+  fprintf(stderr, "candidate parents for %s based on hgmr. %ld %ld\n", prog->id->a, cppps->size, limited_n_candpairs);
   Vpedigree* alt_pedigrees = construct_vpedigree(1000);
   for(long ii=0; ii<limited_n_candpairs; ii++){
     long par1idx = cppps->a[ii]->idx;
@@ -274,8 +277,8 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, const Genotypes
 Pedigree_stats* construct_pedigree_stats(void){
   Pedigree_stats* the_ps = (Pedigree_stats*)calloc(1, sizeof(Pedigree_stats));
   the_ps->agmr12 = (ND) {0, 0};
-  the_ps->agmr01 = (ND) {0, 0};
-  the_ps->agmr02 = (ND) {0, 0};
+  //the_ps->agmr01 = (ND) {0, 0};
+  //the_ps->agmr02 = (ND) {0, 0};
     
   the_ps->par1_hgmr = (ND) {0, 0};
   //the_ps->par1_xhgmr = (ND) {0, 0}; 
@@ -584,6 +587,7 @@ void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stat
   print_double_nan_as_hyphen(fh, the_pedigree_stats->hgmr2_n);
   print_double_nan_as_hyphen(fh, the_pedigree_stats->R2_n);
   print_double_nan_as_hyphen(fh, the_pedigree_stats->d_n);
+  // print_n_over_d(fh, the_pedigree_stats->h);
   // print_double_nan_as_hyphen(fh, the_pedigree_stats->z_n);
 }
 
@@ -607,7 +611,7 @@ void free_pedigree(const Pedigree* the_pedigree){
 }
 
 // *****  Vpedigree  *****
-// read pedigree from file in 3 whitespace-separated cols format
+// read pedigree from file in 3 tab-separated cols format
 Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_gt_vidxid, GenotypesSet* the_gtsset){ 
 
   char* line = NULL;
@@ -636,12 +640,11 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_gt_vidxid, 
     long acc_idx, fempar_idx, malpar_idx;
  
     if(strcmp(acc_id, "NA") != 0){ // id of this accession is not "NA" 
-      acc_idx = index_of_id_in_vidxid(the_gt_vidxid, acc_id);
-      Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
+      acc_idx = index_of_id_in_vidxid(the_gt_vidxid, acc_id);     
       if(acc_idx == ID_NA_INDEX){ // no genotypes for this accession
 	not_in_genotypes_set_count++;
       }else{ // have genotypes for this accession
-
+	Accession* Acc = the_gtsset->accessions->a[acc_idx]; // id->index;
 	fempar_idx = index_of_id_in_vidxid(the_gt_vidxid, fempar_id);
 	malpar_idx = index_of_id_in_vidxid(the_gt_vidxid, malpar_id);	 
 	if( (fempar_idx != ID_NA_INDEX) || (malpar_idx != ID_NA_INDEX) ){ // pedigree file has at least 1 parent for which there are genotypes
@@ -676,7 +679,7 @@ Vpedigree* read_and_store_pedigrees_3col(FILE* p_stream, Vidxid* the_gt_vidxid, 
 	  no_parent_gts_count++;
 	  // fprintf(stdout, "Invalid pedigree for accession: %s ; both parents are NA or lack genotypes.\n", Acc->id->a);  
 	}
-      }
+      } // 
     }else{
       prog_id_NA_count++;
     }
@@ -728,6 +731,29 @@ int compare_pedigree_d(const void* a, const void* b){
      return -1;
   }else{
      return 0;
+  }
+}
+
+void sort_vpedigree_by_maxhgmr(Vpedigree* the_vped){ 
+  qsort(the_vped->a, the_vped->size, sizeof(Pedigree*), compare_pedigree_maxhgmr);
+}
+
+int compare_pedigree_maxhgmr(const void* a, const void* b){
+  double hgmr1_a = (*((Pedigree**)a))->pedigree_stats->hgmr1_n;
+  double hgmr2_a = (*((Pedigree**)a))->pedigree_stats->hgmr2_n;
+
+  double hgmr1_b = (*((Pedigree**)b))->pedigree_stats->hgmr1_n;
+  double hgmr2_b = (*((Pedigree**)b))->pedigree_stats->hgmr2_n;
+  
+  double ha = (hgmr1_a > hgmr2_a)? hgmr1_a : hgmr2_a;
+  double hb = (hgmr1_b > hgmr2_b)? hgmr1_b : hgmr2_b;
+
+  if(ha > hb){
+    return 1;
+  }else if(ha < hb){
+    return -1;
+  }else{
+    return 0;
   }
 }
 

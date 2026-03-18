@@ -16,18 +16,19 @@
 #include "gtset.h"
 #include "pedigree.h"
 
+#define SORT_BY 'F' // F -> sort by FTR, anything else, sort by max(hgmrs). Use F (other option is only to allow demonstrating its inferiority to F)
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  1.0
 #define DEFAULT_MIN_MAF  0.05
-#define DEFAULT_MAX_NHGMR 0.2  // max normalized hgmr, i.e. hgmr divided by mean hgmr for a set of random pairs
+#define DEFAULT_MAX_HGMR 0.2  // max normalized hgmr, i.e. hgmr divided by mean hgmr for a set of random pairs
 #define DEFAULT_MAX_CANDIDATE_PARENTS 1000 // 
-#define DEFAULT_RANDOM_SAMPLE_SIZE 40000
+#define DEFAULT_RANDOM_SAMPLE_SIZE 100000
 #define DEFAULT_MAX_SOLNS_OUT 3  // in addition to pedigree from file.
 #define ALL_ALTS 1 // search for alt. pedigrees for all accessions. all accessions are considered as parents.
 #define NO_ALTS 0 // just check the pedigrees
 #define BADPED_ALTS 2 // only search for alternatives if pedigree looks bad
 #define PEDPAR_ALTS 3  // only accessions which appear as parents in the pedigree file are considered as parents
-#define DEFAULT_MAX_FTR_OUT  0.25
+#define DEFAULT_MAX_FTR_OUT  0.5
 
 int do_checks = 0; // option -c sets this to 1 to do some checks.
 struct sysinfo memInfo;
@@ -77,13 +78,13 @@ int getPMP(){ //Note: this value is in KB! physical mem this proc
 void print_mem_info(FILE* stream);
 
 void print_usage_info(FILE* stream);
-Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_nhgmr, bool quick_xhgmr);
+// Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_hgmr, bool quick_xhgmr);
 void sort_and_output_alt_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigrees,
 				   long max_solns_out, double max_ftr_out, bool do_phased, FILE* o_stream); //, bool long_output_format, double d_scale_factor);
 void set_scaled_d_in_one_pedigree(Pedigree_stats* the_ps, double d_scale_factor);
 void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor);
 void random_set_means(GenotypesSet* gtset, long sample_size);
-Viaxh* hgmrs_wrt_one_accession(GenotypesSet* the_genotypes_set, Accession* A, double max_nhgmr);
+Viaxh* hgmrs_wrt_one_accession(GenotypesSet* the_genotypes_set, Accession* A, double max_hgmr);
 void print_crossover_info(FILE* o_stream, four_longs Xinfo);
 void print_dummy_pedigree_output(FILE* stream); // for when an accession has no pedigree
 void print_dummy_crossover_info(FILE* stream);
@@ -104,22 +105,22 @@ main(int argc, char *argv[])
   double max_accession_missing_data_fraction = DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION;
   double min_minor_allele_frequency = DEFAULT_MIN_MAF; // 
   char* output_filename = "find_parents.out";
-  double max_nhgmr = DEFAULT_MAX_NHGMR;
+  double max_hgmr = DEFAULT_MAX_HGMR;
   long max_candidate_parents = DEFAULT_MAX_CANDIDATE_PARENTS;
   bool do_phased = true;
-  bool quick_xhgmr = true;
+  //bool quick_xhgmr = true;
   long max_solns_out = DEFAULT_MAX_SOLNS_OUT; // in addition to pedigree
   double max_ftr_out = DEFAULT_MAX_FTR_OUT; //
   bool multiple_solns_on_one_line = true;
 
-  bool normalize_by_means = true; // false;
+  bool normalize_by_means =  true; // false;
   // the following used in categorizing pedigrees from file as good or bad:
-  double max_self_agmr = 0.03;
-  double max_ok_hgmr = 0.16;
-  double max_self_R = 0.1;
-  double max_ok_d = 0.15; // normalized
+  double max_self_agmr = 1.0; // 0.03;
+  double max_ok_hgmr = 1.0; // 0.16;
+  double max_self_R = 1.0; // 0.1;
+  double max_ok_d = 0.01; // normalized
 
-  double alpha = 1.0;
+  // double alpha = 1.0;
 
   bool long_output_format = false; // true; true -> output denominators as well as 
   
@@ -131,7 +132,7 @@ main(int argc, char *argv[])
   unsigned rand_seed = time(0); // (unsigned)tspec.tv_nsec;
   // ***** process command line *****
   if (argc < 2) {
-    fprintf(stderr, "Usage:  %s -in <dosages_file> [-out <output_filename> -nhgmr_max <max_nhgmr>] \n", argv[0]);
+    fprintf(stderr, "Usage:  %s -in <dosages_file> [-out <output_filename> -hgmr_max <max_hgmr>] \n", argv[0]);
     print_usage_info(stderr);
     fprintf(stderr, "%d\n", (int)EXIT_FAILURE);
     exit(EXIT_FAILURE);
@@ -153,10 +154,12 @@ main(int argc, char *argv[])
       {"maf_min", required_argument, 0, 'f'}, //
       {"accession_max_missing_data", required_argument, 0, 'a'},
       {"candidate_parents_max", required_argument, 0, 'c'},
-      {"nhgmr_max", required_argument, 0, 'n'},
+      {"hgmr_max", required_argument, 0, 'n'},
+      {"search", no_argument, 0, 's'},
       {"help", no_argument, 0, 'h'},
       {"check", no_argument, 0, 'k'}, // not implemented
       {"alternative_pedigrees_level", required_argument, 0, 'l'},
+      {"ftr_max_out", required_argument, 0, 'F'},
       {"solutions_out", required_argument, 0, 'x'},
       {"seed", required_argument, 0, 'r'},
       {"hgmr_max", required_argument, 0, 'H'},
@@ -165,7 +168,8 @@ main(int argc, char *argv[])
       {"d_max", required_argument, 0, 'D'},
       {"threads", required_argument, 0, 't'},
       {"do_phased", required_argument, 0, 'P'},
-      {"alpha", required_argument, 0, 'A'}, 
+      //{"alpha", required_argument, 0, 'A'},
+      {"normalize_by_means", required_argument, 0, 'N'}, 
       {0,         0,                 0,  0 }
     };
      
@@ -201,7 +205,10 @@ main(int argc, char *argv[])
     case 't':
       Nthreads = atoi(optarg);
       break;
-         case 'x':
+    case 'F':
+      max_ftr_out = atof(optarg);
+      break;
+    case 'x':
       max_solns_out = atoi(optarg);
       break;
     case 'm':
@@ -232,20 +239,20 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       break;
-        case 'A': 
-      alpha = (double)atof(optarg);
-      if(alpha < 0){
-	fprintf(stderr, "option -alpha requires an real argument in range [0,1]\n");
-	exit(EXIT_FAILURE);
-      }
-      break;
+      /*   case 'A':  */
+      /* alpha = (double)atof(optarg); */
+      /* if(alpha < 0){ */
+      /* 	fprintf(stderr, "option -alpha requires an real argument in range [0,1]\n"); */
+      /* 	exit(EXIT_FAILURE); */
+      /* } */
+      /* break; */
      case 'r': 
       rand_seed  = (unsigned)atoi(optarg);
       break;
     case 'n': 
-      max_nhgmr = (double)atof(optarg);
-      if(max_nhgmr < 0){
-	fprintf(stderr, "option nhgmr_max requires an real argument >= 0\n");
+      max_hgmr = (double)atof(optarg);
+      if(max_hgmr < 0){
+	fprintf(stderr, "option hgmr_max requires an real argument >= 0\n");
 	exit(EXIT_FAILURE);
       }
       break;
@@ -290,6 +297,16 @@ main(int argc, char *argv[])
 	do_phased = true;
       }else{
 	do_phased = false;
+      }
+      break;
+    case 's': // search; do thorough search (equiv. to -alt 1) 
+      alternative_pedigrees_level = ALL_ALTS;
+      break;
+    case 'N': // control whether to normalize by means (1 or t) or not.
+      if(optarg[0] == '1' || optarg[0] == 't'){
+	normalize_by_means = true;
+      }else{
+	normalize_by_means = false;
       }
       break;
     case 'h':
@@ -372,9 +389,9 @@ main(int argc, char *argv[])
 
   long sample_size = DEFAULT_RANDOM_SAMPLE_SIZE;
   if(normalize_by_means){
-  random_set_means(the_genotypes_set, sample_size); // get and store mean hgmr, R, etc.
-  fprintf(stderr, "# mean hgmr, R, d, z: %8.5f  %8.5f  %8.5f  %8.5f\n",
-	  the_genotypes_set->mean_hgmr, the_genotypes_set->mean_R, the_genotypes_set->mean_d, the_genotypes_set->mean_z);
+    random_set_means(the_genotypes_set, sample_size); // get and store mean hgmr, R, etc.
+    fprintf(stderr, "# mean hgmr, R, FTR, z: %8.5f  %8.5f  %8.5f\n", //  %8.5f\n",
+	    the_genotypes_set->mean_hgmr, the_genotypes_set->mean_R, the_genotypes_set->mean_d);  //the_genotypes_set->mean_z);
   };
   fflush(stdout);
 
@@ -383,7 +400,7 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Time to calculate means for %ld  random pairs.: %6.3f sec.\n", sample_size, t_e - t_d);
  
   if(p_stream != NULL){ // have pedigree file
-    
+    fprintf(stderr, "reading pedigree file.\n");
     // ********************************************************* 
     // ***  Read the pedigrees file  ***************************
     // *********************************************************
@@ -407,12 +424,12 @@ main(int argc, char *argv[])
     if(alternative_pedigrees_level == ALL_ALTS){ // calculate hgmrs for all pairs
       fprintf(stderr, "# calculating hgmrs for all pairs\n");
       Vlong* all_acc_idxs = construct_vlong_whole_numbers(the_genotypes_set->accessions->size);
-      pairwise_info = calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_nhgmr);
+      pairwise_info = calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr);
       fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - initialization_time);
-    }else if(alternative_pedigrees_level == PEDPAR_ALTS){ // only calculate pairs with at least one acc appearing as parent in pedigree file.
+    }else if(alternative_pedigrees_level == PEDPAR_ALTS){ // only calculate hgmr for pairs with at least one acc appearing as parent in pedigree file.
       const Vlong* parent_idxs = accessions_with_offspring(the_pedigrees, the_genotypes_set->accessions->size); // , the_genotypes_set->n_gt_accessions);
       fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
-      pairwise_info = calculate_hgmrs(the_genotypes_set, parent_idxs, max_candidate_parents, max_nhgmr);
+      pairwise_info = calculate_hgmrs(the_genotypes_set, parent_idxs, max_candidate_parents, max_hgmr);
       fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - initialization_time);
     }
     // ***************************************
@@ -465,10 +482,10 @@ main(int argc, char *argv[])
 	    sort_and_output_alt_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out, max_ftr_out, do_phased, o_stream);
 	    free_viaxh(pairwise_info[A->index]);
 	    free_vpedigree(alt_pedigrees);	  
-	}else if(alternative_pedigrees_level == BADPED_ALTS){ // iff pedigres bad, search for parents. Consider all accessions as possible parents
+	}else if(alternative_pedigrees_level == BADPED_ALTS){ // iff pedigrees bad, search for parents. Consider all accessions as possible parents
 	  bool pedigree_ok =  d_ok(the_pedigree_stats, max_ok_d*the_genotypes_set->mean_hgmr);
 	  if(! pedigree_ok){ // if pedigree is 'bad', look for alternatives
-	    Viaxh* hgmrs_wrt_A = hgmrs_wrt_one_accession(the_genotypes_set, A, max_nhgmr);	     
+	    Viaxh* hgmrs_wrt_A = hgmrs_wrt_one_accession(the_genotypes_set, A, max_hgmr);	     
 	    Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, hgmrs_wrt_A, max_candidate_parents);
 	    sort_and_output_alt_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out,  max_ftr_out, do_phased, o_stream); //, long_output_format, d_scale_factor);
 	    free_vpedigree(alt_pedigrees);
@@ -501,7 +518,7 @@ main(int argc, char *argv[])
   }else{ //  *******  no pedigree file, consider all accessions as possible parents  ********
     Viaxh** pairwise_info = calculate_hgmrs(the_genotypes_set,
 					    construct_vlong_whole_numbers(the_genotypes_set->accessions->size),
-					    max_candidate_parents, max_nhgmr);
+					    max_candidate_parents, max_hgmr);
     fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - t_e);
     
     double triples_to_calculate = 0;
@@ -547,7 +564,7 @@ main(int argc, char *argv[])
     } // end loop over offspring accessions
 
     fprintf(stderr, "# time for triple (FTR) calculation: %8.3f\n", hi_res_time() - t_g);
-    fprintf(o_stream, "# candidate parents have nhgmr <= %8.5f\n", max_nhgmr);
+    fprintf(o_stream, "# candidate parents have hgmr <= %8.5f\n", max_hgmr);
     fprintf(o_stream, "# number of accessions with no candidate parents found: %ld\n", count_accs_w_no_cand_parents);
     fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n",
 	    max_candidate_parents, count_accs_w_too_many_cand_parents);
@@ -594,8 +611,8 @@ void print_usage_info(FILE* stream){
   fprintf(stream, "-f   -maf_min <f>                    don't use markers with minor allele frequency < f (default: %4.2f)\n", DEFAULT_MIN_MAF);
   fprintf(stream, "-l    alternative_pedigrees_level    controls search for alternative pedigrees  (default: 0 )\n");
   fprintf(stream, "                                            0: just check pedigrees, 1: search all accessions for alternative pedigrees\n");
-  fprintf(stream, "-n   -nhgmr_max <f>                  candidate parents must have normalized hgmr <= f (default: %4.2f)\n", DEFAULT_MAX_NHGMR);
-  fprintf(stream, "-c   -candidate_parents_max <n>      sort candidate parents by nhgmr and use only best n (default: %4d)\n", DEFAULT_MAX_CANDIDATE_PARENTS);
+  fprintf(stream, "-n   -hgmr_max <f>                  candidate parents must have normalized hgmr <= f (default: %4.2f)\n", DEFAULT_MAX_HGMR);
+  fprintf(stream, "-c   -candidate_parents_max <n>      sort candidate parents by hgmr and use only best n (default: %4d)\n", DEFAULT_MAX_CANDIDATE_PARENTS);
   fprintf(stream, "-r   -seed                           random number generator seed. (default set from clock).\n");
   fprintf(stream, "-h   -help                           print this message and exit.\n");
 }
@@ -605,8 +622,26 @@ void sort_and_output_alt_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedi
   // *******************************************************************************
   // ***  sort alt_pedigrees_array, output best parent pairs for this accession  ***
   // *******************************************************************************
+  // remove pedigrees with ftr > max_ftr_out from the_pedigrees
+  if(the_pedigrees->size > 1) {
+    //fprintf(stderr, "SORT_BY: %c\n", SORT_BY);
+    if(SORT_BY == 'F'){ // sort by FTR (aka d)
+      sort_vpedigree_by_d(the_pedigrees); //
+    }else{ // sort by max(hgrm1, hgmr2)
+      //fprintf(stderr, "XXXXXXXXXXXXXX\n");
+      sort_vpedigree_by_maxhgmr(the_pedigrees);
+    }
+  }
+  for(long i = 0; i<the_pedigrees->size; i++){
+    if(the_pedigrees->a[i]->pedigree_stats->d_n > max_ftr_out){
+      // fprintf(stderr, "i, %ld  ftr: %g\n", i, the_pedigrees->a[i]->pedigree_stats->d_n);
+      the_pedigrees->size = i;
+      break;
+    }   
+  }
+  
   if(the_pedigrees->size > 0){
-    if(the_pedigrees->size > 1) sort_vpedigree_by_d(the_pedigrees); // 
+   
     long n_out = (max_solns_out < the_pedigrees->size)? max_solns_out : the_pedigrees->size;
     for(long iii=0; iii < n_out; iii++){ // output the best n_out solutions
       Pedigree* a_pedigree = the_pedigrees->a[iii];
@@ -701,6 +736,9 @@ void random_set_means(GenotypesSet* gtset, long sample_size){
       mean_R += n_over_d(ps->par1_R) + n_over_d(ps->par2_R);
       mean_ftc += ps->d.n;
       j++;
+      fprintf(stderr, "%s   %s   %s      %5.3f %5.3f\n",
+	      O->id->a, P1->id->a, P2->id->a,
+	      n_over_d(ps->par1_hgmr), n_over_d(ps->d));
     }
   }
   mean_hgmr /= (double)(2*sample_size);
@@ -713,6 +751,7 @@ void random_set_means(GenotypesSet* gtset, long sample_size){
   gtset->mean_d = mean_d;
   gtset->mean_z = mean_z;
   gtset->mean_ftc = mean_ftc;
+ 
 }
 
 void print_mem_info(FILE* stream){
