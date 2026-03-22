@@ -136,7 +136,6 @@ if (defined $pedigrees_input_filename) {
   $Mparent_col-- if($Mparent_col > 0);
   #print STDERR "$progeny_col  $Fparent_col  $Mparent_col\n";
  
-  open my $fhpedout, ">", "$pedigrees_output_filename";
   for (1..$nskip) {
     <$fhpedin>;
   }			    # skip first nskip lines of pedigree file.
@@ -146,28 +145,50 @@ if (defined $pedigrees_input_filename) {
   my $duplicate_progeny_count = 0;
   my $pedigrees_out_count = 0;
 
-  my %uniqprogeny = ();
+  my %uniqprogeny = (); # distinct offspring ids in input file. May be duplicates
+  my %uniqpedigrees = ();
   while (my $line = <$fhpedin>) {
     next if($line =~ /^\s*#/);
+    chomp $line;
     $pedigrees_in_count++;
     $line =~ s/\s+$//;	# remove newline, any other whitespace at end.
     my @cols = split("\t", $line);
     my $progeny_id = $cols[$progeny_col];
 
     if ($progeny_id ne 'NA') { # output, replacing ids by ids of the cluster representatives if in a cluster
-      if (exists $uniqprogeny{$progeny_id}) { # the progeny is a duplicate of a previous one.
+      if (exists $uniqprogeny{$progeny_id}) { # the progeny id is identical with a previous one.
 	$duplicate_progeny_count++;
+	print STDERR "$progeny_id occurs as offspring again\n";
       } else {
 	$uniqprogeny{$progeny_id}++;
 	$pedigrees_out_count++;
-	$progeny_id = $clusterid_repid{$progeny_id} // $progeny_id;
+	my $FNA = ($cols[$Fparent_col] eq 'NA')? 1 : 0;
+	my $MNA = ($cols[$Mparent_col] eq 'NA')? 1 : 0;
+	my $NAcount = $FNA + $MNA;
+	my $the_pedigree_string = $cols[$Fparent_col] . "\t" . $cols[$Mparent_col];
+	next if($NAcount == 2);
+	my $rep_progeny_id = $clusterid_repid{$progeny_id} // $progeny_id;
 	my $Fpar_id = $clusterid_repid{$cols[$Fparent_col]} // $cols[$Fparent_col]; # replace id with rep id if F parent is a duplicate group member
 	my $Mpar_id = $clusterid_repid{$cols[$Mparent_col]} // $cols[$Mparent_col]; # replace id with rep id if M parent is a duplicate group member
-	print $fhpedout "$progeny_id  $Fpar_id  $Mpar_id\n";
+
+	my $parents_string = $Fpar_id . "\t" . $Mpar_id; # the parents, having substituted the cluster reps
+	if(exists $uniqpedigrees{$rep_progeny_id}){
+	  my ($NAs, $pstr) = $uniqpedigrees{$rep_progeny_id};
+	  if($NAcount < $NAs){ # if a more complete pedigree, use it instead
+	    $uniqpedigrees{$rep_progeny_id} = [$NAcount, $parents_string];
+	  }
+	}else{
+	  $uniqpedigrees{$rep_progeny_id} = [$NAcount, $parents_string];
+	}
+	#print $fhpedout "$progeny_id\t$Fpar_id\t$Mpar_id\n";
       }
     } else {
       $progeny_NA_count++;
     }
+  } # end of loop over lines in pedigree file.
+   open my $fhpedout, ">", "$pedigrees_output_filename";
+  while(my($progid, $NAs_pstr) = each %uniqpedigrees){
+    print  $fhpedout "$progid\t", $NAs_pstr->[1], "\n";
   }
   print STDERR "pedigrees out count: $pedigrees_out_count   duplicate progeny count: $duplicate_progeny_count  progeny_NA_count: $progeny_NA_count\n";
   close $fhpedin;
