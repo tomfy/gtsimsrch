@@ -49,8 +49,8 @@ use List::Util qw(min max sum);
   print "count of lines in both files:  ", scalar @boths, " (as a check, should be same as previous line)\n";
   print "count of lines in file 2 only: ", scalar @two_onlies, "\n";
   if($verbose){
-    print "lines in $file1 only: \n";
-    print join("", @one_onlies);
+    #print "lines in $file1 only: \n";
+    #print join("", @one_onlies);
     print "lines in $file2 only: \n";
     print join("", @two_onlies);
   }
