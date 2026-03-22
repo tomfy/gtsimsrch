@@ -1101,15 +1101,18 @@ Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_paren
   for(long ii=0; ii< the_genotypes_set->accessions->size; ii++){
     pairwise_info[ii] = construct_viaxh(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii
   }
+ 
   long n_hgmrs_le_max = 0;
   long n_acc = the_genotypes_set->accessions->size;
   long n_cp = cand_parent_idxs->size; // number of candidate parents
+  bool cand_parents_are_subset = (n_cp < n_acc); // 
   for(long ii=0; ii<n_acc; ii++){
     if(ii % 500  == 0) fprintf(stderr, "# ii: %ld\n", ii);
     Accession* A1 = the_genotypes_set->accessions->a[ii];
     for(long jj=0; jj<n_cp; jj++){
       long jj_idx = cand_parent_idxs->a[jj]; // the index of the candidate parent in the_genotypes_set->accessions
-      if(jj_idx <= ii) continue; // only do if jj_idx > ii
+      
+      if((jj_idx == ii)  ||  (!cand_parents_are_subset) && jj_idx <= ii) continue; // if all accessions are candidate parents, only do if jj_idx > ii
       Accession* A2 = the_genotypes_set->accessions->a[jj_idx];	   
       ND hgmr_nd = bitwise_hgmr(A1, A2);
       double hgmr = n_over_d(hgmr_nd);

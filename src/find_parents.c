@@ -429,6 +429,7 @@ main(int argc, char *argv[])
     }else if(alternative_pedigrees_level == PEDPAR_ALTS){ // only calculate hgmr for pairs with at least one acc appearing as parent in pedigree file.
       const Vlong* parent_idxs = accessions_with_offspring(the_pedigrees, the_genotypes_set->accessions->size); // , the_genotypes_set->n_gt_accessions);
       fprintf(stdout, "# According to pedigree file there are %ld accessions with offspring.\n", parent_idxs->size);
+      // exit(EXIT_FAILURE);
       pairwise_info = calculate_hgmrs(the_genotypes_set, parent_idxs, max_candidate_parents, max_hgmr);
       fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - initialization_time);
     }
