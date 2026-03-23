@@ -162,7 +162,7 @@ main(int argc, char *argv[])
       {"ftr_max_out", required_argument, 0, 'F'},
       {"solutions_out", required_argument, 0, 'x'},
       {"seed", required_argument, 0, 'r'},
-      {"hgmr_max", required_argument, 0, 'H'},
+      {"ok_hgmr_max", required_argument, 0, 'H'},
       {"agmr_self_max", required_argument, 0, 'S'},
       {"R_self_max", required_argument, 0, 'R'},
       {"d_max", required_argument, 0, 'D'},
