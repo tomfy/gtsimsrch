@@ -9,6 +9,9 @@
 
 #define MIN_ALT_ALLELES 0
 #define NO_PHASE_CHAR 'x' // used for homozygous, missing data, or phase unknown
+#define USE_HETHETRATE  0  // if true use heterozygosities to reject some potential parent-offspring pairs at pairwise (hgmr) stage.
+#define MIN_HETS  100 // 1000000
+#define MIN_HHR    0.05 // -1.0
 
 extern int do_checks; // option -c sets this to 1 to do some checks.
 
@@ -30,6 +33,8 @@ Accession* construct_accession(char* id, long idx, char* genotypes, char* phases
   // the_accession->corrected_phases = construct_vchar_from_str(phases); 
   the_accession->chunk_patterns = NULL; // set to NULL to avoid containing garbage which causes crash when freeing accession
   the_accession->missing_data_count = accession_md_count;
+  the_accession->pobn = 'b'; // 
+  // the_accession->ref_homozyg_count  // doesn't need to be initialized here. 
   the_accession->ref_homozygs = NULL; // construct_vlong(10); // can construct in store_homozygs (so no mem used if not calling store_homozygs)
   the_accession->alt_homozygs = NULL; // construct_vlong(10);
   the_accession->Abits = NULL;
@@ -674,7 +679,7 @@ void check_genotypesset(GenotypesSet* gtss){
   free(marker_md_counts);
 }
 
-void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'filtered' accession genotypes, which replace the raw ones.
+void filter_genotypesset(GenotypesSet* the_gtsset, double thin_fraction){ // construct a new set of 'filtered' accession genotypes, which replace the raw ones.
   double max_marker_md_fraction = the_gtsset->max_marker_missing_data_fraction;
   Vlong* marker_md_counts = the_gtsset->marker_missing_data_counts; // the number of missing data for each marker
   Vlong* alt_allele_counts = the_gtsset->marker_alt_allele_counts;  
@@ -713,6 +718,12 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
   long only_one_allele_count = 0;
   long too_much_missing_data_count = 0;
   long maf_too_low_count = 0;
+  Vlong* delete = construct_vlong_zeroes(marker_md_counts->size); // 0: keep, 1: thin (delete)
+  if(thin_fraction < 1.0){
+    for(long i=0; i<delete->size; i++){
+      if(rand() >= thin_fraction * RAND_MAX) delete->a[i] = 1;
+    }
+  }
   for(long i=0; i<marker_md_counts->size; i++){
     mdsum_all += marker_md_counts->a[i];
     altallelesum_all += alt_allele_counts->a[i];
@@ -724,7 +735,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
       bool alt_allele_freq_ok = (alt_allele_counts->a[i] >= min_min_allele_count)  && // alternative allele frequency not too small,
 	(alt_allele_counts->a[i] <= max_min_allele_count);     // and not too large
       // fprintf(stderr, "# alt allele info: %ld  %ld  %f  %f \n", max_possible_alt_alleles, alt_allele_counts->a[i], min_min_allele_count, max_min_allele_count);
-      if ( alt_allele_freq_ok ){ // the alt_allele_frequency is in the right range
+      if ( alt_allele_freq_ok && (delete->a[i] == 0)){ // the alt_allele_frequency is in the right range
 	md_ok->a[i] = 1;
 	n_markers_to_keep++;
 	mdsum_kept += marker_md_counts->a[i];
@@ -758,7 +769,7 @@ void filter_genotypesset(GenotypesSet* the_gtsset){ // construct a new set of 'f
   
   append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
   //  fprintf(stderr, "#### %s \n", the_gtsset->marker_filter_info->a);
-  sprintf(buffer, "# Removed an additional %ld markers with maf < %6.4f\n", maf_too_low_count, the_gtsset->min_minor_allele_frequency);
+  sprintf(buffer, "# Removed an additional %ld markers with maf < %6.4f, or thinned\n", maf_too_low_count, the_gtsset->min_minor_allele_frequency);
   append_str_to_vchar(the_gtsset->marker_filter_info, buffer);
   //  fprintf(stderr, "##### %s \n", the_gtsset->marker_filter_info->a);
   sprintf(buffer, "# Filtered data has %ld markers, missing data fraction = %6.4lf, minor allele frequency = %5.3lf\n",
@@ -1048,13 +1059,12 @@ four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2){
   return rval;
 }
 
-ND bitwise_hgmr(Accession* acc1, Accession* acc2){
-  //ND rval = {0, 0};
-  // dosage   AB 
-  //   0      00
-  //   1      01
-  //   2      11
-  //   3      10
+ND bitwise_hgmr(Accession* acc1, Accession* acc2, long* n11, long* n1ok, long* nok1){
+  // dosage         AB 
+  //   0            00
+  //   1            01
+  //   2            11
+  //   missing      10
   unsigned long long isOi, isXi, isOj, isXj;
   long n_02_20 = 0;
   long n_00_22 = 0;
@@ -1087,20 +1097,141 @@ ND bitwise_hgmr(Accession* acc1, Accession* acc2){
       n_11 += __builtin_popcountll(is11);
       n_1ok += __builtin_popcountll(is_1ok);
       n_ok1 += __builtin_popcountll(is_ok1);
-    }
-      
+    }     
   }
-  double phi = (double)(n_11 - 2*n_02_20)/(double)(n_1ok + n_ok1);
+  // double phi = (double)(n_11 - 2*n_02_20)/(double)(n_1ok + n_ok1);
+  //ND hhr12 = (ND) {n_11, n_1ok};
+  //ND hhr21 = (ND) {n_11, n_ok1};
+  *n11 = n_11;
+  *n1ok = n_1ok;
+  *nok1 = n_ok1;
   return (ND){n_02_20, n_02_20 + n_00_22};
 }
 
-
+void calculate_hgmrs_aa(GenotypesSet* the_genotypes_set, const Vlong* both_idxs, double max_hgmr,
+			Viaxh** pairwise_info){
+  
+  long n_hgmrs = 0, n_hgmrs_le_max = 0;
+  for(long ii=0; ii<both_idxs->size; ii++){
+    long ii_idx = both_idxs->a[ii];
+    Accession* A1 = the_genotypes_set->accessions->a[ii_idx];
+    for(long jj=0; jj<ii; jj++){
+      long jj_idx = both_idxs->a[jj]; // the index of the candidate parent in the_genotypes_set->accessions
+      Accession* A2 = the_genotypes_set->accessions->a[jj_idx];
+        long n11 = 0; // counts markers het in both A1 and A2
+      long n1ok = 0; // counts markers het in A1 (and A2 has valid data)
+      long nok1 = 0; // counts markers het in A2 (and A1 has valid data)
+      ND hgmr_nd = bitwise_hgmr(A1, A2, &n11, &n1ok, &nok1);
+      n_hgmrs++;
+      if(n_hgmrs % 1000000  == 0) fprintf(stderr, "# hgmrs calculated: %ld\n", n_hgmrs);
+      double hgmr = n_over_d(hgmr_nd);
+      hgmr /= the_genotypes_set->mean_hgmr; //           	    
+      if(hgmr <= max_hgmr){ // only store small hgmrs ( small = <= max_hgmr )
+	n_hgmrs_le_max++;  
+	  push_to_viaxh(pairwise_info[ii_idx], construct_iaxh(jj_idx, hgmr, (ND){n11, nok1}));
+	  push_to_viaxh(pairwise_info[jj_idx], construct_iaxh(ii_idx, hgmr, (ND){n11, n1ok}));
+      }
+    } // jj loop
+  } // ii loop
+  fprintf(stderr, "In calculate_hgmrs_aa. n_hgmrs %ld  n_hgmrs_le_max %ld\n", n_hgmrs, n_hgmrs_le_max);
+}
+// ******************************************* end 'aa' ********************************
+void calculate_hgmrs_ab(GenotypesSet* the_genotypes_set, const Vlong* parent_idxs, Vlong* offspring_idxs, double max_hgmr,
+			   Viaxh** pairwise_info){
+  long n_hgmrs = 0, n_hgmrs_le_max = 0;
+  fprintf(stderr, "pidxs->size %ld  oidxs->size %ld\n", parent_idxs->size, offspring_idxs->size);
+  for(long ii=0; ii<parent_idxs->size; ii++){
+   
+    long ii_idx = parent_idxs->a[ii]; // the index of the parent in the_genotypes_set->accessions
+    Accession* A1 = the_genotypes_set->accessions->a[ii_idx];
+    for(long jj=0; jj<offspring_idxs->size; jj++){
+      long jj_idx = offspring_idxs->a[jj]; // the index of the offspring in the_genotypes_set->accessions
+      Accession* A2 = the_genotypes_set->accessions->a[jj_idx];
+        long n11 = 0; // counts markers het in both A1 and A2
+      long n1ok = 0; // counts markers het in A1 (and A2 has valid data)
+      long nok1 = 0; // counts markers het in A2 (and A1 has valid data)
+      ND hgmr_nd = bitwise_hgmr(A1, A2, &n11, &n1ok, &nok1);
+      n_hgmrs++;
+      if(n_hgmrs % 1000000  == 0) fprintf(stderr, "# hgmrs calculated: %ld\n", n_hgmrs);
+      double hgmr = n_over_d(hgmr_nd);
+      hgmr /= the_genotypes_set->mean_hgmr; //           	    
+      if(hgmr <= max_hgmr){ // only store small hgmrs ( small = <= max_hgmr )
+	n_hgmrs_le_max++;  
+	// push_to_viaxh(pairwise_info[ii_idx], construct_iaxh(jj_idx, hgmr, (ND){n11, nok1}));
+	  push_to_viaxh(pairwise_info[jj_idx], construct_iaxh(ii_idx, hgmr, (ND){n11, n1ok}));
+      }
+    } // jj loop
+  } // ii loop
+  fprintf(stderr, "In calculate_hgmrs_ab. n_hgmrs %ld  n_hgmrs_le_max %ld  p, o %ld %ld\n", n_hgmrs, n_hgmrs_le_max, parent_idxs->size, offspring_idxs->size);
+  }
+// ******************************************** end 'ab' *******************************
 
 Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_parent_idxs, long max_candidate_parents, double max_hgmr){
-  Viaxh** pairwise_info = (Viaxh**)malloc(the_genotypes_set->accessions->size*sizeof(Viaxh*)); // array of Viaxh*. pairwise_info[i]->a[j].xhgmr 
+  Viaxh** pairwise_info = (Viaxh**)malloc(the_genotypes_set->accessions->size*sizeof(Viaxh*)); // array of Viaxh*. pairwise_info[i]->a[j].xhgmr
   for(long ii=0; ii< the_genotypes_set->accessions->size; ii++){
     pairwise_info[ii] = construct_viaxh(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii
   }
+ 
+  long n_hgmrs = 0, n_hgmrs_le_max = 0;
+  long n_acc = the_genotypes_set->accessions->size;
+  long n_cp = cand_parent_idxs->size; // number of candidate parents
+  bool cand_parents_are_subset = (n_cp < n_acc); // 
+  for(long ii=0; ii<n_acc; ii++){
+    // if(ii % 500  == 0) fprintf(stderr, "# ii: %ld\n", ii);
+    Accession* A1 = the_genotypes_set->accessions->a[ii];
+    for(long jj=0; jj<n_cp; jj++){
+      long jj_idx = cand_parent_idxs->a[jj]; // the index of the candidate parent in the_genotypes_set->accessions
+      
+      if((jj_idx == ii)  ||  ((!cand_parents_are_subset) && jj_idx <= ii)) continue; // if all accessions are candidate parents, only do if jj_idx > ii
+      Accession* A2 = the_genotypes_set->accessions->a[jj_idx];
+      //  ND hhr12 = {0,0};
+      //  ND hhr21 = {0,0};
+      long n11 = 0; // counts markers het in both A1 and A2
+      long n1ok = 0; // counts markers het in A1 (and A2 has valid data)
+      long nok1 = 0; // counts markers het in A2 (and A1 has valid data)
+      ND hgmr_nd = bitwise_hgmr(A1, A2, &n11, &n1ok, &nok1);
+      // fprintf(stderr, "%s  %s   %ld %ld %ld\n", A1->id->a, A2->id->a, n11, n1ok, nok1);
+      n_hgmrs++;
+      if(n_hgmrs % 1000000  == 0) fprintf(stderr, "# hgmrs calculated: %ld\n", n_hgmrs);
+      double hgmr = n_over_d(hgmr_nd);
+      hgmr /= the_genotypes_set->mean_hgmr; //           	    
+      if(hgmr <= max_hgmr){ // only store small hgmrs ( small = <= max_hgmr )
+	n_hgmrs_le_max++;
+	if(USE_HETHETRATE){
+	  // if the 'parent' has only a small number of heterozygs,
+	  // or  a reasonable fraction of these also have het in 'offspring', store.
+	  // but if 'parent' has enough hets, and only small fraction of these are also het in 'offspring', don't store
+	  // Useful in the case of inbred (low-heterozygosity) parents.
+	  // If A1 is inbred parent of A2, then there will be few markers with A1 het,
+	  // including at the markers where A2 is het.
+	  // so in that case the following will exclude A2 from consideration as a possible parent of A1,
+	  // but allow A1 to be considered as a possible parent of A2.
+	  if((nok1 < MIN_HETS) || (n11/(double)nok1 > MIN_HHR)){ // consistent with A2 parent of A1
+	    // pairwise_info[ii] is info (hgmr, etc.) on possible parents of A1 = the_genotypes_set->accessions->a[ii]
+	    // i.e. in this branch, A2 as parent of A1 is not forbidden, store it.
+	    push_to_viaxh(pairwise_info[ii], construct_iaxh(jj_idx, hgmr, (ND){n11, nok1}));
+	  } 
+	  if((n1ok < MIN_HETS) || (n11/(double)n1ok > MIN_HHR)){ // consistent with A1 parent of A2
+	    // In this branch, A1 as parent of A2 is not forbidden, store it.
+	    push_to_viaxh(pairwise_info[jj_idx], construct_iaxh(ii, hgmr, (ND){n11, n1ok}));
+	  }
+	}else{ // just store both directions.
+	  push_to_viaxh(pairwise_info[ii], construct_iaxh(jj_idx, hgmr, (ND){n11, nok1}));
+	  push_to_viaxh(pairwise_info[jj_idx], construct_iaxh(ii, hgmr, (ND){n11, n1ok}));
+	}
+	// fprintf(stderr, "AAAAA:  %s   %s   %ld %ld  %7.5f  %ld %ld %ld \n", A1->id->a, A2->id->a, jj_idx, ii, hgmr, n11, n1ok, nok1);
+      }
+    } // jj loop
+  } // ii loop
+  return pairwise_info;
+}
+
+void new_calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_parent_idxs,
+			    long max_candidate_parents, double max_hgmr, Viaxh** pairwise_info){
+  /* Viaxh** pairwise_info = (Viaxh**)malloc(the_genotypes_set->accessions->size*sizeof(Viaxh*)); // array of Viaxh*. pairwise_info[i]->a[j].xhgmr  */
+  /* for(long ii=0; ii< the_genotypes_set->accessions->size; ii++){ */
+  /*   pairwise_info[ii] = construct_viaxh(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii */
+  /* } */
  
   long n_hgmrs_le_max = 0;
   long n_acc = the_genotypes_set->accessions->size;
@@ -1112,21 +1243,33 @@ Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_paren
     for(long jj=0; jj<n_cp; jj++){
       long jj_idx = cand_parent_idxs->a[jj]; // the index of the candidate parent in the_genotypes_set->accessions
       
-      if((jj_idx == ii)  ||  (!cand_parents_are_subset) && jj_idx <= ii) continue; // if all accessions are candidate parents, only do if jj_idx > ii
-      Accession* A2 = the_genotypes_set->accessions->a[jj_idx];	   
-      ND hgmr_nd = bitwise_hgmr(A1, A2);
+      if((jj_idx == ii)  ||  ((!cand_parents_are_subset) && jj_idx <= ii)) continue; // if all accessions are candidate parents, only do if jj_idx > ii
+      Accession* A2 = the_genotypes_set->accessions->a[jj_idx];
+      //  ND hhr12 = {0,0};
+      //  ND hhr21 = {0,0};
+      long n11 = 0; // counts markers het in both A1 and A2
+      long n1ok = 0; // counts markers het in A1 (and A2 has valid data)
+      long nok1 = 0; // counts markers het in A2 (and A1 has valid data)
+      ND hgmr_nd = bitwise_hgmr(A1, A2, &n11, &n1ok, &nok1);
       double hgmr = n_over_d(hgmr_nd);
       hgmr /= the_genotypes_set->mean_hgmr; //           	    
-      if(hgmr <= max_hgmr){	      
+      if(hgmr <= max_hgmr){ // only store small hgmrs ( small = <= max_hgmr )
 	n_hgmrs_le_max++;
-	push_to_viaxh(pairwise_info[ii], jj_idx, hgmr);
-	push_to_viaxh(pairwise_info[jj_idx], ii, hgmr);
+	// if the 'parent' has only a small number of heterozygs,
+	// or  a reasonable fraction of these also have het in 'offspring', store.
+	// but if 'parent' has enough hets, and only small fraction of these are also het in 'offspring', don't store
+	if((nok1 < MIN_HETS) || (n11/(double)nok1 > MIN_HHR)){
+	  // pairwise_info[ii] is info (hgmr, etc.) on possible parents of A1 = the_genotypes_set->accessions->a[ii]	  
+	  push_to_viaxh(pairwise_info[ii], construct_iaxh(jj_idx, hgmr, (ND){n11, nok1}));
+	} 
+	if((n1ok < MIN_HETS) || (n11/(double)n1ok > MIN_HHR)){
+	  push_to_viaxh(pairwise_info[jj_idx], construct_iaxh(ii, hgmr, (ND){n11, n1ok}));
+	}
+	// fprintf(stderr, "AAAAA:  %s   %s   %ld %ld  %7.5f  %ld %ld %ld \n", A1->id->a, A2->id->a, jj_idx, ii, hgmr, n11, n1ok, nok1);
       }
     } // jj loop
   } // ii loop
-  return pairwise_info;
 }
-
 
 double hgmr(char* gts1, char* gts2){
   char c1, c2;
@@ -1347,6 +1490,27 @@ void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char*
   free(phases);
 }
 
+void set_heterozygosity_etc(Accession* acc){
+  long het_count = 0;
+  long ref_count = 0;
+  long alt_count = 0;
+  long missing_count = 0;
+  for(long i=0; i<acc->genotypes->length; i++){
+    char g = acc->genotypes->a[i];
+    if(g == '0'){ ref_count++;
+    }else if(g == '1'){ het_count++;
+    }else if(g == '2'){ alt_count++;
+    }else if(g == 'X'){ missing_count++;
+    }else{
+      fprintf(stderr, "??? unknown gt character: %c\n", g); exit(EXIT_FAILURE);
+    }
+  }
+  assert(missing_count == acc->missing_data_count);
+  acc->ref_homozyg_count = ref_count;
+  acc->heterozyg_count = het_count;
+  acc->alt_homozyg_count = alt_count;
+  
+}
 
 //  #####  unused  ############################
 
