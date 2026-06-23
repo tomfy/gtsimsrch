@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
+use warnings;
 use Graph::Directed;
 
 # construct DAG from find_parents output
@@ -15,7 +16,7 @@ my $case = shift // 1;
 # initialize graph:
 
 my $g = Graph::Directed->new;
-my %ids = ();	   # just stores all the ids of the nodes in the graph
+my %ids = ();# just stores all the ids of the nodes in the graph
 my $edge_count = 0;
 while (<>) { # read find_parents output file and add edges to the graph
   next if(/^\s*#/);		# skip comment lines
