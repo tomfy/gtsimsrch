@@ -12,8 +12,8 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include "vect.h"
 #include "various.h"
+#include "vect.h"
 
 #define INIT_N_ACCESSIONS 10000
 #define INIT_N_MARKERS 10000
@@ -68,7 +68,7 @@ extern int errno;
 
 #define DEFAULT_MIN_GP  0.9
 #define DEFAULT_DELTA  0.1
-#define DEFAULT_MAX_ACC_MISSING_DATA_FRACTION 1.0  //
+#define DEFAULT_MAX_ACC_MISSING_DATA_FRACTION 0.5  //
 #define DEFAULT_MIN_MAF 0.0  // KEEP ALL
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION 1.0  // KEEP ALL
 
