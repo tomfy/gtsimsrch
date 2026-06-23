@@ -20,12 +20,16 @@
 typedef struct{
   Vchar* id;
   long index; // the index in the accessions array of GenotypesSet
-  Vchar* genotypes;
+  Vchar* genotypes; // '0', '1', '2', or 'X'
   Vchar* phases; // 'p' or 'm' for +, -,
   // Vchar* corrected_phases; // 
   Vlong* chunk_patterns;
   //  long md_chunk_count; // the number of chunks with missing data
   long ok_chunk_count; // the number of chunks with no missing data = n_chunks - md_chunk_count
+  char pobn; // options are 'p' (parent), 'o' (offspring), 'b' (both), 'n' neither; 
+  long ref_homozyg_count;
+  long heterozyg_count;
+  long alt_homozyg_count;
   long missing_data_count;
   Vlong* ref_homozygs; // indices of the markers for which this acc is homozyg (ref allele)
   Vlong* alt_homozygs; //
@@ -136,7 +140,7 @@ void populate_marker_dosage_counts(GenotypesSet* the_gtsset);
 void populate_dosage_counts(GenotypesSet* the_gtsset); // accession dosage counts
 void print_genotypesset_stats(GenotypesSet* gtss);
 void check_genotypesset(GenotypesSet* gtss);
-void filter_genotypesset(GenotypesSet* the_genotypes_set);
+void filter_genotypesset(GenotypesSet* the_genotypes_set, double thin_fraction);
 void rectify_markers(GenotypesSet* the_gtsset);
 void set_Abits_Bbits(GenotypesSet* the_genotypesset, long Nthreads); // diploid only
 void* set_Abits_Bbits_1thread(void* x);
@@ -147,10 +151,16 @@ void set_chromosome_start_indices(GenotypesSet* the_gtsset);
 // Vdouble* get_minor_allele_frequencies(GenotypesSet* the_gtset);
 
 four_longs bitwise_agmr_hgmr(Accession* acc1, Accession* acc2);
-ND bitwise_hgmr(Accession* acc1, Accession* acc2);
+ND bitwise_hgmr(Accession* acc1, Accession* acc2, long* n11, long* n1ok, long* nok1);
 // ND bitwise_R(Accession* parent, Accession* offspring);
 // Viaxh** calculate_hgmrs_old(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_hgmr);
 Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_parent_idxs, long max_candidate_parents, double max_hgmr);
+void new_calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_parent_idxs,
+			 long max_candidate_parents, double max_hgmr, Viaxh** pairwise_info);
+void calculate_hgmrs_aa(GenotypesSet* the_genotypes_set, const Vlong* both_idxs, double max_hgmr,
+			Viaxh** pairwise_info);
+void calculate_hgmrs_ab(GenotypesSet* the_genotypes_set, const Vlong* parent_idxs, Vlong* offspring_idxs, double max_hgmr,
+			Viaxh** pairwise_info);
 // void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
 // ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
 // four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
@@ -180,6 +190,8 @@ ND relative_phase_switches(Accession* acc1, Accession* acc2, Vlong* chroms);
 
 three_longs heterozyg_ratios(Accession* acc1, Accession* acc2);
 void read_gts_line_add_accession_to_gtset(GenotypesSet* the_genotypes_set, char* acc_id, long markerid_count, char* saveptr, double max_acc_missing_data_fraction);
+
+void set_heterozygosity_etc(Accession* acc);
 // ##### unused #####
 
 double agmr0(GenotypesSet* the_gtsset);
