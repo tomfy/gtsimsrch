@@ -63,7 +63,9 @@ typedef struct{
   long idx;
   //double agmr;
   //double hgmr;
-  double xhgmr;
+  double hgmr;
+  ND hhr;
+  //ND hhr21;
 }Iaxh;
 
 typedef struct{ 
@@ -143,10 +145,12 @@ int compare_ld(const void* a, const void* b);
 void free_vld(Vld* the_vld); /* */
 
 // ******  Viaxh  ******
+Iaxh* construct_iaxh(long idx, double hgmr, ND hhr);
 Viaxh* construct_viaxh(long init_capacity);
-void push_to_viaxh(Viaxh* the_viaxh, long idx, double xhgmr); //, double hgmr);
-void sort_viaxh_by_xhgmr(Viaxh* the_viaxh);
+void old_push_to_viaxh(Viaxh* the_viaxh, long idx, double hgmr); //, double hgmr);
+void push_to_viaxh(Viaxh* the_viaxh, Iaxh* the_iaxh);
+void sort_viaxh_by_hgmr(Viaxh* the_viaxh);
 //void sort_viaxh_by_hgmr(Viaxh* the_viaxh);
-int compare_xhgmr(const void* a, const void* b);
+int compare_hgmr(const void* a, const void* b);
 //int compare_hgmr(const void* a, const void* b);
 void free_viaxh(Viaxh* the_viaxh);

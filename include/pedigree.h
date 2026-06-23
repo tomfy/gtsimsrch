@@ -43,6 +43,8 @@ typedef struct{ // 0: progeny, 1, 2: parents
   ND d; // (n1+n2)/(n0+n1+n2);
   ND z; // (n00_1 + n22_1)/(n00_x + n22_x)
   ND h; // n111/nx11
+  // ND hhr; // of markers with >=1 parent heterozyg, fraction with offspring het.
+  ND hhr; // {n_1_1or1, n_x_1or1}
 
   // ND xz;
   // ND d_2; // 
@@ -62,6 +64,7 @@ typedef struct{ // 0: progeny, 1, 2: parents
   double hgmr2;
   double xhgmr1;
   double xhgmr2;
+ 
 
   four_longs Xinfo;
 
