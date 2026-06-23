@@ -111,6 +111,7 @@ two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
 Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accession* prog){ //, GenotypesSet* the_gtset){
   
   long n_00_1_22_1 = 0, n_total_no_md = 0, n_00_22 = 0, n_total_x_11 = 0, n_total_1_11 = 0;
+  long n_total_x_1or1 = 0, n_total_1_1or1 = 0;
   long n_00_2_22_0 = 0, n_00_2 = 0, n_22_0 = 0;
   long n_0xorx0_2_nomd = 0; // prog is 2 and at least one parent is 0.
   long n_2xorx2_0_nomd = 0; // prog is 0 and at least one parent is 2.
@@ -163,7 +164,9 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
     //   unsigned long long is00_2_22_0 = (i0 & j0 & k2) | (i2 & j2 & k0) & ~missing;
     unsigned long long is1_00_1_22 = k1 & is00_22 & ~missing;
     unsigned long long isx_11 = i1 & j1 & ~missing; // both parents het, none missing
-    unsigned long long is1_11 = isx_11 & k1; // all 3 are het.
+      unsigned long long is1_11 = isx_11 & k1; // all 3 are het.
+    unsigned long long isx_1or1 = (i1 | j1) & ~missing; // at least one parent is het,  
+    unsigned long long is1_1or1 = isx_1or1 & k1; // at least one parent het and offspring het.
     
     unsigned long long is_i0or2_k1 = (i0 | i2) & k1; // & ~missing;    
     unsigned long long is0x_0_or_2x_2 = (i0 & k0) | (i2 & k2);
@@ -205,6 +208,8 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
     n_total_no_md += 64 - __builtin_popcountll(missing);
     n_total_x_11 += __builtin_popcountll(isx_11); // both parents are het, none missing.
     n_total_1_11 += __builtin_popcountll(is1_11);
+    n_total_x_1or1 +=  __builtin_popcountll(isx_1or1);
+    n_total_1_1or1 +=  __builtin_popcountll(is1_1or1);
 
     ndiff12 += __builtin_popcountll(i_ne_j);
     //ndiff01 += __builtin_popcountll(i_ne_k);
@@ -228,6 +233,8 @@ Pedigree_stats* bitwise_triple_counts(Accession* par1, Accession* par2, Accessio
   };
   pedigree_stats->z = (ND) {n_00_1_22_1, n_00_22};
   pedigree_stats->h = (ND) {n_total_1_11, n_total_x_11};
+  pedigree_stats->hhr = (ND) {n_total_1_1or1, n_total_x_1or1};
+  // fprintf(stderr, "HHR n, d:  %ld  %ld \n", n_total_1_1or1, n_total_x_1or1);
   pedigree_stats->par1_hgmr = (ND) {hgmr1_numerator, hgmr1_denominator};
   pedigree_stats->par2_hgmr = (ND) {hgmr2_numerator, hgmr2_denominator};
   pedigree_stats->par1_R = (ND) {n_0x_1_2x_1, n_0x_1_2x_1 + n_0x_0_2x_2};
@@ -251,10 +258,11 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, const Genotypes
   long limited_n_candpairs = cppps->size;
   if(cppps->size == 0){ 
   }else if(cppps->size > max_candidate_parents){ // if too many parent candidates, just take the max_candidate_parents best ones
-    sort_viaxh_by_xhgmr(cppps);
+    sort_viaxh_by_hgmr(cppps);
     limited_n_candpairs = max_candidate_parents; // limit candidate to max_candidate_parents
   }
-  fprintf(stderr, "candidate parents for %s based on hgmr. %ld %ld\n", prog->id->a, cppps->size, limited_n_candpairs);
+   fprintf(stderr, "%s  %ld %ld %ld\n", prog->id->a, cppps->size, limited_n_candpairs, limited_n_candpairs*(limited_n_candpairs+1)/2);
+  // fprintf(stderr, "candidate parents for %s based on hgmr. %ld %ld\n", prog->id->a, cppps->size, limited_n_candpairs);
   Vpedigree* alt_pedigrees = construct_vpedigree(1000);
   for(long ii=0; ii<limited_n_candpairs; ii++){
     long par1idx = cppps->a[ii]->idx;
@@ -290,6 +298,8 @@ Pedigree_stats* construct_pedigree_stats(void){
 
   the_ps->d = (ND) {0, 0};
   the_ps->z = (ND) {0, 0};
+  the_ps->h = (ND) {0, 0};
+  the_ps->hhr = (ND) {0, 0};
 
   the_ps->all_good_count = 0;
 
@@ -517,13 +527,14 @@ Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const Genotypes
   return the_ps;
 }
 
+
+
 // get the indices of all the accessions which, according to the_vped, have offspring.
 const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessions){ // , long n_accessions){
   Vlong* offspring_counts = construct_vlong_zeroes(n_accessions);
   for(long i=0; i<the_vped->size; i++){
     const Pedigree* the_ped = the_vped->a[i];
     if(the_ped->F != NULL) {
-   
       offspring_counts->a[the_ped->F->index]++;
     }
     if(the_ped->M != NULL) {
@@ -588,7 +599,9 @@ void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stat
   print_double_nan_as_hyphen(fh, the_pedigree_stats->R2_n);
   print_double_nan_as_hyphen(fh, the_pedigree_stats->d_n);
   // print_n_over_d(fh, the_pedigree_stats->h);
-  // print_double_nan_as_hyphen(fh, the_pedigree_stats->z_n);
+  //  print_n_over_d(fh, the_pedigree_stats->hhr);
+  //  fprintf(fh, "\t%ld\t%ld", the_pedigree_stats->hhr.n, the_pedigree_stats->hhr.d);
+  //print_double_nan_as_hyphen(fh, the_pedigree_stats->z_n);
 }
 
 void print_double_nan_as_hyphen(FILE* fh, double x){
