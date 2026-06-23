@@ -20,62 +20,22 @@
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  1.0
 #define DEFAULT_MIN_MAF  0.05
-#define DEFAULT_MAX_HGMR 0.2  // max normalized hgmr, i.e. hgmr divided by mean hgmr for a set of random pairs
+#define DEFAULT_MAX_HGMR 0.05  // max hgmr to be considered as possible parent.
 #define DEFAULT_MAX_CANDIDATE_PARENTS 1000 // 
 #define DEFAULT_RANDOM_SAMPLE_SIZE 100000
-#define DEFAULT_MAX_SOLNS_OUT 3  // in addition to pedigree from file.
+#define DEFAULT_MAX_SOLNS_OUT 3  // in addition to recorded pedigree.
 #define ALL_ALTS 1 // search for alt. pedigrees for all accessions. all accessions are considered as parents.
 #define NO_ALTS 0 // just check the pedigrees
 #define BADPED_ALTS 2 // only search for alternatives if pedigree looks bad
 #define PEDPAR_ALTS 3  // only accessions which appear as parents in the pedigree file are considered as parents
 #define DEFAULT_MAX_FTR_OUT  0.5
+// if using heterozygosity to distinguish parents (low heterozyg, inbreds), and offspring (high heterozygosity),
+// het < low_het   -> parent only,  het > high_het -> offspring only,  low_het < het < high_het -> both  
+#define DEFAULT_THRESHOLD_HETEROZYGOSITY  0.02 //
+#define DEFAULT_HETEROZYGOSITY_RANGE_FACTOR 1.0 //
 
 int do_checks = 0; // option -c sets this to 1 to do some checks.
 struct sysinfo memInfo;
-
-//double hi_res_time(void);
-
-
-int parseLine(char* line){
-    // This assumes that a digit will be found and the line ends in " Kb".
-    int i = strlen(line);
-    const char* p = line;
-    while (*p <'0' || *p > '9') p++;
-    line[i-3] = '\0';
-    i = atoi(p);
-    return i;
-}
-
-int getVMP(){ //Note: this value is in KB! virtual mem this proc.
-    FILE* file = fopen("/proc/self/status", "r");
-    int result = -1;
-    char line[128];
-
-    while (fgets(line, 128, file) != NULL){
-        if (strncmp(line, "VmSize:", 7) == 0){
-            result = parseLine(line);
-            break;
-        }
-    }
-    fclose(file);
-    return result;
-}
-
-int getPMP(){ //Note: this value is in KB! physical mem this proc
-    FILE* file = fopen("/proc/self/status", "r");
-    int result = -1;
-    char line[128];
-
-    while (fgets(line, 128, file) != NULL){
-        if (strncmp(line, "VmRSS:", 6) == 0){
-            result = parseLine(line);
-            break;
-        }
-    }
-    fclose(file);
-    return result;
-}
-void print_mem_info(FILE* stream);
 
 void print_usage_info(FILE* stream);
 // Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, long max_candidate_parents, double max_hgmr, bool quick_xhgmr);
@@ -86,8 +46,45 @@ void set_scaled_d_in_vpedigree(Vpedigree* the_pedigrees, double d_scale_factor);
 void random_set_means(GenotypesSet* gtset, long sample_size);
 Viaxh* hgmrs_wrt_one_accession(GenotypesSet* the_genotypes_set, Accession* A, double max_hgmr);
 void print_crossover_info(FILE* o_stream, four_longs Xinfo);
-void print_dummy_pedigree_output(FILE* stream); // for when an accession has no pedigree
+// void print_dummy_pedigree_output(FILE* stream); // for when an accession has no pedigree
 void print_dummy_crossover_info(FILE* stream);
+
+void set_pob_from_file(GenotypesSet* the_gtsset, Vidxid* the_gt_vidxid, FILE* pob_stream);
+void set_pob_inbreds_hybrids(GenotypesSet* the_gtsset, double low_heterozygosity, double high_heterozygosity);
+void parent_offspring_indices(const GenotypesSet* the_gtsset, Vlong* parents, Vlong* offspring, Vlong* both);
+
+void print_mem_info(FILE* stream);
+int parseLine(char* line);
+int getVMP();
+int getPMP();
+
+
+Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, double max_hgmr, long max_candidate_parents){
+  Vlong* parental_idxs = construct_vlong(1000);
+  Vlong* offspring_idxs = construct_vlong(1000);
+  Vlong* both_idxs = construct_vlong(1000);
+  parent_offspring_indices(the_genotypes_set, parental_idxs, offspring_idxs, both_idxs);
+  fprintf(stderr, "# n parental_idxs %ld  ;n offspring_idxs %ld  ;n both_idxs %ld\n",
+	  parental_idxs->size, offspring_idxs->size, both_idxs->size);
+  Viaxh** pairwise_info = (Viaxh**)malloc(the_genotypes_set->accessions->size*sizeof(Viaxh*)); // array of Viaxh*. pairwise_info[i]->a[j].xhgmr 
+  for(long ii=0; ii< the_genotypes_set->accessions->size; ii++){
+    pairwise_info[ii] = construct_viaxh(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii
+  }
+   
+  fprintf(stderr, "# calculating hgmrs for all pairs\n");
+  Vlong* all_acc_idxs = construct_vlong_whole_numbers(the_genotypes_set->accessions->size);
+  if(1){
+    // fprintf(stderr, "XXXXXXXXXXXXXXXXXXXX before new_calculate_hgmrs\n");
+    //new_calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr, pairwise_info);
+    calculate_hgmrs_aa(the_genotypes_set, both_idxs, max_hgmr, pairwise_info);
+    calculate_hgmrs_ab(the_genotypes_set, both_idxs, offspring_idxs, max_hgmr, pairwise_info);
+    calculate_hgmrs_ab(the_genotypes_set, parental_idxs, both_idxs, max_hgmr, pairwise_info);
+    calculate_hgmrs_ab(the_genotypes_set, parental_idxs, offspring_idxs, max_hgmr, pairwise_info);
+  }else{
+    pairwise_info = calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr);
+  }
+  return pairwise_info;
+} /* */
 
 // **********************************************************************************************
 // ***********************************  main  ***************************************************
@@ -113,18 +110,26 @@ main(int argc, char *argv[])
   double max_ftr_out = DEFAULT_MAX_FTR_OUT; //
   bool multiple_solns_on_one_line = true;
 
-  bool normalize_by_means =  true; // false;
+  bool normalize_by_means =  false;
   // the following used in categorizing pedigrees from file as good or bad:
   double max_self_agmr = 1.0; // 0.03;
   double max_ok_hgmr = 1.0; // 0.16;
   double max_self_R = 1.0; // 0.1;
   double max_ok_d = 0.01; // normalized
+  bool use_heterozygosity = false;
+  //double max_inbred_heterozygosity = DEFAULT_MAX_INBRED_HETEROZYGOSITY; // set to something small if only want to consider inbreds as parents
+  double threshold_heterozygosity = DEFAULT_THRESHOLD_HETEROZYGOSITY; //
+  double heterozygosity_range_factor = DEFAULT_HETEROZYGOSITY_RANGE_FACTOR; //
+  double low_heterozygosity = -1;
+  double high_heterozygosity = -1;
+  char* pob_filename = NULL;
+  double thin_fraction = 1; 
 
   // double alpha = 1.0;
 
   bool long_output_format = false; // true; true -> output denominators as well as 
   
-  double ploidy = 2;
+  double ploidy = 2; // other ploidies not implemented.
   
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
   long Nthreads = -1; // multithreading not implemented properly yet.  Fix threaded_input in gtset.c // (nprocs > 2)? nprocs/2 : 1; // default number of threads
@@ -149,25 +154,30 @@ main(int argc, char *argv[])
     static struct option long_options[] = {
       {"input",   required_argument, 0,  'i'}, // filename of genotype data set
       {"pedigree", required_argument, 0, 'p'}, // filename of pedigree list
+      {"pob_filename", required_argument, 0, 'O'}, 
       {"output",  required_argument, 0,  'o'}, // output filename
       {"marker_max_missing_data", required_argument, 0, 'm'}, // markers with > this fraction missing data will not be used.
       {"maf_min", required_argument, 0, 'f'}, //
       {"accession_max_missing_data", required_argument, 0, 'a'},
+      {"thin_marker_fraction", required_argument, 0, 'T'},
       {"candidate_parents_max", required_argument, 0, 'c'},
       {"hgmr_max", required_argument, 0, 'n'},
       {"search", no_argument, 0, 's'},
+      {"use_heterozygosity", no_argument, 0, 'I'}, // if true, base parents, offspring on heterozygosity
       {"help", no_argument, 0, 'h'},
       {"check", no_argument, 0, 'k'}, // not implemented
       {"alternative_pedigrees_level", required_argument, 0, 'l'},
       {"ftr_max_out", required_argument, 0, 'F'},
       {"solutions_out", required_argument, 0, 'x'},
       {"seed", required_argument, 0, 'r'},
-      {"ok_hgmr_max", required_argument, 0, 'H'},
+      {"ok_hgmr_max", required_argument, 0, 'G'},
       {"agmr_self_max", required_argument, 0, 'S'},
       {"R_self_max", required_argument, 0, 'R'},
       {"d_max", required_argument, 0, 'D'},
       {"threads", required_argument, 0, 't'},
       {"do_phased", required_argument, 0, 'P'},
+      {"threshold_heterozygosity", required_argument, 0, 'L'},
+      {"heterozygosity_range_factor", required_argument, 0, 'H'}, 
       //{"alpha", required_argument, 0, 'A'},
       {"normalize_by_means", required_argument, 0, 'N'}, 
       {0,         0,                 0,  0 }
@@ -199,6 +209,9 @@ main(int argc, char *argv[])
     case 'o':
       output_filename = optarg;
       break;
+      case 'O':
+      pob_filename = optarg;
+      break;
     case 'c':
       max_candidate_parents = atoi(optarg);
       break;
@@ -207,6 +220,12 @@ main(int argc, char *argv[])
       break;
     case 'F':
       max_ftr_out = atof(optarg);
+      break;
+    case 'L':
+      threshold_heterozygosity = atof(optarg);
+      break;
+    case 'H':
+      heterozygosity_range_factor = atof(optarg);
       break;
     case 'x':
       max_solns_out = atoi(optarg);
@@ -239,14 +258,14 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       break;
-      /*   case 'A':  */
-      /* alpha = (double)atof(optarg); */
-      /* if(alpha < 0){ */
-      /* 	fprintf(stderr, "option -alpha requires an real argument in range [0,1]\n"); */
-      /* 	exit(EXIT_FAILURE); */
-      /* } */
-      /* break; */
-     case 'r': 
+    case 'T': 
+      thin_fraction = (double)atof(optarg);
+      if(thin_fraction <= 0){
+	fprintf(stderr, "option f (min_minor_allele_frequency) requires an real argument >= 0\n");
+	exit(EXIT_FAILURE);
+      }
+      break;
+    case 'r': 
       rand_seed  = (unsigned)atoi(optarg);
       break;
     case 'n': 
@@ -256,7 +275,7 @@ main(int argc, char *argv[])
 	exit(EXIT_FAILURE);
       }
       break;
- case 'H': 
+ case 'G': 
       max_ok_hgmr = (double)atof(optarg);
       if(max_ok_hgmr < 0){
 	fprintf(stderr, "option hgmr_max requires an real argument >= 0\n");
@@ -309,6 +328,9 @@ main(int argc, char *argv[])
 	normalize_by_means = false;
       }
       break;
+    case 'I':
+      use_heterozygosity = true;
+      break;
     case 'h':
       print_usage_info(stderr);
       exit(EXIT_FAILURE);
@@ -348,6 +370,7 @@ main(int argc, char *argv[])
   srand(rand_seed);
   // *****  done processing command line  *****
   
+  
   // *************************************************************
   // ***  Read the genotypes file  *******************************
   // *************************************************************
@@ -362,7 +385,7 @@ main(int argc, char *argv[])
   double t_b = hi_res_time();
   fprintf(stdout, "# Time to read genotype data: %6.3f sec.\n", t_b - t_a);
   
-  filter_genotypesset(the_genotypes_set);
+  filter_genotypesset(the_genotypes_set, thin_fraction);
   // fprintf(stderr, "after filter_genotypesset\n");
   print_vchar(stdout, the_genotypes_set->marker_filter_info);
   print_vchar(o_stream, the_genotypes_set->marker_filter_info);
@@ -382,7 +405,32 @@ main(int argc, char *argv[])
   check_genotypesset(the_genotypes_set);
   set_Abits_Bbits(the_genotypes_set, Nthreads);
   Vidxid* the_gt_vidxid = construct_sorted_vidxid(the_genotypes_set->accessions); // ids and indexes of the_genotypes_set, sorted by id
+  for(long i=0; i < the_genotypes_set->accessions->size; i++){
+    Accession* acc = the_genotypes_set->accessions->a[i];
+    set_heterozygosity_etc(acc);
+  }
 
+  if(pob_filename != NULL){ // read pob_file to get which accessions are parents, offspring, both, neither
+    FILE* pob_stream = fopen(pob_filename, "r");
+    if(pob_stream != NULL){
+      fprintf(stderr, "about to call set_pob_from_file\n");
+      set_pob_from_file(the_genotypes_set, the_gt_vidxid, pob_stream);
+    }else{
+      fprintf(stderr, "Couldn't open %s for reading. Bye.\n", pob_filename);
+      exit(EXIT_FAILURE);
+    }
+  }else if(use_heterozygosity){ // only consider low heterozygosity (inbred) accessions as parents
+    set_pob_inbreds_hybrids(the_genotypes_set,
+			    threshold_heterozygosity/heterozygosity_range_factor, high_heterozygosity*heterozygosity_range_factor);
+  }
+  
+  Vlong* parental_idxs = construct_vlong(1000);
+  Vlong* offspring_idxs = construct_vlong(1000);
+  Vlong* both_idxs = construct_vlong(1000);
+  parent_offspring_indices(the_genotypes_set, parental_idxs, offspring_idxs, both_idxs);
+  fprintf(stderr, "# n parental_idxs %ld  ;n offspring_idxs %ld  ;n both_idxs %ld\n",
+	  parental_idxs->size, offspring_idxs->size, both_idxs->size);
+  
   // print_vidxid(stderr, the_gt_vidxid);
   double t_d = hi_res_time();
   fprintf(stdout, "# Time for other initial processing of genotype data: %6.3f sec.\n", t_d - t_c);
@@ -399,7 +447,7 @@ main(int argc, char *argv[])
   long n_gt_accessions = the_genotypes_set->accessions->size;
   fprintf(stdout, "# Time to calculate means for %ld  random pairs.: %6.3f sec.\n", sample_size, t_e - t_d);
  
-  if(p_stream != NULL){ // have pedigree file
+  if(p_stream != NULL){ // *****  have pedigree file  **********
     fprintf(stderr, "reading pedigree file.\n");
     // ********************************************************* 
     // ***  Read the pedigrees file  ***************************
@@ -418,13 +466,34 @@ main(int argc, char *argv[])
     // ****************************************************************
     // ***  If -alt 1 (i.e. ALL_ALTS)  option  ********************
     // ***  Calculate hgmrs for all pairs  ****************************
-    // **************************************************************** 
+    // ****************************************************************
+  
     Viaxh** pairwise_info = NULL;
+    //Viaxh**
+  
+    
     fprintf(stderr, "# alternative pedigrees level: %ld\n", alternative_pedigrees_level);
     if(alternative_pedigrees_level == ALL_ALTS){ // calculate hgmrs for all pairs
-      fprintf(stderr, "# calculating hgmrs for all pairs\n");
-      Vlong* all_acc_idxs = construct_vlong_whole_numbers(the_genotypes_set->accessions->size);
-      pairwise_info = calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr);
+    /*     if(0){ */
+  /*     fprintf(stderr, "# calculating hgmrs for all pairs\n"); */
+  /*     Vlong* all_acc_idxs = construct_vlong_whole_numbers(the_genotypes_set->accessions->size); */
+  /*     if(1){ */
+  /* 	  pairwise_info = (Viaxh**)malloc(the_genotypes_set->accessions->size*sizeof(Viaxh*)); // array of Viaxh*. pairwise_info[i]->a[j].xhgmr  */
+  /* for(long ii=0; ii< the_genotypes_set->accessions->size; ii++){ */
+  /*   pairwise_info[ii] = construct_viaxh(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii */
+  /* } */
+  /* 	// fprintf(stderr, "XXXXXXXXXXXXXXXXXXXX before new_calculate_hgmrs\n"); */
+  /* 	//new_calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr, pairwise_info); */
+  /* 	calculate_hgmrs_aa(the_genotypes_set, both_idxs, max_hgmr, pairwise_info); */
+  /* 	calculate_hgmrs_ab(the_genotypes_set, both_idxs, offspring_idxs, max_hgmr, pairwise_info); */
+  /* 	calculate_hgmrs_ab(the_genotypes_set, parental_idxs, both_idxs, max_hgmr, pairwise_info); */
+  /* 	calculate_hgmrs_ab(the_genotypes_set, parental_idxs, offspring_idxs, max_hgmr, pairwise_info); */
+  /*     }else{ */
+  /* 	pairwise_info = calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr); */
+  /*     } */
+  /* 	}else{ // new way */
+	  pairwise_info =  calculate_pairwise_info(the_genotypes_set, max_hgmr, max_candidate_parents);
+	  //	}
       fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - initialization_time);
     }else if(alternative_pedigrees_level == PEDPAR_ALTS){ // only calculate hgmr for pairs with at least one acc appearing as parent in pedigree file.
       const Vlong* parent_idxs = accessions_with_offspring(the_pedigrees, the_genotypes_set->accessions->size); // , the_genotypes_set->n_gt_accessions);
@@ -505,8 +574,12 @@ main(int argc, char *argv[])
 	//    end of accession has pedigree branch
       }else{  // accession has no pedigree
 	if( (alternative_pedigrees_level == PEDPAR_ALTS)  ||  (alternative_pedigrees_level == ALL_ALTS ) ){
-	  fprintf(o_stream, "%s", A->id->a);
-	  print_dummy_pedigree_output(o_stream);
+	  Pedigree* dummy_pedigree = construct_pedigree(A, NULL, NULL);
+	  dummy_pedigree->pedigree_stats = construct_pedigree_stats();
+	  fprintf(o_stream, "%s\tP", A->id->a);
+	  print_pedigree_normalized(o_stream, dummy_pedigree);
+	  print_dummy_crossover_info(o_stream);
+	 
 	  Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(A, the_genotypes_set, pairwise_info[i], max_candidate_parents);
 	  sort_and_output_alt_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out,  max_ftr_out, do_phased, o_stream);
 	  fprintf(o_stream, "\n");
@@ -516,10 +589,26 @@ main(int argc, char *argv[])
       
     } // end loop over accessions
       fprintf(stdout, "# time for triple (FTR) calculation: %8.3f\n", hi_res_time() - t_f);
-  }else{ //  *******  no pedigree file, consider all accessions as possible parents  ********
+  }else{ // no pedigree file
+    //  ********************************************************************************
+    //  *******  no pedigree file, consider all accessions as possible parents  ********
+    //  ********************************************************************************
     Viaxh** pairwise_info = calculate_hgmrs(the_genotypes_set,
 					    construct_vlong_whole_numbers(the_genotypes_set->accessions->size),
 					    max_candidate_parents, max_hgmr);
+
+ /* if(1){ */
+ /* 	// fprintf(stderr, "XXXXXXXXXXXXXXXXXXXX before new_calculate_hgmrs\n"); */
+ /* 	//new_calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr, pairwise_info); */
+ /* 	calculate_hgmrs_aa(the_genotypes_set, both_idxs, max_hgmr, pairwise_info); */
+ /* 	calculate_hgmrs_ab(the_genotypes_set, both_idxs, offspring_idxs, max_hgmr, pairwise_info); */
+ /* 	calculate_hgmrs_ab(the_genotypes_set, parental_idxs, both_idxs, max_hgmr, pairwise_info); */
+ /* 	calculate_hgmrs_ab(the_genotypes_set, parental_idxs, offspring_idxs, max_hgmr, pairwise_info); */
+ /*      }else{ */
+ /* 	pairwise_info = calculate_hgmrs(the_genotypes_set, all_acc_idxs, max_candidate_parents, max_hgmr); */
+ /*      } */
+
+    
     fprintf(stdout, "# time to calculate hgmrs: %.5f\n", hi_res_time() - t_e);
     
     double triples_to_calculate = 0;
@@ -551,12 +640,18 @@ main(int argc, char *argv[])
       // calculate d, z, etc. for triples involving the candidate parents in pairwise_info[i]
       Vpedigree* alt_pedigrees = calculate_triples_for_one_accession(prog, the_genotypes_set, pairwise_info[i], max_candidate_parents);
       triples_calculated += n_parents*(n_parents-1)/2;
-       if(i%100 == 0){	 
-	 fprintf(stderr, "#%lld  %8.5g %% done\n",(long long)triples_calculated, 100*triples_calculated/triples_to_calculate);
+      if((i+1)%1000 == 0){	 
+	fprintf(stderr, "# Triples computed for %ld accessions. Triples computed: %lld  %8.5g %% done\n", i+1, (long long)triples_calculated, 100*triples_calculated/triples_to_calculate);
       }
       // output
-      fprintf(o_stream, "%s\t", prog->id->a); // output the progeny id
-      print_dummy_pedigree_output(o_stream); //, the_genotypes_set->phased, do_phased);
+      //fprintf(o_stream, "%s\t", prog->id->a); // output the progeny id
+       Pedigree* dummy_pedigree = construct_pedigree(prog, NULL, NULL);
+       dummy_pedigree->pedigree_stats = construct_pedigree_stats();
+       fprintf(o_stream, "%s\tP", prog->id->a);
+       print_pedigree_normalized(o_stream, dummy_pedigree);
+       print_dummy_crossover_info(o_stream);
+      
+       //print_dummy_pedigree_output(o_stream); //, the_genotypes_set->phased, do_phased);
       sort_and_output_alt_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out,  max_ftr_out, do_phased, o_stream);
       fprintf(o_stream, "\n");
       
@@ -569,7 +664,7 @@ main(int argc, char *argv[])
     fprintf(o_stream, "# number of accessions with no candidate parents found: %ld\n", count_accs_w_no_cand_parents);
     fprintf(o_stream, "# number of accessions with > %ld candidate parents found: %ld\n",
 	    max_candidate_parents, count_accs_w_too_many_cand_parents);
-  }
+  } // end of no-pedigree-file branch
   
   // ********************  cleanup  **************************
   fclose(o_stream);
@@ -587,20 +682,107 @@ main(int argc, char *argv[])
 // **********************************************************
 // ******************  functions  ***************************
 // **********************************************************
+void set_pob_inbreds_hybrids(GenotypesSet* the_gtsset, double low_heterozygosity, double high_heterozygosity){
+  // only inbreds (accessions with low heterozygosity) are allowed parents
+  for(long idx = 0; idx < the_gtsset->accessions->size; idx++){
+    Accession* A = the_gtsset->accessions->a[idx];
+    long ok_markers = A->genotypes->length - A->missing_data_count;
+    //fprintf(stderr, "length, md: %ld %ld\n", A->genotypes->length, A->missing_data_count);
+    if(ok_markers > 100){ // require parents to have low heterozygosity
+      double heterozygosity = A->heterozyg_count/(double)ok_markers;
+      //fprintf(stderr, "heterozygosity: %7.5f max_parental_heterozygosity: %7.5f\n", heterozygosity, max_parental_heterozygosity);
+      if(heterozygosity <= low_heterozygosity){
+	  A->pobn = 'p';
+      }else if(heterozygosity >= high_heterozygosity){
+	  A->pobn = 'o';
+      }else{
+	A->pobn = 'b';
+      }
+    }
+    // fprintf(stderr, "BBB: %s  %c\n", A->id->a, A->pobn);
+  }
+}
+
+void set_pob_from_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_vped){
+  // if not parent in pedigree file, don't consider as possible parent.
+ Vlong* offspring_counts = construct_vlong_zeroes(the_gtsset->accessions->size);
+  for(long i=0; i<the_vped->size; i++){
+    const Pedigree* the_ped = the_vped->a[i];
+    if(the_ped->F != NULL) {   
+      offspring_counts->a[the_ped->F->index]++;
+    }
+    if(the_ped->M != NULL) {
+      offspring_counts->a[the_ped->M->index]++;
+    }
+  }
+  for(long idx=0; idx<offspring_counts->size; idx++){ //
+    char pobn = the_gtsset->accessions->a[idx]->pobn;
+    if(pobn == 'n') continue;
+    bool parent = (offspring_counts->a[idx] > 0);
+    if(pobn == 'b'){
+      pobn = (parent)? 'b' : 'o'; 
+    }else if(pobn == 'p'){
+      pobn = (parent)? 'p' : 'n'; //
+    }else if(pobn == 'o'){
+      pobn = (parent)? 'b' : 'o';
+    }
+    the_gtsset->accessions->a[idx]->pobn = pobn;
+  }
+  free_vlong(offspring_counts);
+  return;
+}
+
+void set_pob_from_file(GenotypesSet* the_gtsset, Vidxid* the_gt_vidxid, FILE* pob_stream){
+  // use file with id and single char indicating parent offspring, etc. e.g.:  FH986  p   
+  if(pob_stream == NULL) return;
+  char* line = NULL;
+  size_t len = 0;
+  ssize_t nread;
+  while((nread = getline(&line, &len, pob_stream)) != -1){
+    char* saveptr = line;
+    char* id = strtok_r(NULL, "\t\n", &saveptr);
+    if(id == NULL) break;
+    if(id[0] == '#') continue;
+    char* pobnstr = strtok_r(NULL, "\t\n", &saveptr);
+    fprintf(stderr, "id pobnstr: %s  %s\n", id, pobnstr);
+    if(pobnstr == NULL) ;
+    char pobn = pobnstr[0];
+    if(pobn == '#') continue;
+    long idx = index_of_id_in_vidxid(the_gt_vidxid, id);
+    fprintf(stderr, "id pobnstr idx: %s  %s  %ld\n", id, pobnstr, idx);
+    if(idx >= 0) the_gtsset->accessions->a[idx]->pobn = pobn;
+  }
+  return; 
+}
 
 Viaxh* hgmrs_wrt_one_accession(GenotypesSet* the_genotypes_set, Accession* A, double max_hgmr_norm){
   Viaxh* hgmrs_wrt_A = construct_viaxh(the_genotypes_set->accessions->size); 
   for(long ii=0; ii < the_genotypes_set->accessions->size; ii++){
     Accession* A2 = the_genotypes_set->accessions->a[ii];
     if(A2->index != A->index){
-      ND hgmr_nd = bitwise_hgmr(A, A2);
+      long n11 = 0; long n1ok = 0; long nok1 = 0;
+      ND hgmr_nd = bitwise_hgmr(A, A2, &n11, &n1ok, &nok1);
       double dbl_hgmr_norm = n_over_d(hgmr_nd)/the_genotypes_set->mean_hgmr;
-      if(dbl_hgmr_norm <= max_hgmr_norm){ // xhgmr is small enough 
-	push_to_viaxh(hgmrs_wrt_A, ii, dbl_hgmr_norm);
+      if(dbl_hgmr_norm <= max_hgmr_norm){ // hgmr is small enough 
+	push_to_viaxh(hgmrs_wrt_A, construct_iaxh(ii, dbl_hgmr_norm, (ND){n11,n1ok}));
       }
     }
   }
   return hgmrs_wrt_A;
+}
+
+void parent_offspring_indices(const GenotypesSet* the_gtsset, Vlong* parents, Vlong* offspring, Vlong* both){
+  for(long idx=0; idx<the_gtsset->accessions->size; idx++){
+    char pobn = the_gtsset->accessions->a[idx]->pobn;
+    if(pobn == 'b'){
+      push_to_vlong(both, idx);
+    }else if(pobn == 'p'){
+      push_to_vlong(parents, idx); 
+    }else if(pobn == 'o'){
+      push_to_vlong(offspring, idx);
+    }
+  }
+  return;
 }
 
 void print_usage_info(FILE* stream){
@@ -672,9 +854,9 @@ void sort_and_output_alt_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedi
   }
 } // end of sort_and_output_pedigrees
 
-void print_dummy_pedigree_output(FILE* stream){ // for when an accession has no pedigree
-    fprintf(stream, "\tP\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-"); //  15 fields
-}
+/* void print_dummy_pedigree_output(FILE* stream){ // for when an accession has no pedigree */
+/*     fprintf(stream, "\tP\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-\t-"); //  15 fields */
+/* } */
 
 void print_dummy_crossover_info(FILE* stream){
   fprintf(stream, "\t-\t-\t-\t-\t-");
@@ -707,7 +889,7 @@ void print_crossover_info(FILE* fh, four_longs Xinfo){
 void random_set_means(GenotypesSet* gtset, long sample_size){
 
   // double* mean_hgmr, double* mean_R, double* mean_d, double* mean_z){
-  
+  FILE* fhrand = fopen("random_set_means", "w");
   double mean_hgmr = 0;
   double mean_R = 0;
   double mean_d = 0;
@@ -737,7 +919,7 @@ void random_set_means(GenotypesSet* gtset, long sample_size){
       mean_R += n_over_d(ps->par1_R) + n_over_d(ps->par2_R);
       mean_ftc += ps->d.n;
       j++;
-      fprintf(stderr, "%s   %s   %s      %5.3f %5.3f\n",
+      fprintf(fhrand, "%s   %s   %s      %5.3f %5.3f\n",
 	      O->id->a, P1->id->a, P2->id->a,
 	      n_over_d(ps->par1_hgmr), n_over_d(ps->d));
     }
@@ -764,6 +946,46 @@ void print_mem_info(FILE* stream){
 	long pmem_this_proc = getPMP();
 	
 	fprintf(stream, "  %lld   %ld  %ld\n", virtualMemUsed, vmem_this_proc, pmem_this_proc);
+}
+
+int parseLine(char* line){
+    // This assumes that a digit will be found and the line ends in " Kb".
+    int i = strlen(line);
+    const char* p = line;
+    while (*p <'0' || *p > '9') p++;
+    line[i-3] = '\0';
+    i = atoi(p);
+    return i;
+}
+
+int getVMP(){ //Note: this value is in KB! virtual mem this proc.
+    FILE* file = fopen("/proc/self/status", "r");
+    int result = -1;
+    char line[128];
+
+    while (fgets(line, 128, file) != NULL){
+        if (strncmp(line, "VmSize:", 7) == 0){
+            result = parseLine(line);
+            break;
+        }
+    }
+    fclose(file);
+    return result;
+}
+
+int getPMP(){ //Note: this value is in KB! physical mem this proc
+    FILE* file = fopen("/proc/self/status", "r");
+    int result = -1;
+    char line[128];
+
+    while (fgets(line, 128, file) != NULL){
+        if (strncmp(line, "VmRSS:", 6) == 0){
+            result = parseLine(line);
+            break;
+        }
+    }
+    fclose(file);
+    return result;
 }
 
 //  ********************************************************************************************
