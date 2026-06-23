@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use List::Util qw(min max sum);
+use Getopt::Long;
 
 # useful for seeing whether only difference between files in that lines
 # are in a different order.
@@ -12,13 +13,20 @@ use List::Util qw(min max sum);
 # vennlines.pl file1 file2  0    # also compare comment lines
 # vennlines.pl file1 file2  1 1    # skip comments, but output lines found in only one of the files
 {
+  my $n_to_show = 0;
+   GetOptions(
+	      'n_show|n_to_show=i' => \$n_to_show, #
+	      );
+	     
+
+  
   my %file1lines = ();
   my %file2lines = ();
 
   my $file1 = shift;
   my $file2 = shift;
   my $skip_comments = shift // 1;
-  my $verbose = shift // 0;
+  # my $verbose = shift // 0;
 
   store($file1, \%file1lines, $skip_comments);
   store($file2, \%file2lines, $skip_comments);
@@ -48,7 +56,7 @@ use List::Util qw(min max sum);
   print "count of lines in both files:  ", $both_count, "\n";
   print "count of lines in both files:  ", scalar @boths, " (as a check, should be same as previous line)\n";
   print "count of lines in file 2 only: ", scalar @two_onlies, "\n";
-  if($verbose){
+  if($n_to_show > 0){
     #print "lines in $file1 only: \n";
     #print join("", @one_onlies);
     print "lines in $file2 only: \n";
