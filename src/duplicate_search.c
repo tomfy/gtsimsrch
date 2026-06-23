@@ -171,6 +171,7 @@ main(int argc, char *argv[])
   double max_marker_missing_data_fraction = DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION; // if < 0, gets set to 2.0/chunk_size after chunk_size is set.
   double max_accession_missing_data_fraction = DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION; 
   double min_minor_allele_frequency = DEFAULT_MIN_MAF; //
+  double thin_fraction = 1; 
   double max_est_dist = DEFAULT_MAX_DISTANCE; 
   long output_format = 1; // 1 ->  acc_id1 acc_id2 agmr hgmr; otherwise add 3 more columns: usable_chunks matching_chunks est_distance agmr0
   char default_output_filename[] = "duplicate_search.out";
@@ -422,7 +423,7 @@ main(int argc, char *argv[])
   // rectify_markers(the_genotypes_set); // swap dosage 0 and 2 for markers with dosage 2 more common, so afterward 0 more common than 2 for all markers.
 
   //check_genotypesset(the_genotypes_set);
-  if(do_filtering) filter_genotypesset(the_genotypes_set);
+  if(do_filtering) filter_genotypesset(the_genotypes_set, thin_fraction);
   fprintf(stdout, "# %s", the_genotypes_set->acc_filter_info->a);
   fprintf(out_stream, "# %s", the_genotypes_set->acc_filter_info->a);
   fprintf(stdout, "# %s", the_genotypes_set->marker_filter_info->a);
