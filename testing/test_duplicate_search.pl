@@ -17,17 +17,17 @@ BEGIN {     # this has to go in Begin block so happens at compile time
 }
 use lib $libdir;
 
-my $dosages_file = $datadir . '/8698x5621.dsgs';
-my $std_dsout_file = $datadir . '/8698x5621.dsout_std';
+my $dosages_file = $datadir . '/cassava.dsgm_std';
+my $std_dsout_file = $datadir . '/cassava.dsout_std';
 # print "# dosages file: $dosages_file\n";
 # print "# duplicate_search output standard file: $std_dsout_file \n";
-my $test_dsout_file = '8698x5621.dsout_test';
+my $test_dsout_file = 'cassava.dsout_test';
+ok(-r $dosages_file  &&  -r $std_dsout_file, "files $dosages_file and $std_dsout_file are present & readable.");
 
 my $rng_seed = 123456789;
-
-my $ds_command = "duplicate_search  -in $dosages_file  -out $test_dsout_file  -seed $rng_seed  > /dev/null  2> /dev/null";
-# print "$ds_command \n";
-system "$ds_command";
+my $duplicate_search_command = "duplicate_search  -in $dosages_file  -out $test_dsout_file  -seed $rng_seed  > /dev/null  2> /dev/null";
+# print "### $duplicate_search_command \n";
+system "$duplicate_search_command";
 
 # print "diff $std_dsout_file $test_dsout_file \n";
 my $diff_out = `diff $std_dsout_file $test_dsout_file`;
@@ -35,4 +35,4 @@ my $diff_out = `diff $std_dsout_file $test_dsout_file`;
 print "diff output:[$diff_out]\n";
 ok($diff_out eq '', 'diff_of_outputs');
 
-unlink $test_dsout_file;
+#unlink $test_dsout_file;
