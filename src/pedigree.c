@@ -261,7 +261,7 @@ Vpedigree*  calculate_triples_for_one_accession(Accession* prog, const Genotypes
     sort_viaxh_by_hgmr(cppps);
     limited_n_candpairs = max_candidate_parents; // limit candidate to max_candidate_parents
   }
-   fprintf(stderr, "%s  %ld %ld %ld\n", prog->id->a, cppps->size, limited_n_candpairs, limited_n_candpairs*(limited_n_candpairs+1)/2);
+  // fprintf(stderr, "%s  %ld %ld %ld\n", prog->id->a, cppps->size, limited_n_candpairs, limited_n_candpairs*(limited_n_candpairs+1)/2);
   // fprintf(stderr, "candidate parents for %s based on hgmr. %ld %ld\n", prog->id->a, cppps->size, limited_n_candpairs);
   Vpedigree* alt_pedigrees = construct_vpedigree(1000);
   for(long ii=0; ii<limited_n_candpairs; ii++){
@@ -612,7 +612,7 @@ void print_double_nan_as_hyphen(FILE* fh, double x){
   }
 }
 
-bool d_ok(Pedigree_stats* p, double max_ok_d){ // true: d looks good; false: d too large.
+bool ftr_ok(Pedigree_stats* p, double max_ok_d){ // true: d looks good; false: d too large.
   double d = n_over_d(p->d);
   return (d <= max_ok_d)? true : false;
 }

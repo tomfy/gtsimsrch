@@ -119,7 +119,7 @@ double calculate_xxFTR(Pedigree* the_pedigree, const GenotypesSet* the_gtsset, d
 Pedigree_stats* calculate_pedigree_stats(Pedigree* the_pedigree, const GenotypesSet* the_gtsset);
 
 // long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, double max_ok_d);
-bool d_ok(Pedigree_stats* p, double max_ok_d); // 1: d looks good; 0: d too large.
+bool ftr_ok(Pedigree_stats* p, double max_ok_d); // 1: d looks good; 0: d too large.
 
 void free_pedigree(const Pedigree* the_pedigree);
 
