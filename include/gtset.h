@@ -161,6 +161,8 @@ void calculate_hgmrs_aa(GenotypesSet* the_genotypes_set, const Vlong* both_idxs,
 			Viaxh** pairwise_info);
 void calculate_hgmrs_ab(GenotypesSet* the_genotypes_set, const Vlong* parent_idxs, Vlong* offspring_idxs, double max_hgmr,
 			Viaxh** pairwise_info);
+Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, double max_hgmr, long max_candidate_parents);
+void parent_offspring_indices(const GenotypesSet* the_gtsset, Vlong* parents, Vlong* offspring, Vlong* both);
 // void quick_and_dirty_hgmrs(GenotypesSet* the_gtsset);
 // ND quick_hgmr(Accession* acc1, Accession* acc2, char ploidy_char);
 // four_longs quick_hgmr_R(Accession* acc1, Accession* acc2, char ploidy_char);
