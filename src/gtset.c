@@ -552,7 +552,7 @@ void populate_marker_dosage_counts(GenotypesSet* the_gtsset){
     for(long i=0; i<the_gtsset->n_markers; i++){
       long dosage = (long)the_acc->genotypes->a[i];
       if(dosage != MISSING_DATA_CHAR){
-	the_gtsset->marker_dosage_counts[dosage-48]->a[i]++; // just store the ok dosages (not missing)
+	the_gtsset->marker_dosage_counts[dosage-48]->a[i]++; // just store the ok dosages (not missing ones)
       }else{
 	nX++;
       }
@@ -564,13 +564,6 @@ void populate_marker_dosage_counts(GenotypesSet* the_gtsset){
     }
   }
   the_gtsset->dosage_counts->a[3] += nX;
-
-  /* for(long j=0; j<100; j++){ */
-  /*   fprintf(stderr, "marker: %ld ", j); */
-  /*   for(long i=0; i<3; i++){ */
-  /*     fprintf(stderr, " %ld %ld ", i, the_gtsset->marker_dosage_counts[i]->a[j]); */
-  /*   } fprintf(stderr, "\n"); */
-  /* } */
 }
 
 
@@ -1224,6 +1217,44 @@ Viaxh** calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_paren
     } // jj loop
   } // ii loop
   return pairwise_info;
+}
+
+Viaxh** calculate_pairwise_info(GenotypesSet* the_genotypes_set, double max_hgmr, long max_candidate_parents){
+
+  Viaxh** pairwise_info = (Viaxh**)malloc(the_genotypes_set->accessions->size*sizeof(Viaxh*)); // array of Viaxh*.
+  for(long ii=0; ii< the_genotypes_set->accessions->size; ii++){
+    pairwise_info[ii] = construct_viaxh(2*max_candidate_parents); // vector to hold candidate parents of accession with index ii
+  }
+   
+  fprintf(stderr, "# calculating hgmrs.\n");
+  Vlong* parental_idxs = construct_vlong(1000);
+  Vlong* offspring_idxs = construct_vlong(1000);
+  Vlong* both_idxs = construct_vlong(1000);
+  parent_offspring_indices(the_genotypes_set, parental_idxs, offspring_idxs, both_idxs);
+  fprintf(stderr, "# n parental_idxs %ld  ;n offspring_idxs %ld  ;n both_idxs %ld\n",
+	  parental_idxs->size, offspring_idxs->size, both_idxs->size);
+  calculate_hgmrs_aa(the_genotypes_set, both_idxs, max_hgmr, pairwise_info);
+  calculate_hgmrs_ab(the_genotypes_set, both_idxs, offspring_idxs, max_hgmr, pairwise_info);
+  calculate_hgmrs_ab(the_genotypes_set, parental_idxs, both_idxs, max_hgmr, pairwise_info);
+  calculate_hgmrs_ab(the_genotypes_set, parental_idxs, offspring_idxs, max_hgmr, pairwise_info);
+  free_vlong(parental_idxs);
+  free_vlong(offspring_idxs);
+  free_vlong(both_idxs);
+  return pairwise_info;
+}
+
+void parent_offspring_indices(const GenotypesSet* the_gtsset, Vlong* parents, Vlong* offspring, Vlong* both){
+  for(long idx=0; idx<the_gtsset->accessions->size; idx++){
+    char pobn = the_gtsset->accessions->a[idx]->pobn;
+    if(pobn == 'b'){
+      push_to_vlong(both, idx);
+    }else if(pobn == 'p'){
+      push_to_vlong(parents, idx); 
+    }else if(pobn == 'o'){
+      push_to_vlong(offspring, idx);
+    }
+  }
+  return;
 }
 
 void new_calculate_hgmrs(GenotypesSet* the_genotypes_set, const Vlong* cand_parent_idxs,
