@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "pedigree.h"
 
+#define ANALYZE_CHROMOSOME_ARMS 0 
 // extern int do_checks; // option -c sets this to 1 to do some checks.
 
 // *****  Pedigree  *****
@@ -40,12 +41,14 @@ four_longs count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, 
 
 
 ND count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring){
+  // This gives the crossover count using only markers het in parent and hom in offspring.
   // Assuming that parent is indeed a parent of offspring,
   // count the min number of crossovers needed to reconcile them
-
+  // Uses only markers which are het in parent and hom in offspring.
   if(parent == NULL  ||  offspring == NULL) {
     return (ND){-1, -1};
   }
+  // Vchar* Xmarkers = construct_vchar(1000);
   long NX = 0, Nhet = 0;
   long prev_chrom_number = -1, chrom_number;
   long prev_phase = -1, phase = -1;
@@ -53,44 +56,58 @@ ND count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent
   for(long i=0; i < parent->genotypes->length; i++){
 
     char o_gt = offspring->genotypes->a[i]; 
-    if(o_gt == MISSING_DATA_CHAR) continue;
+    if(o_gt == MISSING_DATA_CHAR) continue; 
     if(o_gt == '1') continue; // don't use markers heterozygous in offspring
     char o_phase = offspring->phases->a[i];
        chrom_number = the_gtsset->chromosomes->a[i];
     if(chrom_number != prev_chrom_number){ // now on next chromosome
+      //  fprintf(stderr, "%ld  %ld  ", prev_chrom_number, Xmarkers->length);
+      //  print_vchar(stderr, Xmarkers); fprintf(stderr, "\n"); free_vchar(Xmarkers);
       // reset for new chromosome:
       prev_chrom_number = chrom_number;
       phase = -1;
       prev_phase = -1; // needed
+      // Xmarkers = construct_vchar(1000);
     }
 
     // ########################################
     char p_gt = parent->genotypes->a[i];
     char p_phase = parent->phases->a[i];
 
+    //if(p_gt == MISSING_DATA_CHAR) continue;
+    // append_char_to_vchar(Xmarkers, '.');
     if(p_gt == '1'){
       Nhet++; // counts the number of markers which are heterozyg in the parent, and homozygous in the offspring
       two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
       phase = phases_ab.l1;
+      // compare current phases with previous values,
+      // update crossover counts, and  update prev_phase
+      if(prev_phase >= 0  &&  phase != prev_phase) {
+	NX++; // phase has changed - crossover
+	//Xmarkers->a[Xmarkers->length-1] = 'X';
+      }
+      prev_phase = phase;
     }
     // ######################################
 
-    // compare current phases with previous values,
-    // update crossover counts, and  update prev_phase
-    if(prev_phase >= 0  &&  phase != prev_phase) NX++; // phase has changed - crossover
-    prev_phase = phase;
+ 
+    
+ 
     
   } // end loop over markers
-
+  //print_vchar(stderr, Xmarkers); fprintf(stderr, "\n");
+  //fprintf(stderr, "NX: %ld\n", NX);
+  //free_vchar(Xmarkers);
+  
   return (ND){NX, Nhet};
-} // end of count_crossovers
+} // end of count_crossovers_one_parent
 
 
 
 
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
   long phase_a, phase_b;
-  // get 
+  // get the alleles of the two offspring chromosomes A and B:
   long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
   long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
 
@@ -552,6 +569,11 @@ const Vlong* accessions_with_offspring(const Vpedigree* the_vped, long n_accessi
   return accidxs_with_offspring;
 }
 
+void print_XFcounts(FILE* fh, XFcounts XFc){
+  fprintf(fh, "%ld %ld  %ld    %ld %ld %ld %ld  %ld \n",
+	  XFc.Xa,  XFc.Xb,  XFc.Nhet,
+	  XFc.Fa02,  XFc.Fb02,  XFc.Fa01,  XFc.Fb01, XFc.Nhom);
+}
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose){
   if(verbose){ // for each of 9 quantities of interest, print denominator and ratio (numerator/denominator)
@@ -1338,7 +1360,8 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
 // **********************************************************************************************************
 /* */
 
-/* XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent,
+
+XFcounts count_XF_one_chromosome_old(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent,
 				 Accession* offspring, long first, long next){
   // Assuming that parent is indeed a parent of offspring,
   // and calling the two homologous chromosomes in the offspring a and b
@@ -1358,7 +1381,7 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
   // then this counts as a forbidden combination under hypothesis 2), but is allowed under 1)
 
   if(parent == NULL  ||  offspring == NULL) {
-    return (XFcounts){-1, -1, -1, -1, -1, -1};
+    return (XFcounts){-1, -1, -1, -1, -1, -1, -1, -1};
   }
 
   //bool corrected = false;
@@ -1368,7 +1391,7 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
   long Xa = 0, Xb = 0, Nhet = 0;
   long prev_chrom_number = -1, chrom_number;
   long prev_phase_a = -1, prev_phase_b = -1, phase_a = -1, phase_b = -1;
-  long Fa = 0, Fb = 0, Nhom = 0; // counts of forbidden combinations
+  long Fa = 0, Fb = 0, Nhom = 0, Nhomhet = 0, Fohom = 0, Nhomhom = 0; // counts of forbidden combinations
   long Faa = 0, Fbb = 0;
 
   // e.g. Fa count markers with o_gt = 0 (ref,ref) and a has alt allele, and o_gt = 2(alt,alt) and a has ref allele. 
@@ -1391,10 +1414,10 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
     
     // ########################################
   
-    // we need to know the convention: 1+ means a is ref, and b is alt.
+    // we need to know the convention: +1 means a is ref, and b is alt.
 
     if(p_gt == '1'){
-      if(o_gt == '1') continue; // skip these as there errors in phases to make these introduce many spurious crossovers
+      if(o_gt == '1') continue; // skip these as there are errors in offspring phases make these introduce many spurious crossovers
       Nhet++; // counts the number of markers which are heterozyg in the parent, and homozyg in the offspring
       two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
       phase_a = phases_ab.l1;
@@ -1407,7 +1430,7 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
       if(prev_phase_b >= 0  &&  phase_b != prev_phase_b) Xb++; // phase has changed - crossover
       prev_phase_b = phase_b;
     
-    }else if(p_gt == '0'){
+    }else if(p_gt == '0'){ // parent is homozyg,  
       Nhom++;
       if(o_gt == '1'  &&  (other_parent_gt == '1'  ||  other_parent_gt == '2') ){ // i.e. 01_1 or 02_1
 	Faa += (offA == 1)? 1 : 0;
@@ -1430,10 +1453,147 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
     } // else p_gt == 'X' skip this marker
       // ######################################   
   } // end loop over markers
-  return (XFcounts){Xa, Xb, Nhet, Fa, Fb, Nhom};
-  } // end of count_XF_one_chromosome /* */
+  return (XFcounts){Xa, Xb, Nhet, Fa, Fb, Nhom, -1, -1};
+  } // end of count_XF_one_chromosome_old /* */
 
-/* Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
+XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent,
+				 Accession* offspring, long first, long next){
+  // Assuming that parent is indeed a parent of offspring,
+  // and calling the two homologous chromosomes in the offspring a and b
+  // count the number of crossovers:
+  //    for a to be derived from the parent, and
+  //    for b to be derived from the parent,
+  // and count the number of forbidden combinations:
+  //    if a is derived from the parent, and
+  //    if b is derived from the parent
+  // i.e. if parent is actually the parent of offspring then
+  // either a or b is derived from the parent, i.e. from the
+  // some combination of the pair of homologous chromosomes in the parent
+  // For each of the hypotheses 1):'a is derived from parent', and 2):'b is derived from parent'
+  // we want to count both the number of crossovers required, and the number of
+  // forbidden combinations
+  // e.g. if the parent has dosage 0 (i.e. homozyg, ref allele) and  a = ref, b = alt (dosage +1)
+  // then this counts as a forbidden combination under hypothesis 2), but is allowed under 1)
+
+  if(parent == NULL  ||  offspring == NULL) {
+    return (XFcounts){-1, -1, -1, -1, -1, -1, -1, -1};
+  }
+
+  
+
+  //bool corrected = false;
+  //Vchar* ophases = (corrected)? offspring->corrected_phases : offspring->phases;
+  Vchar* ophases = offspring->phases;  //  offspring->corrected_phases;
+  Vchar* p1ap2b_zs = construct_vchar(1000); long p1ap2b_lastcharidx;
+  Vchar* Xapts = construct_vchar(1000); 
+  Vchar* Xbpts = construct_vchar(1000);
+  
+  long Xa = 0, Xb = 0, Nhet = 0;
+  long prev_chrom_number = -1, chrom_number;
+  long prev_phase_a = -1, prev_phase_b = -1, phase_a = -1, phase_b = -1;
+  long Fa = 0, Fb = 0, Nhom = 0, Nhomhet = 0, Fohom = 0, Nhomhom = 0; // counts of forbidden combinations
+  long Faa = 0, Fbb = 0;
+  long FTcount = 0, FT00_1count = 0, PFTcount = 0;
+  long Fa00 = 0, Fb00 = 0, Fa02 = 0, Fb02 = 0, Fa01 = 0, Fb01 = 0;
+
+  // e.g. Fa count markers with o_gt = 0 (ref,ref) and a has alt allele, and o_gt = 2(alt,alt) and a has ref allele. 
+  for(long i=first; i < next; i++){
+    //long j = i-first
+    chrom_number = the_gtsset->chromosomes->a[i];
+    char p_gt = parent->genotypes->a[i];
+    if(p_gt == MISSING_DATA_CHAR) continue;
+    char p_phase = parent->phases->a[i];
+  
+    // do next two lines to only use markers with ok gts in all three.
+    char other_parent_gt = other_parent->genotypes->a[i];
+    if(other_parent_gt == MISSING_DATA_CHAR) continue;
+
+    char o_gt = offspring->genotypes->a[i]; 
+    if(o_gt == MISSING_DATA_CHAR) continue;
+    // at this point we know all 3 have valid gt (not missing)
+    append_char_to_vchar(p1ap2b_zs, '.');
+    append_char_to_vchar(Xapts, ',');
+    append_char_to_vchar(Xbpts, ','); 
+
+    char o_phase = ophases->a[i];
+    long offA = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'p'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    long offB = (o_gt == '0'  ||  (o_gt == '1'  &&  o_phase == 'm'))? 0 : 1; // 0 <-> ref allele, 1<->alt.
+    
+    // ########################################
+  
+    // we need to know the convention: +1 means a is ref, and b is alt.
+
+    if(p_gt == '1'){
+      if(false && o_gt == '1') continue; // skip these as errors in offspring phases may introduce many spurious crossovers
+      Nhet++; // counts the number of markers which are heterozyg in the parent, and homozyg in the offspring
+      two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
+      phase_a = phases_ab.l1;
+      phase_b = phases_ab.l2;
+
+      // compare current phases with previous values, update crossover counts, 
+      // and  update prev_phase_a, prev_phase_b
+      if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ Xa++; // phase has changed - crossover
+	Xapts->a[Xapts->length-1] = '|';}
+      prev_phase_a = phase_a;
+      if(prev_phase_b >= 0  &&  phase_b != prev_phase_b){ Xb++; // phase has changed - crossover
+      Xbpts->a[Xbpts->length-1] = '|';}
+      prev_phase_b = phase_b;
+    
+    }else if(p_gt == '0'){ // parent is homozyg,  
+      Nhom++;
+      if(o_gt == '0'){
+	// allowed
+      }else if(o_gt == '1'){ // 
+	//Fa01 += (offA == 1)? 1 : 0;
+	if(offA == 1){
+	  Fa01 += 1;
+	  if(other_parent_gt == '1'){
+	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
+	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '1'; 
+	  }else if(other_parent_gt == '2'){ // set last char of p1ap2b_zs
+	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
+	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '2';
+	  }
+	}
+	Fb01 += (offB == 1)? 1 : 0;
+	//fprintf(stderr, "chrom,i,Faa,Fbb: %ld  %ld  %ld  %ld\n", chrom_number, i, Faa, Fbb);
+      }else if(o_gt == '2') {
+	Fa02 += 1;
+	Fb02 += 1;
+      }
+    }else if(p_gt == '2'){
+      Nhom++;
+      if(o_gt == '0'){
+	Fa02 += 1;
+	Fb02 += 1;
+      }else if(o_gt == '1'){ //
+	// Fa01 += (offA == 1)? 0 : 1;
+	if(offA == 0){
+	  Fa01 += 1;
+	  if(other_parent_gt == '1'){
+	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
+	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '1';
+	  }else if(other_parent_gt == '0'){ // set last char of p1ap2b_zs
+	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
+	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '2';
+	  }
+	}
+	Fb01 += (offB == 1)? 0 : 1;
+	//fprintf(stderr, "chrom,i,Faa,Fbb: %ld  %ld  %ld  %ld\n", chrom_number, i, Faa, Fbb);
+      }else if(o_gt == '2'){
+	// allowed
+      }
+    } // else p_gt == 'X' skip this marker
+      // ######################################   
+  } // end loop over markers
+  fprintf(stderr, "chrom number:  %ld \n", chrom_number);
+  print_vchar(stderr, p1ap2b_zs); fprintf(stderr, "\n"); free_vchar(p1ap2b_zs);
+  fprintf(stderr, "p1->a: \n"); print_vchar(stderr, Xapts); fprintf(stderr, "\n"); free_vchar(Xapts);
+  fprintf(stderr, "p1->b: \n"); print_vchar(stderr, Xbpts); fprintf(stderr, "\n"); free_vchar(Xbpts);
+  return (XFcounts){Xa, Xb, Nhet, Fa02, Fb02, Fa01, Fb01, Nhom};
+  } // end of count_XF_one_chromosome (new) /* */
+
+Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
   bool arms = true;
   long NhetF = 0, XFmin_2 = 0, XFmax_2 = 0, XFmin_3 = 0, XFmax_3 = 0;
   long NhetM = 0, XMmin_2 = 0, XMmax_2 = 0, XMmin_3 = 0, XMmax_3 = 0;
@@ -1471,7 +1631,9 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
       XMmax_3 = XFM_3.l4;
 
     }else{ // 
-    
+      /* fprintf(stderr, "Offspring id: %s\n", offspring->id->a); */
+      /* fprintf(stderr, "%s %s  \n", Fparent->id->a, Mparent->id->a); */
+      /* 	      fprintf(stderr, "  %ld %ld\n", start_index, next_chromosome_start_index); */
       XFM_3 = count_XF_F_and_M_one_chromosome( the_gtsset,
 					   Fparent, Mparent, offspring,
 					   start_index, next_chromosome_start_index,
@@ -1485,25 +1647,32 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
     }
     
   } // end loop over chromosomes
-  Xcounts_3 X3 = {(Xcounts_2mmn){XFmin_2, XFmax_2, NhetF}, (Xcounts_2mmn){XMmin_2, XMmax_2, NhetM}, XFmin_3, XFmax_3, XMmin_3, XMmax_3};
+  Xcounts_3 X3 = {(Xcounts_2mmn){XFmin_2, XFmax_2, NhetF},
+		  (Xcounts_2mmn){XMmin_2, XMmax_2, NhetM},
+		  XFmin_3, XFmax_3, XMmin_3, XMmax_3};
   return X3;
 } /* */
 
 // *********************************************************************************
-/* four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
+four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
 					   Accession* Fparent, Accession* Mparent, Accession* offspring,
 					   long start_index, long next_start_index,
 					   long* XFmin_2, long* XFmax_2, long* NhetF,
 					   long* XMmin_2, long* XMmax_2, long* NhetM,
 					   four_longs XFM_3){
+
+   fprintf(stderr, "%s  %s %s\n", offspring->id->a, Fparent->id->a, Mparent->id->a);
   long XFmin_3 = XFM_3.l1;
   long XFmax_3 = XFM_3.l2;
   long XMmin_3 = XFM_3.l3;
   long XMmax_3 = XFM_3.l4;
-  
+
+  fprintf(stderr, "F=p1, M=p2\n");
   XFcounts FX = count_XF_one_chromosome(the_gtsset,
 					Fparent, Mparent, offspring,
 					start_index, next_start_index);
+  //fprintf(stderr, "%s  %s  ", Fparent->id->a, offspring->id->a); print_XFcounts(stderr, FX);
+ 
   *NhetF += FX.Nhet;
    
   if(FX.Xa < FX.Xb){
@@ -1512,9 +1681,12 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
     *XFmin_2 += FX.Xb; *XFmax_2 += FX.Xa;
   }
 
+  fprintf(stderr, "M=p1, F=p2\n");
   XFcounts MX = count_XF_one_chromosome(the_gtsset,
 					Mparent, Fparent, offspring,
 					start_index, next_start_index);
+
+  
   *NhetM += MX.Nhet;
   if(MX.Xa < MX.Xb){
     *XMmin_2 += MX.Xa; *XMmax_2 += MX.Xb;
@@ -1524,6 +1696,11 @@ long pedigree_ok(Pedigree_stats* p, double max_self_agmr12, double max_self_r, d
 
   long X_Fa_Mb = FX.Xa + MX.Xb; // crossovers if F is parent of a, M is parent of b
   long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
+  long F_Fa_Mb = FX.Fa01 + MX.Fb01; // crossovers if F is parent of a, M is parent of b
+  long F_Fb_Ma = FX.Fb01 + MX.Fa01; // crossovers if F is parent of b, M is parent of a
+ 
+  fprintf(stderr, "%ld    %ld %ld    %ld %ld  %s \n\n", start_index,
+	  X_Fa_Mb, F_Fa_Mb,  X_Fb_Ma, F_Fb_Ma, ((X_Fa_Mb < X_Fb_Ma) == (F_Fa_Mb < F_Fb_Ma))? "Y" : "N");
   if(X_Fa_Mb < X_Fb_Ma){
     XFmin_3 += FX.Xa;
     XFmax_3 += FX.Xb;
