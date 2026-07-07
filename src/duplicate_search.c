@@ -320,8 +320,8 @@ main(int argc, char *argv[])
 	fprintf(stderr, "# Setting Nthreads to max allowed value of %ld.\n", nprocs);
 	Nthreads = nprocs;
       }else if(Nthreads < -1){
-	fprintf(stderr, "# Setting Nthreads to min allowed value of -1.\n");
-	Nthreads = 1;
+	fprintf(stderr, "# Setting Nthreads to min allowed value of -1 (unthreaded).\n");
+	Nthreads = -1;
       }
       break;
     case 'f': 
