@@ -29,6 +29,7 @@
 #define BADPED_ALTS 2 // only search for alternatives if pedigree looks bad
 #define PEDPAR_ALTS 3  // only accessions which appear as parents in the pedigree file are considered as parents
 #define DEFAULT_MAX_FTR_OUT  0.5
+#define CROSSOVERS_USING_OFFSPRING_HETEROZYGS false // 
 // if using heterozygosity to distinguish parents (low heterozyg, inbreds), and offspring (high heterozygosity),
 // het < low_het   -> parent only,  het > high_het -> offspring only,  low_het < het < high_het -> both  
 #define DEFAULT_THRESHOLD_HETEROZYGOSITY  0.02 //
@@ -92,11 +93,12 @@ main(int argc, char *argv[])
   double low_heterozygosity = -1;
   double high_heterozygosity = -1;
   char* pob_filename = NULL;
-  double thin_fraction = 1; 
+  double thin_fraction = 1; // keep only this fraction of markers (chosen at random).
   double ploidy = 2; // other ploidies not implemented.
+  bool print_dummy_recorded_pedigree_info = true; // if true, when no recorded pedigree, fill cols 3,4 with NA, 5-16 with '-' (so predicted pedigree info is in cols 18-31 whether or not there are recorded pedigrees.) 
   
   long nprocs = (long)get_nprocs(); // returns 2*number of cores if hyperthreading.
-  long Nthreads = -1; // multithreading not implemented properly yet.  Fix threaded_input in gtset.c // (nprocs > 2)? nprocs/2 : 1; // default number of threads
+  long Nthreads = (nprocs > 2)? nprocs/2 : 1; // default number of threads; multithreading not implemented for phased data, will be set to -1 if do_phased
 
   unsigned rand_seed = time(0); // (unsigned)tspec.tv_nsec;
   // ***** process command line *****
@@ -332,7 +334,9 @@ main(int argc, char *argv[])
   fprintf(stdout, "# Genotypes filename: %s\n", genotypes_filename);
 
   srand(rand_seed);
-  // *****  done processing command line  *****  
+  // *****  done processing command line  *****
+
+  if(do_phased) Nthreads = -1; // unthreaded
   
   // *************************************************************
   // ***  Read the genotypes file  *******************************
@@ -458,6 +462,9 @@ main(int argc, char *argv[])
 	
 	if(the_genotypes_set->phased && do_phased){
 	  four_longs Xinfo = count_crossovers(the_genotypes_set, F, M, A);
+	  if(CROSSOVERS_USING_OFFSPRING_HETEROZYGS && F != NULL  &&  M != NULL){
+	    Xcounts_3 Xc3 = count_XF_two_parents(the_genotypes_set, F, M, A);
+	  }
 	  print_crossover_info(o_stream, Xinfo);
 	} else{
 	  print_dummy_crossover_info(o_stream);
@@ -543,13 +550,16 @@ main(int argc, char *argv[])
 	fprintf(stderr, "# Triples computed for %ld accessions. Triples computed: %lld  %8.5g %% done\n", i+1, (long long)triples_calculated, 100*triples_calculated/triples_to_calculate);
       }
       // output
-      //fprintf(o_stream, "%s\t", prog->id->a); // output the progeny id
+      fprintf(o_stream, "%s", prog->id->a); // output the progeny id
+      if(print_dummy_recorded_pedigree_info){
+	//fprintf(stderr, "XXXXXXXXXXXXXXXXXXXXXXXXAAA\n");
        Pedigree* dummy_pedigree = construct_pedigree(prog, NULL, NULL);
        dummy_pedigree->pedigree_stats = construct_pedigree_stats();
-       fprintf(o_stream, "%s\tP", prog->id->a);
+       //fprintf(o_stream, "%s\tP", prog->id->a);
+       fprintf(o_stream, "\tP");
        print_pedigree_normalized(o_stream, dummy_pedigree);
        print_dummy_crossover_info(o_stream);
-      
+      }
        //print_dummy_pedigree_output(o_stream); //, the_genotypes_set->phased, do_phased);
       sort_and_output_alt_pedigrees(the_genotypes_set, alt_pedigrees, max_solns_out,  max_ftr_out, do_phased, o_stream);
       fprintf(o_stream, "\n");
@@ -720,7 +730,8 @@ void sort_and_output_alt_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedi
 	if(the_gtsset->phased && do_phased){
 	  a_pedigree->pedigree_stats->Xinfo = count_crossovers(the_gtsset, a_pedigree->F, a_pedigree->M, a_pedigree->A);
 	  print_crossover_info(o_stream, a_pedigree->pedigree_stats->Xinfo);
-	
+	  if(CROSSOVERS_USING_OFFSPRING_HETEROZYGS){ Xcounts_3 Xc3 = count_XF_two_parents(the_gtsset, a_pedigree->F, a_pedigree->M, a_pedigree->A); }
+
 	  /*
 	    ND FXinverse = count_crossovers_one_parent(the_gtsset, a_pedigree->A, a_pedigree->F);
 	    ND MXinverse = count_crossovers_one_parent(the_gtsset, a_pedigree->A, a_pedigree->M);
