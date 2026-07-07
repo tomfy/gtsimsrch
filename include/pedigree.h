@@ -25,9 +25,12 @@ typedef struct{
   long Xa;
   long Xb;
   long Nhet;
-  long Fa;
-  long Fb;
+  long Fa02;
+  long Fb02;
+  long Fa01;
+  long Fb01;
   long Nhom;
+
 }XFcounts;
 
 typedef struct{ // 0: progeny, 1, 2: parents
@@ -146,6 +149,7 @@ void free_vpedigree(const Vpedigree* the_vped);
 four_longs count_crossovers(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring); 
 ND count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent, Accession* offspring);
 XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent, Accession* offspring, long first, long last);
+XFcounts count_XF_one_chromosome_old(const GenotypesSet* the_gtsset, Accession* parent, Accession* other_parent, Accession* offspring, long first, long last);
 four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
 					   Accession* Fparent, Accession* Mparent, Accession* offspring,
 					   long start_index, long next_start_index,
@@ -166,5 +170,6 @@ void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool ver
 void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree);
 void print_normalized_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats);
 void print_double_nan_as_hyphen(FILE* fh, double x);
+void print_XFcounts(FILE* fh, XFcounts XFc);
 
 
