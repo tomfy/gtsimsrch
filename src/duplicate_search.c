@@ -958,7 +958,7 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
       // fprintf(stderr, "before set est_agmrs diagonals.\n");
     }
       Accession* q_gts = the_accessions->a[i_query];
-     double agmr_nought = the_genotypes_set->agmr0;
+      double agmr_nought = the_genotypes_set->agmr0; // normalization factor, 1 unless normalization requested
      // fprintf(stderr, "agmr_nought: %7.5f\n", agmr_nought); exit(0);
     double min_matching_chunk_fraction = (max_est_dist*agmr_nought < 1.0)? pow(1.0 - max_est_dist*agmr_nought, chunk_size) : 0.0;
     double q_ok_chunk_fraction_x_mmcf = min_matching_chunk_fraction*(double)q_gts->ok_chunk_count/(double)n_chunks;
@@ -972,15 +972,15 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 
 	long matching_chunk_count = chunk_match_counts[i_match];
 	if(matching_chunk_count == 0) matching_chunk_count = 1;
-	double usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
+	double est_usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
 	//	     min_matching_chunk_count/min_matching_chunk_fraction;
 	double est_dist;
 	//unsigned char edi; 
-	if(matching_chunk_count > usable_chunk_count){
+	if(matching_chunk_count > est_usable_chunk_count){
 	  est_dist = 0.001;
 	  //edi = 0;
 	}else{
-	  double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
+	  double matching_chunk_fraction = (double)matching_chunk_count/est_usable_chunk_count; // fraction matching chunks
 	  est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size)); // /agmr_nought;
 	  //edi = (unsigned char)(est_dist*MATRIX_DISTINCT_VALUES);
 	}
@@ -1027,14 +1027,14 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	if(agmr <= max_est_dist*agmr_nought){
 	   double matching_chunk_count = chunk_match_counts[i_match];
 	   matching_chunk_count += (double)rand()/(RAND_MAX);
-	   double usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
+	   double est_usable_chunk_count = (double)q_gts->ok_chunk_count * the_accessions->a[i_match]->ok_chunk_count/(double)n_chunks;
 	   //	     min_matching_chunk_count/min_matching_chunk_fraction;
-	   double matching_chunk_fraction = (double)matching_chunk_count/usable_chunk_count; // fraction matching chunks
+	   double matching_chunk_fraction = (double)matching_chunk_count/est_usable_chunk_count; // fraction matching chunks
 	  double est_dist = DISTANCE_NORM_FACTOR*(1.0 - pow(matching_chunk_fraction, 1.0/chunk_size)); // /agmr_nought;
 	  //	  double agmr_nought_b = agmr0_accvsall(the_genotypes_set, the_accessions->a[i_match]);
 	  est_dist += 0.0025*(((double)rand())/RAND_MAX -0.5);
 	  if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX);
-	  Mci* the_mci = construct_mci(i_query, i_match, usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr); //, agmr_nought);
+	  Mci* the_mci = construct_mci(i_query, i_match, est_usable_chunk_count, matching_chunk_count, est_dist, agmr, hgmr); //, agmr_nought);
 
 	  /*	  
 	  ND psr_nd = phase_switches(q_gts, the_accessions->a[i_match], the_genotypes_set->chromosomes);
