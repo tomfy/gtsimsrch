@@ -23,8 +23,9 @@
 #define DEFAULT_MAX_MARKER_MISSING_DATA_FRACTION  0.25
 #define DEFAULT_MAX_ACCESSION_MISSING_DATA_FRACTION  1.0
 #define DEFAULT_MIN_MAF  0.05
-#define BITWISE true
-#define DO_EXACT_AGMR  true // make this false to only do the estimated agmrs.
+#define BITWISE true // whether to use bitwise operations for exact agmr calculation.
+
+#define DO_EXACT_AGMR  true // make this false to do only the estimated agmrs.
 
 //***********************************************************************************************
 // **************  typedefs  ********************************************************************
@@ -986,8 +987,8 @@ void* check_est_distances_1thread(void* x){ // and also get the full distances i
 	}
 	/* estimated_agmrs[i_query]->a[i_match] = est_dist; */
 	/* estimated_agmrs[i_match]->a[i_query] = est_dist; */
-		  est_dist += 0.005*(((double)rand())/RAND_MAX -0.5);
-	  if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX);
+	est_dist += 0.002*(((double)rand())/RAND_MAX -0.5); // is this needed
+	if(est_dist < 0) est_dist = 0.001*(double)rand()/(RAND_MAX); // ensure est_dist is >= 0
 	est_agmrs[i_query][i_match] = est_dist; // edi;
 	est_agmrs[i_match][i_query] = est_dist; // edi;
       }
