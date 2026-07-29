@@ -36,7 +36,8 @@ while(my $line = <>){
   # }exit;
   my $nwords = scalar @cols;
   if(defined $n_words_to_print  and  $nwords == $n_words_to_print){
-    print $line; # "$nwords [$line]\n";
+    # print lines with the specified number of words
+    print $line, "\n"; # "$nwords [$line]\n";
   }
   $nwords_nlines{$nwords}++;
   if($nwords_nlines{$nwords} == 1){
