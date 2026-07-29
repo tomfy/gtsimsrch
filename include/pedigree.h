@@ -19,6 +19,10 @@ typedef struct{
   long XFmax_3;
   long XMmin_3;
   long XMmax_3;
+  long Ophdep_lrl;
+  long Ophdep_count; // offspring-phase dependent triples (i.e. allowed in non-phased sense, but may be forbidden dep. on offspring phase)
+  long Oph_switch_count;
+  long Chrom_count; //
 }Xcounts_3;
 
 typedef struct{
@@ -30,7 +34,9 @@ typedef struct{
   long Fa01;
   long Fb01;
   long Nhom;
-
+  long Lrl;
+  long Denom; // Lrl/Denom is long_run_fraction (for a chrom)
+  long n_switches;
 }XFcounts;
 
 typedef struct{ // 0: progeny, 1, 2: parents
@@ -106,7 +112,12 @@ typedef struct{
   long XMmax_triple;
 }Xover_info;
 
-
+typedef struct{
+  long Lok; // longest run w good offspring phase
+  long Lbad; // longest run w bad offspring phase
+  long Nswitch; // switches between good, bad.
+  //long Ltotal; // total markers counted (i.e. (1, (0,2)) or (1, (hom,het))
+}Gb_runs;
 
 
 // *****  function declarations  *****
@@ -155,7 +166,7 @@ four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
 					   long start_index, long next_start_index,
 					   long* XFmin_2, long* XFmax_2, long* NhetF,
 					   long* NhetM, long* XMmin_2, long* XMmax_2,
-					   four_longs XFM_3);
+					   four_longs XFM_3, four_longs* lr_info);
 
 void FT2_phase_correction(const GenotypesSet* the_gtsset, Accession* parent1, Accession* parent2,
 			  Accession* offspring, long first, long next);
@@ -165,6 +176,7 @@ XFcounts choose_P1aP2b_or_P1bP2a(XFcounts* P1ab, XFcounts* P2ab);
 Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring);
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase);
 void add_to_XFcounts(XFcounts* T, XFcounts I);
+Gb_runs calculate_gb_runs(Vchar* zs);
 
 void print_pedigree_stats(FILE* fh, Pedigree_stats* the_pedigree_stats, bool verbose);
 void print_pedigree_normalized(FILE* fh, Pedigree* the_pedigree);

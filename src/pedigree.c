@@ -102,9 +102,6 @@ ND count_crossovers_one_parent(const GenotypesSet* the_gtsset, Accession* parent
   return (ND){NX, Nhet};
 } // end of count_crossovers_one_parent
 
-
-
-
 two_longs get_1marker_phases_wrt_1parent(char p_phase, char o_gt, char o_phase){
   long phase_a, phase_b;
   // get the alleles of the two offspring chromosomes A and B:
@@ -1479,14 +1476,24 @@ XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* pare
     return (XFcounts){-1, -1, -1, -1, -1, -1, -1, -1};
   }
 
+  /*
+  fprintf(stderr, "chrom length: %ld\n", next - first);
+  for(long iii=first; iii<next; iii++){
+    fprintf(stderr, "%c ", parent->genotypes->a[iii]);
+  } fprintf(stderr, "\n");
+    for(long iii=first; iii<next; iii++){
+    fprintf(stderr, "%c ", other_parent->genotypes->a[iii]);
+    } fprintf(stderr, "\n"); /* */
   
 
   //bool corrected = false;
   //Vchar* ophases = (corrected)? offspring->corrected_phases : offspring->phases;
   Vchar* ophases = offspring->phases;  //  offspring->corrected_phases;
-  Vchar* p1ap2b_zs = construct_vchar(1000); long p1ap2b_lastcharidx;
+  Vchar* p1ap2b_ophdep = construct_vchar(1000); long p1ap2b_lastcharidx;
+  long chrom_length = next - first;
   Vchar* Xapts = construct_vchar(1000); 
   Vchar* Xbpts = construct_vchar(1000);
+  Vchar* gbts = construct_vchar(1000);
   
   long Xa = 0, Xb = 0, Nhet = 0;
   long prev_chrom_number = -1, chrom_number;
@@ -1510,8 +1517,9 @@ XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* pare
 
     char o_gt = offspring->genotypes->a[i]; 
     if(o_gt == MISSING_DATA_CHAR) continue;
-    // at this point we know all 3 have valid gt (not missing)
-    append_char_to_vchar(p1ap2b_zs, '.');
+    // at this point we know all 3 have valid gt (none missing)
+    // fprintf(stderr, "  %c %c %c\n", p_gt, other_parent_gt,  o_gt);
+    append_char_to_vchar(p1ap2b_ophdep, '.');
     append_char_to_vchar(Xapts, ',');
     append_char_to_vchar(Xbpts, ','); 
 
@@ -1522,14 +1530,23 @@ XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* pare
     // ########################################
   
     // we need to know the convention: +1 means a is ref, and b is alt.
-
+    p1ap2b_lastcharidx = p1ap2b_ophdep->length-1;
     if(p_gt == '1'){
       if(false && o_gt == '1') continue; // skip these as errors in offspring phases may introduce many spurious crossovers
       Nhet++; // counts the number of markers which are heterozyg in the parent, and homozyg in the offspring
       two_longs phases_ab = get_1marker_phases_wrt_1parent(p_phase, o_gt, o_phase);
       phase_a = phases_ab.l1;
       phase_b = phases_ab.l2;
-
+      if(o_gt == '1'){
+	if(other_parent_gt == '0'){
+	  p1ap2b_ophdep->a[p1ap2b_lastcharidx] = (offA == 0)? '1' : '0';
+	  append_char_to_vchar(gbts, ((offA == 0)? '1' : '0'));
+	}else if(other_parent_gt == '2'){
+	  p1ap2b_ophdep->a[p1ap2b_lastcharidx] = (offA == 1)? '1' : '0';
+	  append_char_to_vchar(gbts,((offA == 1)? '1' : '0') );
+	}
+      }
+      //  fprintf(stderr, "%c %c %c  %c\n", p_gt, other_parent_gt, o_gt, p1ap2b_ophdep->a[p1ap2b_lastcharidx]);
       // compare current phases with previous values, update crossover counts, 
       // and  update prev_phase_a, prev_phase_b
       if(prev_phase_a >= 0  &&  phase_a != prev_phase_a){ Xa++; // phase has changed - crossover
@@ -1545,22 +1562,23 @@ XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* pare
 	// allowed
       }else if(o_gt == '1'){ // 
 	//Fa01 += (offA == 1)? 1 : 0;
-	if(offA == 1){
-	  Fa01 += 1;
+	if(offA == 1) Fa01 += 1;
 	  if(other_parent_gt == '1'){
-	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
-	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '1'; 
-	  }else if(other_parent_gt == '2'){ // set last char of p1ap2b_zs
-	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
-	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '2';
+	    p1ap2b_ophdep->a[p1ap2b_lastcharidx] = (offA == 1)? '1' : '0';
+	    append_char_to_vchar(gbts, ((offA == 1)? '1' : '0'));
+	  }else if(other_parent_gt == '2'){ // set last char of p1ap2b_ophdep
+	    p1ap2b_ophdep->a[p1ap2b_lastcharidx] = (offA == 1)? '2' : '0';
+	    append_char_to_vchar(gbts, ((offA == 1)? '2' : '0'));
 	  }
-	}
+	  //  fprintf(stderr, "%c %c %c  %c\n", p_gt, other_parent_gt, o_gt, p1ap2b_ophdep->a[p1ap2b_lastcharidx]);
+
 	Fb01 += (offB == 1)? 1 : 0;
 	//fprintf(stderr, "chrom,i,Faa,Fbb: %ld  %ld  %ld  %ld\n", chrom_number, i, Faa, Fbb);
       }else if(o_gt == '2') {
 	Fa02 += 1;
 	Fb02 += 1;
       }
+      
     }else if(p_gt == '2'){
       Nhom++;
       if(o_gt == '0'){
@@ -1568,30 +1586,94 @@ XFcounts count_XF_one_chromosome(const GenotypesSet* the_gtsset, Accession* pare
 	Fb02 += 1;
       }else if(o_gt == '1'){ //
 	// Fa01 += (offA == 1)? 0 : 1;
-	if(offA == 0){
-	  Fa01 += 1;
+	if(offA == 0) Fa01 += 1;
 	  if(other_parent_gt == '1'){
-	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
-	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '1';
-	  }else if(other_parent_gt == '0'){ // set last char of p1ap2b_zs
-	    p1ap2b_lastcharidx = p1ap2b_zs->length-1;
-	    p1ap2b_zs->a[p1ap2b_lastcharidx] = '2';
+	    //p1ap2b_lastcharidx = p1ap2b_ophdep->length-1;
+	    p1ap2b_ophdep->a[p1ap2b_lastcharidx] = (offA == 0)? '1' : '0';
+	    append_char_to_vchar(gbts, ((offA == 0)? '1' : '0'));
+	  }else if(other_parent_gt == '0'){
+	    p1ap2b_ophdep->a[p1ap2b_lastcharidx] = (offA == 0)? '2' : '0';
+	    append_char_to_vchar(gbts, ((offA == 0)? '2' : '0'));
 	  }
-	}
-	Fb01 += (offB == 1)? 0 : 1;
+	  //  fprintf(stderr, "%c %c %c  %c\n", p_gt, other_parent_gt, o_gt, p1ap2b_ophdep->a[p1ap2b_lastcharidx]);
+
 	//fprintf(stderr, "chrom,i,Faa,Fbb: %ld  %ld  %ld  %ld\n", chrom_number, i, Faa, Fbb);
       }else if(o_gt == '2'){
 	// allowed
       }
     } // else p_gt == 'X' skip this marker
-      // ######################################   
+      // ######################################
+    //fprintf(stderr, "%c %c %c  %ld  %c \n", p_gt, other_parent_gt, o_gt, (long)offA, p1ap2b_ophdep->a[p1ap2b_lastcharidx]);
+    //   fprintf(stderr, "%c %c %c  %c\n", p_gt, other_parent_gt, o_gt, p1ap2b_ophdep->a[p1ap2b_lastcharidx]);
+
   } // end loop over markers
-  fprintf(stderr, "chrom number:  %ld \n", chrom_number);
-  print_vchar(stderr, p1ap2b_zs); fprintf(stderr, "\n"); free_vchar(p1ap2b_zs);
-  fprintf(stderr, "p1->a: \n"); print_vchar(stderr, Xapts); fprintf(stderr, "\n"); free_vchar(Xapts);
-  fprintf(stderr, "p1->b: \n"); print_vchar(stderr, Xbpts); fprintf(stderr, "\n"); free_vchar(Xbpts);
-  return (XFcounts){Xa, Xb, Nhet, Fa02, Fb02, Fa01, Fb01, Nhom};
+  /* fprintf(stderr, "chrom number:  %ld \n", chrom_number);
+  print_vchar(stderr, p1ap2b_ophdep); fprintf(stderr, "\n"); free_vchar(p1ap2b_ophdep);
+  print_vchar(stderr, gbts); fprintf(stderr, "\n"); /* */
+  fprintf(stderr, "  chrom: %ld  ", chrom_number);
+  Gb_runs gbrs = calculate_gb_runs(gbts);
+  double long_run_fraction = (gbts->length > 0)? (gbrs.Lok + gbrs.Lbad)/(double)gbts->length : -1;
+  long this_chrom_number = chrom_number = the_gtsset->chromosomes->a[first];
+  //fprintf(stderr, "gb_runs:  %ld   %ld %ld  %ld  %f\n", this_chrom_number, gbrs.Lok, gbrs.Lbad, gbts->length, (gbrs.Lok + gbrs.Lbad)/(double)gbts->length);
+  //fprintf(stderr, "p1->a: \n"); print_vchar(stderr, Xapts); fprintf(stderr, "\n");
+  free_vchar(Xapts);
+  //fprintf(stderr, "p1->b: \n"); print_vchar(stderr, Xbpts); fprintf(stderr, "\n");
+  free_vchar(Xbpts);
+  XFcounts return_value = (XFcounts){Xa, Xb, Nhet, Fa02, Fb02, Fa01, Fb01, Nhom, (gbrs.Lok + gbrs.Lbad), gbts->length, gbrs.Nswitch};
+  free_vchar(gbts);
+  return return_value;
   } // end of count_XF_one_chromosome (new) /* */
+
+Gb_runs calculate_gb_runs(Vchar* gbs){
+  long ok_count = 0;
+  long bad_count = 0;
+  long longest_ok_run = 0;
+  long longest_bad_run = 0;
+  long n_switches = 0;
+  char prev_char = 'x';
+  for(long i = 0; i < gbs->length; i++){
+    char nf = gbs->a[i];
+    if(nf == '2') nf = '1'; 
+    if(prev_char == '0'){
+      if(nf == '0'){
+	ok_count++;
+      }else if(nf == '1'){
+	if(ok_count > longest_ok_run) longest_ok_run = ok_count;
+	ok_count = 0;
+	bad_count = 1;
+	prev_char = '1';
+	n_switches++;
+	fprintf(stderr, " %ld ", i);
+      }
+    }else if(prev_char == '1'){
+      if(nf == '0'){
+	if(bad_count > longest_bad_run) longest_bad_run = bad_count;
+	bad_count = 0;
+	ok_count = 1;
+	prev_char = '0';
+	n_switches++;
+	fprintf(stderr, " %ld ", i);
+      }else if(nf == '1'){
+	bad_count++; 
+      }
+    }else if(prev_char == 'x'){
+      if(nf == '0'){
+	ok_count++;
+	prev_char = '0';
+      }else if (nf == '1'){
+	bad_count++;
+	prev_char = '1';
+      }
+    }
+    
+  } // end loop over markers
+  fprintf(stderr, "\n");
+  if(ok_count > longest_ok_run) longest_ok_run = ok_count;
+  if(bad_count > longest_bad_run) longest_bad_run = bad_count;
+  return (Gb_runs){longest_ok_run, longest_bad_run, n_switches};
+}
+// end of calculate_gb_runs
+
 
 Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparent, Accession* Mparent, Accession* offspring){
   bool arms = true;
@@ -1600,6 +1682,7 @@ Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparen
   long n_chroms = the_gtsset->chromosome_start_indices->size - 1;
 
   four_longs XFM_3 = {0, 0, 0, 0};
+  four_longs lr_info = {0, 0, 0, 0};
   for(long i=0; i < n_chroms; i++){
     long start_index = the_gtsset->chromosome_start_indices->a[i];
     long next_chromosome_start_index = the_gtsset->chromosome_start_indices->a[i+1];
@@ -1617,14 +1700,14 @@ Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparen
 					   start_index, next_arm_start_index,
 					   &XFmin_2, &XFmax_2, &NhetF,
 					   &XMmin_2, &XMmax_2, &NhetM,
-					   XFM_3);
+						XFM_3, &lr_info);
        
         XFM_3 = count_XF_F_and_M_one_chromosome( the_gtsset,
 					   Fparent, Mparent, offspring,
 					   next_arm_start_index, next_chromosome_start_index,
 					   &XFmin_2, &XFmax_2, &NhetF,
 					   &XMmin_2, &XMmax_2, &NhetM,
-					   XFM_3);
+						 XFM_3, &lr_info);
       XFmin_3 = XFM_3.l1;
       XFmax_3 = XFM_3.l2;
       XMmin_3 = XFM_3.l3;
@@ -1639,19 +1722,22 @@ Xcounts_3 count_XF_two_parents(const GenotypesSet* the_gtsset, Accession* Fparen
 					   start_index, next_chromosome_start_index,
 					   &XFmin_2, &XFmax_2, &NhetF,
 					   &XMmin_2, &XMmax_2, &NhetM,
-					   XFM_3);
+					       XFM_3, &lr_info);
       XFmin_3 = XFM_3.l1;
       XFmax_3 = XFM_3.l2;
       XMmin_3 = XFM_3.l3;
       XMmax_3 = XFM_3.l4;
     }
-    
+    //fprintf(stderr, "\t%ld", lr_info.l4); 
   } // end loop over chromosomes
+  //fprintf(stderr, "\n");
+  //fprintf(stderr, "wholegenome lr info: %ld %ld %ld %ld\n", lr_info.l1, lr_info.l2, lr_info.l3, lr_info.l4);
   Xcounts_3 X3 = {(Xcounts_2mmn){XFmin_2, XFmax_2, NhetF},
 		  (Xcounts_2mmn){XMmin_2, XMmax_2, NhetM},
-		  XFmin_3, XFmax_3, XMmin_3, XMmax_3};
+		  XFmin_3, XFmax_3, XMmin_3, XMmax_3,
+		  lr_info.l1, lr_info.l2, lr_info.l3, lr_info.l4}; //(lr_info.l4 > 0)? (double)lr_info.l3/(double)/lr_info.l4 : -1.0};
   return X3;
-} /* */
+} /* */ // end count_XF_two_parents
 
 // *********************************************************************************
 four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
@@ -1659,20 +1745,26 @@ four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
 					   long start_index, long next_start_index,
 					   long* XFmin_2, long* XFmax_2, long* NhetF,
 					   long* XMmin_2, long* XMmax_2, long* NhetM,
-					   four_longs XFM_3){
+					   four_longs XFM_3, four_longs* lr_info){
 
-   fprintf(stderr, "%s  %s %s\n", offspring->id->a, Fparent->id->a, Mparent->id->a);
+  //fprintf(stderr, "%s  %s %s\n", offspring->id->a, Fparent->id->a, Mparent->id->a);
   long XFmin_3 = XFM_3.l1;
   long XFmax_3 = XFM_3.l2;
   long XMmin_3 = XFM_3.l3;
   long XMmax_3 = XFM_3.l4;
+  long FM_long_runs = 0, FM_denom = 0, MF_long_runs = 0, MF_denom = 0, FM_switches = 0, MF_switches = 0;
+  //long FM_max_switches = 0;
 
-  fprintf(stderr, "F=p1, M=p2\n");
+  //fprintf(stderr, "F=p1, M=p2\n");
   XFcounts FX = count_XF_one_chromosome(the_gtsset,
 					Fparent, Mparent, offspring,
 					start_index, next_start_index);
   //fprintf(stderr, "%s  %s  ", Fparent->id->a, offspring->id->a); print_XFcounts(stderr, FX);
- 
+  FM_long_runs += FX.Lrl;
+  FM_denom += FX.Denom;
+  FM_switches += FX.n_switches;
+  //  FM_max_switches += MX.Denom - 1;
+    
   *NhetF += FX.Nhet;
    
   if(FX.Xa < FX.Xb){
@@ -1681,10 +1773,13 @@ four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
     *XFmin_2 += FX.Xb; *XFmax_2 += FX.Xa;
   }
 
-  fprintf(stderr, "M=p1, F=p2\n");
+  //fprintf(stderr, "M=p1, F=p2\n");
   XFcounts MX = count_XF_one_chromosome(the_gtsset,
 					Mparent, Fparent, offspring,
 					start_index, next_start_index);
+  MF_long_runs += MX.Lrl;
+  MF_denom += MX.Denom;
+  MF_switches += MX.n_switches;
 
   
   *NhetM += MX.Nhet;
@@ -1698,9 +1793,15 @@ four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
   long X_Fb_Ma = FX.Xb + MX.Xa; // crossovers if F is parent of b, M is parent of a
   long F_Fa_Mb = FX.Fa01 + MX.Fb01; // crossovers if F is parent of a, M is parent of b
   long F_Fb_Ma = FX.Fb01 + MX.Fa01; // crossovers if F is parent of b, M is parent of a
- 
-  fprintf(stderr, "%ld    %ld %ld    %ld %ld  %s \n\n", start_index,
-	  X_Fa_Mb, F_Fa_Mb,  X_Fb_Ma, F_Fb_Ma, ((X_Fa_Mb < X_Fb_Ma) == (F_Fa_Mb < F_Fb_Ma))? "Y" : "N");
+  //double FM_lrf = (FM_denom == 0)? -1 : FM_long_runs/FM_denom;
+  //double MF_lrf = (MF_denom == 0)? -1 : MF_long_runs/MF_denom;
+  //fprintf(stderr, "whole_genome_long_runs_&_fraction:  %ld  %f   %ld  %f\n", FM_long_runs, FM_lrf, MF_long_runs, MF_lrf);
+  //*lr_info = (four_longs){FM_long_runs, FM_denom, MF_long_runs, MF_denom};
+  lr_info->l1 += FM_long_runs;
+  lr_info->l2 += FM_denom;
+  lr_info->l3 += FM_switches; // MF_long_runs;
+  lr_info->l4 = FM_switches; // MF_denom; counts chromsomes
+  // fprintf(stderr, "%ld    %ld %ld    %ld %ld  %s \n\n", start_index, X_Fa_Mb, F_Fa_Mb,  X_Fb_Ma, F_Fb_Ma, ((X_Fa_Mb < X_Fb_Ma) == (F_Fa_Mb < F_Fb_Ma))? "Y" : "N");
   if(X_Fa_Mb < X_Fb_Ma){
     XFmin_3 += FX.Xa;
     XFmax_3 += FX.Xb;
@@ -1713,7 +1814,7 @@ four_longs count_XF_F_and_M_one_chromosome(const GenotypesSet* the_gtsset,
     XMmax_3 += MX.Xb;
   }
   return (four_longs){XFmin_3, XFmax_3, XMmin_3, XMmax_3};
-} /* */
+} /* */ // end count_XF_F_and_M_one_chromosome
 
 
 // *********************************************************************************
