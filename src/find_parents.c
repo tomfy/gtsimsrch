@@ -22,7 +22,7 @@
 #define DEFAULT_MIN_MAF  0.05
 #define DEFAULT_MAX_HGMR 0.05  // max hgmr to be considered as possible parent.
 #define DEFAULT_MAX_CANDIDATE_PARENTS 1000 // 
-#define DEFAULT_RANDOM_SAMPLE_SIZE 100000
+#define DEFAULT_RANDOM_SAMPLE_SIZE 7000
 #define DEFAULT_MAX_SOLNS_OUT 3  // in addition to recorded pedigree.
 #define ALL_ALTS 1 // search for alt. pedigrees for all accessions. all accessions are considered as parents.
 #define NO_ALTS 0 // just check the pedigrees
@@ -32,7 +32,7 @@
 #define CROSSOVERS_USING_OFFSPRING_HETEROZYGS false // 
 // if using heterozygosity to distinguish parents (low heterozyg, inbreds), and offspring (high heterozygosity),
 // het < low_het   -> parent only,  het > high_het -> offspring only,  low_het < het < high_het -> both  
-#define DEFAULT_THRESHOLD_HETEROZYGOSITY  0.02 //
+#define DEFAULT_THRESHOLD_HETEROZYGOSITY  0.02 // 
 #define DEFAULT_HETEROZYGOSITY_RANGE_FACTOR 1.0 //
 
 int do_checks = 0; // option -c sets this to 1 to do some checks.
@@ -400,6 +400,7 @@ main(int argc, char *argv[])
     fprintf(stderr, "# mean hgmr, R, FTR, z: %8.5f  %8.5f  %8.5f\n", //  %8.5f\n",
 	    the_genotypes_set->mean_hgmr, the_genotypes_set->mean_R, the_genotypes_set->mean_d);  //the_genotypes_set->mean_z);
     fprintf(stdout, "# Time to calculate means for %ld  random pairs.: %6.3f sec.\n", sample_size, hi_res_time() - t_d);
+    exit(1); 
   };
   fflush(stdout);
   double t_e = hi_res_time();
@@ -462,8 +463,22 @@ main(int argc, char *argv[])
 	
 	if(the_genotypes_set->phased && do_phased){
 	  four_longs Xinfo = count_crossovers(the_genotypes_set, F, M, A);
-	  if(CROSSOVERS_USING_OFFSPRING_HETEROZYGS && F != NULL  &&  M != NULL){
+	  if(CROSSOVERS_USING_OFFSPRING_HETEROZYGS){
+	    if(F != NULL  &&  M != NULL){
+	      double FTR = the_pedigree->pedigree_stats->d_n;
+	      if(true  ||  FTR < 0.03){
+		fprintf(stderr, "%f", FTR);
 	    Xcounts_3 Xc3 = count_XF_two_parents(the_genotypes_set, F, M, A);
+	    long max_switches = Xc3.Ophdep_count - Xc3.Chrom_count;
+	    double switch_rate = (max_switches > 0)? (double)Xc3.Oph_switch_count/max_switches : -1.0;
+	    
+	    fprintf(o_stream, "\t%ld\t%ld\t%ld\t%f", Xc3.Ophdep_lrl, Xc3.Ophdep_count,
+		    Xc3.Oph_switch_count, switch_rate);
+	      }
+	    }else{
+	      fprintf(o_stream, " - - - - ");
+	    }
+
 	  }
 	  print_crossover_info(o_stream, Xinfo);
 	} else{
@@ -688,7 +703,7 @@ void print_usage_info(FILE* stream){
   fprintf(stream, "-f   -maf_min <f>                    don't use markers with minor allele frequency < f (default: %4.2f)\n", DEFAULT_MIN_MAF);
   fprintf(stream, "-l    alternative_pedigrees_level    controls search for alternative pedigrees  (default: 0 )\n");
   fprintf(stream, "                                            0: just check pedigrees, 1: search all accessions for alternative pedigrees\n");
-  fprintf(stream, "-n   -hgmr_max <f>                  candidate parents must have normalized hgmr <= f (default: %4.2f)\n", DEFAULT_MAX_HGMR);
+  fprintf(stream, "-n   -hgmr_max <f>                  candidate parents must have hgmr <= f (default: %4.2f)\n", DEFAULT_MAX_HGMR);
   fprintf(stream, "-c   -candidate_parents_max <n>      sort candidate parents by hgmr and use only best n (default: %4d)\n", DEFAULT_MAX_CANDIDATE_PARENTS);
   fprintf(stream, "-r   -seed                           random number generator seed. (default set from clock).\n");
   fprintf(stream, "-h   -help                           print this message and exit.\n");
@@ -697,7 +712,7 @@ void print_usage_info(FILE* stream){
 void sort_and_output_alt_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedigrees,
 				   long max_solns_out, double max_ftr_out, bool do_phased, FILE* o_stream){
   // *******************************************************************************
-  // ***  sort alt_pedigrees_array, output best parent pairs for this accession  ***
+  // ***  sort the_pedigrees array, output best parent pairs for this accession  ***
   // *******************************************************************************
   // remove pedigrees with ftr > max_ftr_out from the_pedigrees
   if(the_pedigrees->size > 1) {
@@ -729,9 +744,20 @@ void sort_and_output_alt_pedigrees(GenotypesSet* the_gtsset, Vpedigree* the_pedi
 	print_pedigree_normalized(o_stream, the_pedigrees->a[iii]);
 	if(the_gtsset->phased && do_phased){
 	  a_pedigree->pedigree_stats->Xinfo = count_crossovers(the_gtsset, a_pedigree->F, a_pedigree->M, a_pedigree->A);
+	  if(CROSSOVERS_USING_OFFSPRING_HETEROZYGS){
+	     double FTR = a_pedigree->pedigree_stats->d_n;
+	     if(true  ||  FTR < 0.03){
+	         fprintf(stderr, "%f", FTR);
+	    Xcounts_3 Xc3 = count_XF_two_parents(the_gtsset, a_pedigree->F, a_pedigree->M, a_pedigree->A);
+	    long max_switches = Xc3.Ophdep_count - Xc3.Chrom_count;
+	    double switch_rate = (max_switches > 0)? (double)Xc3.Oph_switch_count/max_switches : -1;
+	  
+	    fprintf(o_stream, "\t%ld\t%ld\t%ld\t%f", Xc3.Ophdep_lrl, Xc3.Ophdep_count,
+		    Xc3.Oph_switch_count, switch_rate);
+	     }
+	    // fprintf(o_stream, " %ld %ld ", Xc3.Ophdep_lrl, Xc3.Ophdep_count);
+	  }
 	  print_crossover_info(o_stream, a_pedigree->pedigree_stats->Xinfo);
-	  if(CROSSOVERS_USING_OFFSPRING_HETEROZYGS){ Xcounts_3 Xc3 = count_XF_two_parents(the_gtsset, a_pedigree->F, a_pedigree->M, a_pedigree->A); }
-
 	  /*
 	    ND FXinverse = count_crossovers_one_parent(the_gtsset, a_pedigree->A, a_pedigree->F);
 	    ND MXinverse = count_crossovers_one_parent(the_gtsset, a_pedigree->A, a_pedigree->M);
@@ -805,6 +831,8 @@ void random_set_means(GenotypesSet* gtset, long sample_size){
       if(ip2 != i) break;
     }
     Accession* P2 = gtset->accessions->a[ip2];
+
+    Xcounts_3 Xc3 = count_XF_two_parents(gtset, P1, P2, O);
     
     Pedigree_stats* ps = bitwise_triple_counts(P1, P2, O);
     if(ps->d.d > 0  &&  ps->z.d > 0){
