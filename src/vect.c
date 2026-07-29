@@ -209,6 +209,19 @@ Vchar* construct_vchar(long cap){
   return the_vchar;
 }
 
+Vchar* construct_vchar_1char(long length, char c){
+  // initialize to length copies of c (plus terminating null).
+  Vchar* the_vchar = (Vchar*)malloc(sizeof(Vchar));
+  the_vchar->a = (char*)malloc((length+1)*sizeof(char));
+  the_vchar->capacity = length + 1;
+  for(long i=0; i<length; i++){
+    the_vchar->a[i] = c;
+  }
+  the_vchar->a[length] = '\0'; // initialize to a 0-length null-terminated string
+  the_vchar->length = length; // this is the length of the string stored, NOT including the terminating null.
+  return the_vchar;
+}
+
 Vchar* construct_vchar_from_str(char* str){ // copy str into newly allocated memory.
   Vchar* the_vchar = (Vchar*)malloc(sizeof(Vchar));
   the_vchar->length = (long)strlen(str);
