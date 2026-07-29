@@ -146,6 +146,18 @@ int main(int argc, char *argv[]){
       }
       fprintf(stdout, "# minGP set to: %8.5lf\n", minGP);
       break;
+
+          case 'd' :
+      if(sscanf(optarg, "%lf ", &delta) != 1  ||  errno != 0){
+	fprintf(stderr, "# delta; conversion of argument %s to double failed.\n", optarg);
+	exit(EXIT_FAILURE);
+      }else if(delta > 1){
+	fprintf(stderr, "# delta was set to %8.4lf , must be <= 1\n", delta);
+	exit(EXIT_FAILURE);
+      }
+      fprintf(stdout, "# delta set to: %8.5lf\n", delta);
+      break;
+      
     case 'm' :
       if(sscanf(optarg, "%lf ", &max_acc_md) != 1  ||  errno != 0){
 	fprintf(stderr, "# max_acc_md; conversion of argument %s to double failed.\n", optarg);
