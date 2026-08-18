@@ -217,8 +217,9 @@ Vchar* construct_vchar_1char(long length, char c){
   for(long i=0; i<length; i++){
     the_vchar->a[i] = c;
   }
-  the_vchar->a[length] = '\0'; // initialize to a 0-length null-terminated string
+  the_vchar->a[length] = '\0'; // null-terminated string 
   the_vchar->length = length; // this is the length of the string stored, NOT including the terminating null.
+  //fprintf(stderr, "In construct_vchar_1char. length: %ld\n", the_vchar->length);
   return the_vchar;
 }
 
@@ -269,6 +270,20 @@ Vchar* append_char_to_vchar(Vchar* the_vchar, char c){
 void print_vchar(FILE* fh, Vchar* the_vchar){
   fprintf(fh, "%s", the_vchar->a);
 }
+
+void print_vchar_substr(FILE* fh, Vchar* the_vchar, long start, long end){ 
+  long length = the_vchar->length;
+  if(start >= length  || start > end  ||  end < 0){
+    fprintf(stderr, "In print_vchar_substr. start and end out of range or start > end.\n");
+  }else{
+    if(start < 0) start = 0;
+    if(end >= the_vchar->length) end = the_vchar->length - 1;
+    for(long j=start; j<=end; j++){
+      fprintf(fh, "%c", the_vchar->a[j]);
+    }
+  }
+}
+
 void free_vchar(const Vchar* the_vchar){
   if(the_vchar == NULL) return;
   free(the_vchar->a);

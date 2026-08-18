@@ -109,7 +109,8 @@ Vchar* construct_vchar_from_str(char* str); // str is null-terminated str
 Vchar* copy_vchar(Vchar* avchar);
 Vchar* append_str_to_vchar(Vchar* the_vchar, char* str);
 Vchar* append_char_to_vchar(Vchar* the_vchar, char c);
-void print_vchar(FILE* fh, Vchar* the_vchar);
+void print_vchar(FILE* fh, Vchar* the_vchar); 
+void print_vchar_substr(FILE* fh, Vchar* the_vchar, long start, long end); 
 void free_vchar(const Vchar* the_vchar);
 
 // ***** Vdouble *****
