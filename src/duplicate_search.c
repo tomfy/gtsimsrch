@@ -446,7 +446,7 @@ main(int argc, char *argv[])
     }
     FILE* fh_gtsout = fopen(filtered_output_filename, "w");
     // fprintf(stderr, "before print_genotypesset.\n");
-    print_genotypesset(fh_gtsout, the_genotypes_set);
+    print_genotypesset(fh_gtsout, the_genotypes_set); //, false); // 
     // fprintf(stderr, "after print_genotypesset.\n");
     fclose(fh_gtsout);
   }
