@@ -30,6 +30,7 @@ Accession* construct_accession(char* id, long idx, char* genotypes, char* phases
   the_accession->index = idx;  
   the_accession->genotypes = construct_vchar_from_str(genotypes);
   the_accession->phases = construct_vchar_from_str(phases);
+  //the_accession->corrected_phases = NULL; 
   // the_accession->corrected_phases = construct_vchar_from_str(phases); 
   the_accession->chunk_patterns = NULL; // set to NULL to avoid containing garbage which causes crash when freeing accession
   the_accession->missing_data_count = accession_md_count;
@@ -1122,6 +1123,7 @@ void calculate_hgmrs_aa(GenotypesSet* the_genotypes_set, const Vlong* both_idxs,
       if(hgmr <= max_hgmr){ // only store small hgmrs ( small = <= max_hgmr )
 	n_hgmrs_le_max++;  
 	  push_to_viaxh(pairwise_info[ii_idx], construct_iaxh(jj_idx, hgmr, (ND){n11, nok1}));
+	  // fprintf(stderr, "ZZZZ: %ld \n", pairwise_info[ii_idx]->size);
 	  push_to_viaxh(pairwise_info[jj_idx], construct_iaxh(ii_idx, hgmr, (ND){n11, n1ok}));
       }
     } // jj loop
@@ -1254,6 +1256,7 @@ void parent_offspring_indices(const GenotypesSet* the_gtsset, Vlong* parents, Vl
       push_to_vlong(offspring, idx);
     }
   }
+  fprintf(stderr, "pobn sizes: p: %ld  o: %ld  b: %ld \n", parents->size, offspring->size, both->size);
   return;
 }
 
@@ -1381,9 +1384,7 @@ four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char){ // return hg
   four_longs result = {n02n20, n02n20+n00n22, n02n20+n01n21, n0xn2x};
   return result; 
 }
-
-
-void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){ 
+void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){ //, bool do_phase_correction){ 
   fprintf(fh, "# max_marker_missing_data_fraction: %8.4lf \n", the_gtsset->max_marker_missing_data_fraction);
   fprintf(fh, "# min_minor_allele_frequency: %8.4lf \n", the_gtsset->min_minor_allele_frequency);
   fprintf(fh, "# number of accessions: %ld , markers: %ld\n", the_gtsset->n_accessions, the_gtsset->n_markers);
@@ -1399,21 +1400,39 @@ void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset){
   for(long i=0; i<the_gtsset->n_accessions; i++){
     Accession* acc = the_gtsset->accessions->a[i];
     fprintf(fh, "%s", acc->id->a);
-    for(long j=0; j < acc->genotypes->length; j++){
-      char gt = acc->genotypes->a[j];
-      char phase = acc->phases->a[j];
-       fprintf(fh, "\t"); // acc->genotypes->a[j]);
-      if(gt == '~') gt = 'X';
-      if(phase == 'p'){
-	fprintf(fh, "+");
-      }else if(phase == 'm'){
-	fprintf(fh, "-");
+    /* if(do_phase_correction  && acc->corrected_phases != NULL){ */
+    /*   for(long j=0; j < acc->genotypes->length; j++){ */
+    /* 	char gt = acc->genotypes->a[j]; */
+    /* 	char phase = acc->corrected_phases->a[j]; */
+    /* 	/\* fprintf(stderr, "phase: %c  corr phase: %c \n", acc->phases->a[j], phase); */
+    /* 	if(acc->phases->a[j] != phase) getchar(); /\* *\/ */
+    /* 	fprintf(fh, "\t"); // acc->genotypes->a[j]); */
+    /* 	if(gt == '~') gt = 'X'; */
+    /* 	if(phase == 'p'){ */
+    /* 	  fprintf(fh, "+"); */
+    /* 	}else if(phase == 'm'){ */
+    /* 	  fprintf(fh, "-"); */
+    /* 	} */
+    /* 	fprintf(fh, "%c", gt); // acc->genotypes->a[j]); */
+    /*   } */
+    /*   fprintf(fh, "\n"); */
+    /* }else{ */
+      for(long j=0; j < acc->genotypes->length; j++){
+	char gt = acc->genotypes->a[j];
+	char phase = acc->phases->a[j];
+	fprintf(fh, "\t"); // acc->genotypes->a[j]);
+	if(gt == '~') gt = 'X';
+	if(phase == 'p'){
+	  fprintf(fh, "+");
+	}else if(phase == 'm'){
+	  fprintf(fh, "-");
+	}
+	fprintf(fh, "%c", gt); // acc->genotypes->a[j]);
       }
-      fprintf(fh, "%c", gt); // acc->genotypes->a[j]);
-    }
-    fprintf(fh, "\n");
+      fprintf(fh, "\n");
+      //}
   }
-}
+} // end print_genotypesset
 
 void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset){
   fprintf(fh, "# n_accessions: %ld\n", the_gtsset->n_accessions);

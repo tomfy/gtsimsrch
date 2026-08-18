@@ -22,7 +22,7 @@ typedef struct{
   long index; // the index in the accessions array of GenotypesSet
   Vchar* genotypes; // '0', '1', '2', or 'X'
   Vchar* phases; // 'p' or 'm' for +, -,
-  // Vchar* corrected_phases; // 
+  //Vchar* corrected_phases; // 
   Vlong* chunk_patterns;
   //  long md_chunk_count; // the number of chunks with missing data
   long ok_chunk_count; // the number of chunks with no missing data = n_chunks - md_chunk_count
@@ -176,7 +176,8 @@ four_longs hgmr_R(char* par_gts, char* prog_gts, char ploidy_char);
 //ND ghgmr_old(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
 //ND ghgmr(GenotypesSet* the_gtsset, Accession* parent1, Accession* progeny);
 //ND psr(Accession* acc1, Accession* acc2, Vlong* chroms); // phase mismatch rate
-void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset);
+void print_genotypesset(FILE* fh, GenotypesSet* the_gtsset); //, bool do_phase_correction);
+//void print_corrected_genotypesset(FILE* fh, GenotypesSet* the_gtsset, Vchar* Z);
 void print_genotypesset_summary_info(FILE* fh, GenotypesSet* the_gtsset);
 void free_genotypesset(GenotypesSet* the_gtsset);
 
